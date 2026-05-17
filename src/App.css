@@ -1,0 +1,1546 @@
+import { useMemo, useState } from "react";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+
+export default function App() {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const [aba, setAba] = useState("Dashboard");
+  const [inicioMes, setInicioMes] = useState(hoje.slice(0, 8) + "01");
+  const [fimMes, setFimMes] = useState(hoje);
+  const [textoImportacao, setTextoImportacao] = useState("");
+  const [resultadoImportacao, setResultadoImportacao] = useState("");
+  const [clientePendenciaSelecionado, setClientePendenciaSelecionado] = useState(null);
+  const [mostrarDadosEmpresa, setMostrarDadosEmpresa] = useState(false);
+  const [botaoCopiado, setBotaoCopiado] = useState("");
+
+  const chavePix = "63.488.249/0001-08";
+
+  const dadosEmpresaTexto = `IE: 91184662-49
+CNPJ: 63.488.249/0001-08
+E-MAIL: emplacarmcr@gmail.com
+WhatsApp: 45 20311407
+CEP: 85960-140
+LOGRADOURO: RUA RIO DE JANEIRO
+N°: 1766
+BAIRRO: CENTRO
+CIDADE: MARECHAL CÂNDIDO RONDON`;
+
+  function copiarInformacao(texto, tipo) {
+    navigator.clipboard.writeText(texto);
+    setBotaoCopiado(tipo);
+    setTimeout(() => setBotaoCopiado(""), 2000);
+  }
+
+  const [entradas, setEntradas] = useState([]);
+  const [saidas, setSaidas] = useState([]);
+  const [contas, setContas] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [estoqueCompras, setEstoqueCompras] = useState([]);
+  const [estoquePerdas, setEstoquePerdas] = useState([]);
+
+  const entradaVazia = {
+    data: hoje,
+    tipo: "",
+    cliente: "",
+    produto: "",
+    placa: "",
+    renavan: "",
+    formaPagamento: "Pix",
+    valor: "",
+    status: "Pago",
+    processo: "",
+  };
+
+  const saidaVazia = {
+    data: hoje,
+    formaPagamento: "Pix",
+    tipoSaida: "",
+    conta: "",
+    valor: "",
+    status: "Pago",
+  };
+
+  const contaVazia = {
+    conta: "",
+    vencimento: hoje,
+    valor: "",
+    status: "Pendente",
+  };
+
+  const clienteVazio = {
+    nome: "",
+    telefone: "",
+    email: "",
+    observacao: "",
+  };
+
+  const compraEstoqueVazia = {
+    data: hoje,
+    produto: "Placa Carro",
+    quantidade: "",
+    observacao: "",
+  };
+
+  const perdaEstoqueVazia = {
+    data: hoje,
+    produto: "Placa Carro",
+    quantidade: "",
+    motivo: "Placa errada",
+  };
+
+  const [entradaForm, setEntradaForm] = useState(entradaVazia);
+  const [saidaForm, setSaidaForm] = useState(saidaVazia);
+  const [contaForm, setContaForm] = useState(contaVazia);
+  const [clienteForm, setClienteForm] = useState(clienteVazio);
+  const [compraEstoqueForm, setCompraEstoqueForm] = useState(compraEstoqueVazia);
+  const [perdaEstoqueForm, setPerdaEstoqueForm] = useState(perdaEstoqueVazia);
+  const [editando, setEditando] = useState({ tipo: null, id: null });
+
+  const moeda = new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
+  const formasPagamento = [
+    "Pix",
+    "Débito",
+    "Crédito",
+    "Depósito",
+    "Cheque",
+    "Dinheiro",
+    "Nota / Faturado",
+  ];
+
+  const produtosEstoque = ["Placa Carro", "Placa Moto", "Suporte"];
+
+  function numero(valor) {
+    return (
+      Number(
+        String(valor || "")
+          .replace("R$", "")
+          .replace(/\s/g, "")
+          .replace(/\./g, "")
+          .replace(",", ".")
+      ) || 0
+    );
+  }
+
+  function texto(valor) {
+    return String(valor || "").trim();
+  }
+
+  function normalizar(valor) {
+    return texto(valor)
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ");
+  }
+
+  function formaPadrao(valor) {
+    const v = normalizar(valor);
+    if (v.includes("PIX")) return "Pix";
+    if (v.includes("DEBITO")) return "Débito";
+    if (v.includes("CREDITO")) return "Crédito";
+    if (v.includes("DEPOSITO")) return "Depósito";
+    if (v.includes("CHEQUE")) return "Cheque";
+    if (v.includes("DINHEIRO")) return "Dinheiro";
+    if (v.includes("NOTA") || v.includes("FATURADO")) return "Nota / Faturado";
+    return valor || "Pix";
+  }
+
+  function statusPadrao(valor) {
+    const v = normalizar(valor);
+    if (v.includes("PAGO") || v.includes("EM DIA")) return "Pago";
+    if (v.includes("ATRASADO")) return "Atrasado";
+    if (v.includes("PENDENTE") || v.includes("ABERTO")) return "Pendente";
+    return valor || "Pendente";
+  }
+
+  function formatarData(data) {
+    const v = texto(data);
+    if (!v) return hoje;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+
+    const partes = v.split(/[\/\-.]/);
+    if (partes.length === 3) {
+      const d = partes[0].padStart(2, "0");
+      const m = partes[1].padStart(2, "0");
+      const a = partes[2].length === 2 ? `20${partes[2]}` : partes[2];
+      return `${a}-${m}-${d}`;
+    }
+
+    return v;
+  }
+
+  function destinoDinheiro(forma) {
+    if (forma === "Nota / Faturado") return "Faturado";
+    if (["Cheque", "Dinheiro"].includes(forma)) return "Caixa";
+    return "Banco";
+  }
+
+  function statusConta(conta) {
+    if (conta.status === "Pago") return "Pago";
+    if (conta.vencimento < hoje) return "Atrasado";
+    return "Pendente";
+  }
+
+  function dentroDoPeriodo(data) {
+    if (!data) return false;
+    return data >= inicioMes && data <= fimMes;
+  }
+
+  function separarLinha(linha) {
+    if (linha.includes("\t")) return linha.split("\t");
+    if (linha.includes(";")) return linha.split(";");
+    return linha.split(",");
+  }
+
+  function lerTabelaColada() {
+    const linhas = textoImportacao.split(/\r?\n/).filter((l) => l.trim());
+    if (linhas.length < 2) return null;
+
+    const cabecalho = separarLinha(linhas[0]).map((h) => normalizar(h));
+
+    return linhas.slice(1).map((linha) => {
+      const valores = separarLinha(linha);
+      const row = {};
+      cabecalho.forEach((coluna, i) => {
+        row[coluna] = texto(valores[i]);
+      });
+      return row;
+    });
+  }
+
+  function importarDados() {
+    const abaOrigem = aba;
+    const linhas = lerTabelaColada();
+
+    if (!linhas) {
+      setResultadoImportacao("Cole a tabela com cabeçalho e dados.");
+      return;
+    }
+
+    let novasEntradas = [];
+    let novasSaidas = [];
+    let novasContas = [];
+    let novosClientes = [];
+
+    linhas.forEach((row, index) => {
+      if (aba === "Importar Entradas") {
+        const cliente = row["CLIENTE"] || "";
+
+        const entrada = {
+          id: Date.now() + index,
+          data: formatarData(row["DATA"]),
+          tipo: row["TIPO"] || "",
+          cliente,
+          produto: row["PRODUTO"] || "",
+          placa: row["PLACA"] || "",
+          renavan: row["RENAVAN"] || "",
+          formaPagamento: formaPadrao(row["FORMA DE PAGAMENTO"]),
+          valor: numero(row["VALOR"]),
+          status: statusPadrao(row["STATUS"] || "Pago"),
+          processo: row["PROCESSO"] || "",
+        };
+
+        if (entrada.valor || entrada.cliente || entrada.produto) {
+          novasEntradas.push(entrada);
+        }
+
+        if (
+          cliente &&
+          !clientes.some((c) => c.nome.toUpperCase() === cliente.toUpperCase()) &&
+          !novosClientes.some((c) => c.nome.toUpperCase() === cliente.toUpperCase())
+        ) {
+          novosClientes.push({
+            id: Date.now() + index + 100000,
+            nome: cliente,
+            telefone: "",
+            email: "",
+            observacao: "Importado pelas entradas",
+          });
+        }
+      }
+
+      if (aba === "Importar Saídas") {
+        const saida = {
+          id: Date.now() + index,
+          data: formatarData(row["DIA SAIDA"]),
+          formaPagamento: formaPadrao(row["FORMA DE PAGAMENTO SAIDA"]),
+          tipoSaida: row["TIPO SAIDA"] || "",
+          conta: row["CONTA"] || "",
+          valor: numero(row["VALOR SAIDA"]),
+          status: "Pago",
+        };
+
+        if (saida.valor || saida.conta || saida.tipoSaida) {
+          novasSaidas.push(saida);
+        }
+      }
+
+      if (aba === "Importar Contas") {
+        const conta = {
+          id: Date.now() + index,
+          conta: row["CONTA A PAGAR"] || "",
+          vencimento: formatarData(row["DIA QUE VENCE"]),
+          valor: numero(row["VALOR"]),
+          status: statusPadrao(row["ETATUS"] || row["STATUS"] || "Pendente"),
+        };
+
+        if (conta.valor || conta.conta) {
+          novasContas.push(conta);
+        }
+      }
+    });
+
+    if (novasEntradas.length > 0) setEntradas([...entradas, ...novasEntradas]);
+    if (novasSaidas.length > 0) setSaidas([...saidas, ...novasSaidas]);
+    if (novasContas.length > 0) setContas([...contas, ...novasContas]);
+    if (novosClientes.length > 0) setClientes([...clientes, ...novosClientes]);
+
+    setResultadoImportacao(
+      `Importado: ${novasEntradas.length} entradas, ${novasSaidas.length} saídas, ${novasContas.length} contas e ${novosClientes.length} clientes. Agora você pode revisar, editar ou excluir os dados na tabela abaixo.`
+    );
+
+    setTextoImportacao("");
+
+    if (abaOrigem === "Importar Entradas") setAba("Entradas");
+    if (abaOrigem === "Importar Saídas") setAba("Saídas");
+    if (abaOrigem === "Importar Contas") setAba("Contas a Pagar");
+  }
+
+  function salvarEntrada() {
+    if (!entradaForm.data || !entradaForm.produto || !entradaForm.valor) return;
+    const item = { ...entradaForm, valor: numero(entradaForm.valor) };
+
+    if (editando.tipo === "entrada") {
+      setEntradas(entradas.map((x) => (x.id === editando.id ? { ...item, id: editando.id } : x)));
+      setEditando({ tipo: null, id: null });
+    } else {
+      setEntradas([...entradas, { id: Date.now(), ...item }]);
+    }
+
+    setEntradaForm(entradaVazia);
+  }
+
+  function salvarSaida() {
+    if (!saidaForm.data || !saidaForm.conta || !saidaForm.valor) return;
+    const item = { ...saidaForm, valor: numero(saidaForm.valor) };
+
+    if (editando.tipo === "saida") {
+      setSaidas(saidas.map((x) => (x.id === editando.id ? { ...item, id: editando.id } : x)));
+      setEditando({ tipo: null, id: null });
+    } else {
+      setSaidas([...saidas, { id: Date.now(), ...item }]);
+    }
+
+    setSaidaForm(saidaVazia);
+  }
+
+  function salvarConta() {
+    if (!contaForm.conta || !contaForm.valor) return;
+    const item = { ...contaForm, valor: numero(contaForm.valor) };
+
+    if (editando.tipo === "conta") {
+      setContas(contas.map((x) => (x.id === editando.id ? { ...item, id: editando.id } : x)));
+      setEditando({ tipo: null, id: null });
+    } else {
+      setContas([...contas, { id: Date.now(), ...item }]);
+    }
+
+    setContaForm(contaVazia);
+  }
+
+  function salvarCliente() {
+    if (!clienteForm.nome) return;
+
+    if (editando.tipo === "cliente") {
+      setClientes(clientes.map((x) => (x.id === editando.id ? { ...clienteForm, id: editando.id } : x)));
+      setEditando({ tipo: null, id: null });
+    } else {
+      setClientes([...clientes, { id: Date.now(), ...clienteForm }]);
+    }
+
+    setClienteForm(clienteVazio);
+  }
+
+  function editar(tipo, item) {
+    setEditando({ tipo, id: item.id });
+
+    if (tipo === "entrada") {
+      setEntradaForm({ ...item, valor: String(item.valor) });
+      setAba("Entradas");
+    }
+
+    if (tipo === "saida") {
+      setSaidaForm({ ...item, valor: String(item.valor) });
+      setAba("Saídas");
+    }
+
+    if (tipo === "conta") {
+      setContaForm({ ...item, valor: String(item.valor) });
+      setAba("Contas a Pagar");
+    }
+
+    if (tipo === "cliente") {
+      setClienteForm(item);
+      setAba("Clientes");
+    }
+  }
+
+  function cancelarEdicao() {
+    setEditando({ tipo: null, id: null });
+    setEntradaForm(entradaVazia);
+    setSaidaForm(saidaVazia);
+    setContaForm(contaVazia);
+    setClienteForm(clienteVazio);
+  }
+
+  function remover(tipo, id) {
+    if (tipo === "entrada") setEntradas(entradas.filter((x) => x.id !== id));
+    if (tipo === "saida") setSaidas(saidas.filter((x) => x.id !== id));
+    if (tipo === "conta") setContas(contas.filter((x) => x.id !== id));
+    if (tipo === "cliente") setClientes(clientes.filter((x) => x.id !== id));
+  }
+
+  function alternarConta(id) {
+    setContas(
+      contas.map((c) =>
+        c.id === id ? { ...c, status: c.status === "Pago" ? "Pendente" : "Pago" } : c
+      )
+    );
+  }
+
+  function calcularUsoEstoque(produto) {
+    const p = normalizar(produto);
+
+    if (p.includes("SUPORTE")) return { item: "Suporte", quantidade: 1 };
+    if (p.includes("MOTO")) return { item: "Placa Moto", quantidade: 1 };
+    if (p.includes("REBOQUE")) return { item: "Placa Carro", quantidade: 1 };
+    if (p.includes("PAR")) return { item: "Placa Carro", quantidade: 2 };
+    if (p.includes("AVULSA") || p.includes("DIANTEIRA")) return { item: "Placa Carro", quantidade: 1 };
+    if (p.includes("CARRO")) return { item: "Placa Carro", quantidade: 1 };
+
+    return null;
+  }
+
+  function salvarCompraEstoque() {
+    if (!compraEstoqueForm.produto || !compraEstoqueForm.quantidade) return;
+
+    setEstoqueCompras([
+      ...estoqueCompras,
+      {
+        id: Date.now(),
+        ...compraEstoqueForm,
+        quantidade: numero(compraEstoqueForm.quantidade),
+      },
+    ]);
+
+    setCompraEstoqueForm(compraEstoqueVazia);
+  }
+
+  function salvarPerdaEstoque() {
+    if (!perdaEstoqueForm.produto || !perdaEstoqueForm.quantidade) return;
+
+    setEstoquePerdas([
+      ...estoquePerdas,
+      {
+        id: Date.now(),
+        ...perdaEstoqueForm,
+        quantidade: numero(perdaEstoqueForm.quantidade),
+      },
+    ]);
+
+    setPerdaEstoqueForm(perdaEstoqueVazia);
+  }
+
+  function removerMovimentoEstoque(tipo, id) {
+    if (tipo === "compra") setEstoqueCompras(estoqueCompras.filter((x) => x.id !== id));
+    if (tipo === "perda") setEstoquePerdas(estoquePerdas.filter((x) => x.id !== id));
+  }
+
+  const estoqueResumo = useMemo(() => {
+    return produtosEstoque.map((produto) => {
+      const compras = estoqueCompras
+        .filter((x) => x.produto === produto)
+        .reduce((s, x) => s + x.quantidade, 0);
+
+      const usadoEmServicos = entradas.reduce((s, entrada) => {
+        const uso = calcularUsoEstoque(entrada.produto);
+        if (!uso || uso.item !== produto) return s;
+        return s + uso.quantidade;
+      }, 0);
+
+      const perdas = estoquePerdas
+        .filter((x) => x.produto === produto)
+        .reduce((s, x) => s + x.quantidade, 0);
+
+      return {
+        produto,
+        compras,
+        usadoEmServicos,
+        perdas,
+        saldo: compras - usadoEmServicos - perdas,
+      };
+    });
+  }, [estoqueCompras, estoquePerdas, entradas]);
+
+  const usosEstoqueServicos = useMemo(() => {
+    return entradas
+      .map((entrada) => {
+        const uso = calcularUsoEstoque(entrada.produto);
+        if (!uso) return null;
+        return {
+          data: entrada.data,
+          cliente: entrada.cliente,
+          produtoServico: entrada.produto,
+          placa: entrada.placa,
+          itemEstoque: uso.item,
+          quantidade: uso.quantidade,
+        };
+      })
+      .filter(Boolean);
+  }, [entradas]);
+
+  const dadosPeriodo = useMemo(() => {
+    return {
+      entradas: entradas.filter((x) => dentroDoPeriodo(x.data)),
+      saidas: saidas.filter((x) => dentroDoPeriodo(x.data)),
+      contas: contas.filter((x) => dentroDoPeriodo(x.vencimento)),
+    };
+  }, [entradas, saidas, contas, inicioMes, fimMes]);
+
+  const indicadores = useMemo(() => {
+    const entradaBruta = dadosPeriodo.entradas.reduce((s, x) => s + x.valor, 0);
+
+    const recebidoBanco = dadosPeriodo.entradas
+      .filter((x) => destinoDinheiro(x.formaPagamento) === "Banco" && x.status === "Pago")
+      .reduce((s, x) => s + x.valor, 0);
+
+    const recebidoCaixa = dadosPeriodo.entradas
+      .filter((x) => destinoDinheiro(x.formaPagamento) === "Caixa" && x.status === "Pago")
+      .reduce((s, x) => s + x.valor, 0);
+
+    const totalFaturado = dadosPeriodo.entradas
+      .filter((x) => destinoDinheiro(x.formaPagamento) === "Faturado")
+      .reduce((s, x) => s + x.valor, 0);
+
+    const faturadoEmAberto = dadosPeriodo.entradas
+      .filter((x) => destinoDinheiro(x.formaPagamento) === "Faturado" || x.status !== "Pago")
+      .reduce((s, x) => s + x.valor, 0);
+
+    const saidasTotal = dadosPeriodo.saidas.reduce((s, x) => s + x.valor, 0);
+
+    const contasPagas = dadosPeriodo.contas
+      .filter((x) => statusConta(x) === "Pago")
+      .reduce((s, x) => s + x.valor, 0);
+
+    const contasEmAberto = dadosPeriodo.contas
+      .filter((x) => statusConta(x) !== "Pago")
+      .reduce((s, x) => s + x.valor, 0);
+
+    const pagos = saidasTotal + contasPagas;
+    const entradaLiquida = entradaBruta - pagos;
+
+    const saidasBanco = dadosPeriodo.saidas
+      .filter((x) => destinoDinheiro(x.formaPagamento) === "Banco")
+      .reduce((s, x) => s + x.valor, 0);
+
+    const saidasCaixa = dadosPeriodo.saidas
+      .filter((x) => destinoDinheiro(x.formaPagamento) === "Caixa")
+      .reduce((s, x) => s + x.valor, 0);
+
+    const tenhoNoBanco = recebidoBanco - saidasBanco - contasPagas;
+    const tenhoNoCaixa = recebidoCaixa - saidasCaixa;
+
+    const dias =
+      new Set([
+        ...dadosPeriodo.entradas.map((x) => x.data),
+        ...dadosPeriodo.saidas.map((x) => x.data),
+        ...dadosPeriodo.contas.map((x) => x.vencimento),
+      ]).size || 1;
+
+    const mediaPorDia = entradaBruta / dias;
+
+    return {
+      entradaBruta,
+      entradaLiquida,
+      saidasTotal,
+      contasEmAberto,
+      pagos,
+      mediaPorDia,
+      tenhoNoBanco,
+      tenhoNoCaixa,
+      recebidoBanco,
+      recebidoCaixa,
+      totalFaturado,
+      faturadoEmAberto,
+    };
+  }, [dadosPeriodo]);
+
+  const rankingClientes = useMemo(() => {
+    const mapa = {};
+
+    dadosPeriodo.entradas.forEach((e) => {
+      const nome = e.cliente || "Sem cliente";
+      mapa[nome] = (mapa[nome] || 0) + e.valor;
+    });
+
+    return Object.entries(mapa)
+      .map(([cliente, valor]) => ({ cliente, valor }))
+      .sort((a, b) => b.valor - a.valor);
+  }, [dadosPeriodo]);
+
+  const vendasPorDia = useMemo(() => {
+    const mapa = {};
+
+    dadosPeriodo.entradas.forEach((entrada) => {
+      mapa[entrada.data] = (mapa[entrada.data] || 0) + entrada.valor;
+    });
+
+    return Object.entries(mapa)
+      .map(([data, valor]) => ({ data, valor }))
+      .sort((a, b) => a.data.localeCompare(b.data));
+  }, [dadosPeriodo]);
+
+  const contasPorNome = useMemo(() => {
+    const mapa = {};
+
+    dadosPeriodo.contas.forEach((conta) => {
+      const nome = conta.conta || "Sem descrição";
+      mapa[nome] = (mapa[nome] || 0) + conta.valor;
+    });
+
+    return Object.entries(mapa)
+      .map(([conta, valor]) => ({ conta, valor }))
+      .sort((a, b) => b.valor - a.valor);
+  }, [dadosPeriodo]);
+
+  const statusContasPizza = useMemo(() => {
+    const mapa = {
+      Pago: 0,
+      Pendente: 0,
+      Atrasado: 0,
+    };
+
+    dadosPeriodo.contas.forEach((conta) => {
+      const status = statusConta(conta);
+      mapa[status] = (mapa[status] || 0) + conta.valor;
+    });
+
+    return Object.entries(mapa)
+      .filter(([, valor]) => valor > 0)
+      .map(([name, value]) => ({ name, value }));
+  }, [dadosPeriodo]);
+
+  const pendenciasClientes = useMemo(() => {
+    const mapa = {};
+
+    entradas
+      .filter((entrada) => entrada.status !== "Pago" || entrada.formaPagamento === "Nota / Faturado")
+      .forEach((entrada) => {
+        const cliente = entrada.cliente || "Sem cliente";
+
+        if (!mapa[cliente]) {
+          mapa[cliente] = {
+            cliente,
+            quantidade: 0,
+            total: 0,
+            itens: [],
+          };
+        }
+
+        mapa[cliente].quantidade += 1;
+        mapa[cliente].total += entrada.valor;
+        mapa[cliente].itens.push(entrada);
+      });
+
+    return Object.values(mapa).sort((a, b) => b.total - a.total);
+  }, [entradas]);
+
+  const detalhePendencia = pendenciasClientes.find(
+    (item) => item.cliente === clientePendenciaSelecionado
+  );
+
+  function gerarMensagemCobranca(pendencia) {
+    if (!pendencia) return "";
+
+    const linhas = pendencia.itens
+      .map((item) => `${item.placa || "Sem placa"} - ${moeda.format(item.valor)} - ${item.produto || "Serviço"}`)
+      .join("\n");
+
+    return `Olá, tudo bem?
+
+Segue a relação das placas em aberto:
+
+${linhas}
+
+Total em aberto: ${moeda.format(pendencia.total)}
+
+Chave Pix: ${chavePix}
+
+Após o pagamento, nos envie o comprovante, por favor.`;
+  }
+
+  function copiarCobranca(pendencia) {
+    const mensagem = gerarMensagemCobranca(pendencia);
+    navigator.clipboard.writeText(mensagem);
+    console.log("Cobrança copiada.");
+  }
+
+  return (
+    <div style={styles.app}>
+      <aside style={styles.sidebar}>
+        <div style={styles.logoBox}>
+          <img src="/logo-emplacar.png" alt="Logo Emplacar" style={styles.logoImagem} />
+          <div>
+            <h2 style={styles.logo}>Emplacar</h2>
+            <p style={styles.logoSubtitulo}>Financeiro</p>
+          </div>
+        </div>
+
+        {[
+          "Dashboard",
+          "Entradas",
+          "Saídas",
+          "Contas a Pagar",
+          "Clientes",
+          "Pendências de Clientes",
+          "Controle de Estoque",
+          "Importar Entradas",
+          "Importar Saídas",
+          "Importar Contas",
+        ].map((item) => (
+          <button
+            key={item}
+            onClick={() => {
+              setAba(item);
+              setTextoImportacao("");
+              setResultadoImportacao("");
+            }}
+            style={aba === item ? styles.menuAtivo : styles.menu}
+          >
+            {item}
+          </button>
+        ))}
+
+        <div style={styles.menuRodape}>
+          <button
+            style={styles.menuSecundario}
+            onClick={() => setMostrarDadosEmpresa(!mostrarDadosEmpresa)}
+          >
+            Dados da empresa
+          </button>
+
+          {mostrarDadosEmpresa && (
+            <div style={styles.dadosEmpresaBox}>
+              <pre style={styles.dadosEmpresaTexto}>{dadosEmpresaTexto}</pre>
+              <button
+                style={botaoCopiado === "dados" ? styles.botaoCopiadoMenu : styles.botaoCopiarMenu}
+                onClick={() => copiarInformacao(dadosEmpresaTexto, "dados")}
+              >
+                {botaoCopiado === "dados" ? "Dados copiados" : "Copiar dados"}
+              </button>
+            </div>
+          )}
+
+          <button
+            style={botaoCopiado === "pix" ? styles.botaoCopiadoMenu : styles.botaoCopiarMenu}
+            onClick={() => copiarInformacao(chavePix, "pix")}
+          >
+            {botaoCopiado === "pix" ? "Pix copiado" : "Copiar Pix"}
+          </button>
+        </div>
+      </aside>
+
+      <main style={styles.main}>
+        <div style={styles.header}>
+          <div>
+            <h1 style={styles.titulo}>{aba}</h1>
+            <p style={styles.subtitulo}>Período analisado: {inicioMes} até {fimMes}</p>
+          </div>
+        </div>
+
+        <Card titulo="Período do seu mês flexível">
+          <div style={styles.formGrid}>
+            <Campo label="Começa em" tipo="date" valor={inicioMes} mudar={setInicioMes} />
+            <Campo label="Fecha em" tipo="date" valor={fimMes} mudar={setFimMes} />
+          </div>
+        </Card>
+
+        {resultadoImportacao && (
+          <div style={styles.resultado}>
+            {resultadoImportacao}
+          </div>
+        )}
+
+        {aba === "Dashboard" && (
+          <>
+            <div style={styles.kpis}>
+              <Kpi titulo="Entrada bruta" valor={moeda.format(indicadores.entradaBruta)} />
+              <Kpi titulo="Entrada líquida" valor={moeda.format(indicadores.entradaLiquida)} />
+              <Kpi titulo="Saídas" valor={moeda.format(indicadores.saidasTotal)} />
+              <Kpi titulo="Em aberto" valor={moeda.format(indicadores.contasEmAberto)} />
+              <Kpi titulo="Pagos" valor={moeda.format(indicadores.pagos)} />
+              <Kpi titulo="Média por dia" valor={moeda.format(indicadores.mediaPorDia)} />
+              <Kpi titulo="Tenho que ter no banco" valor={moeda.format(indicadores.tenhoNoBanco)} />
+              <Kpi titulo="Tenho que ter no caixa" valor={moeda.format(indicadores.tenhoNoCaixa)} />
+              <Kpi titulo="Recebido no banco" valor={moeda.format(indicadores.recebidoBanco)} />
+              <Kpi titulo="Recebido no caixa" valor={moeda.format(indicadores.recebidoCaixa)} />
+              <Kpi titulo="Total faturado em nota" valor={moeda.format(indicadores.totalFaturado)} />
+              <Kpi titulo="Faturado em aberto" valor={moeda.format(indicadores.faturadoEmAberto)} />
+            </div>
+
+            <div style={styles.grid2}>
+              <Card titulo="Vendas por dia">
+                <GraficoLinha dados={vendasPorDia} moeda={moeda} />
+              </Card>
+
+              <Card titulo="Contas a pagar por conta">
+                <GraficoBarras dados={contasPorNome} moeda={moeda} />
+              </Card>
+
+              <Card titulo="Status das contas do mês">
+                <GraficoPizza dados={statusContasPizza} moeda={moeda} />
+              </Card>
+
+              <Card titulo="Clientes que mais compraram">
+                <Tabela
+                  colunas={["Cliente", "Valor"]}
+                  dados={rankingClientes.map((x) => [x.cliente, moeda.format(x.valor)])}
+                />
+              </Card>
+
+              <Card titulo="Contas pendentes/atrasadas no período">
+                <Tabela
+                  colunas={["Vencimento", "Conta", "Valor", "Status"]}
+                  dados={dadosPeriodo.contas
+                    .filter((c) => statusConta(c) !== "Pago")
+                    .map((x) => [x.vencimento, x.conta, moeda.format(x.valor), statusConta(x)])}
+                />
+              </Card>
+            </div>
+          </>
+        )}
+
+        {aba === "Entradas" && (
+          <Card titulo={editando.tipo === "entrada" ? "Editando entrada" : "Lançar entrada"}>
+            <div style={styles.formGrid}>
+              <Campo label="Data" tipo="date" valor={entradaForm.data} mudar={(v) => setEntradaForm({ ...entradaForm, data: v })} />
+              <Campo label="Tipo" valor={entradaForm.tipo} mudar={(v) => setEntradaForm({ ...entradaForm, tipo: v })} />
+              <Select label="Cliente" valor={entradaForm.cliente} mudar={(v) => setEntradaForm({ ...entradaForm, cliente: v })} opcoes={["", ...clientes.map((c) => c.nome)]} placeholder="Cliente" />
+              <Campo label="Produto" valor={entradaForm.produto} mudar={(v) => setEntradaForm({ ...entradaForm, produto: v })} />
+              <Campo label="Placa" valor={entradaForm.placa} mudar={(v) => setEntradaForm({ ...entradaForm, placa: v.toUpperCase() })} />
+              <Campo label="Renavan" valor={entradaForm.renavan} mudar={(v) => setEntradaForm({ ...entradaForm, renavan: v })} />
+              <Select label="Forma de pagamento" valor={entradaForm.formaPagamento} mudar={(v) => setEntradaForm({ ...entradaForm, formaPagamento: v })} opcoes={formasPagamento} />
+              <Campo label="Valor" tipo="number" valor={entradaForm.valor} mudar={(v) => setEntradaForm({ ...entradaForm, valor: v })} />
+              <Select label="Status" valor={entradaForm.status} mudar={(v) => setEntradaForm({ ...entradaForm, status: v })} opcoes={["Pago", "Pendente", "Atrasado"]} />
+              <Campo label="Processo" valor={entradaForm.processo} mudar={(v) => setEntradaForm({ ...entradaForm, processo: v })} />
+              <button style={styles.botao} onClick={salvarEntrada}>{editando.tipo === "entrada" ? "Salvar edição" : "Adicionar"}</button>
+              {editando.tipo === "entrada" && <button style={styles.botaoCinza} onClick={cancelarEdicao}>Cancelar</button>}
+            </div>
+
+            <TabelaEntradas
+              entradas={entradas}
+              moeda={moeda}
+              destinoDinheiro={destinoDinheiro}
+              editar={editar}
+              remover={remover}
+            />
+          </Card>
+        )}
+
+        {aba === "Saídas" && (
+          <>
+            <ResumoTabela
+              quantidade={saidas.length}
+              soma={saidas.reduce((s, x) => s + x.valor, 0)}
+              media={saidas.length ? saidas.reduce((s, x) => s + x.valor, 0) / saidas.length : 0}
+              moeda={moeda}
+            />
+
+            <Card titulo={editando.tipo === "saida" ? "Editando saída" : "Lançar saída"}>
+            <div style={styles.formGrid}>
+              <Campo label="Dia saída" tipo="date" valor={saidaForm.data} mudar={(v) => setSaidaForm({ ...saidaForm, data: v })} />
+              <Select label="Forma de pagamento saída" valor={saidaForm.formaPagamento} mudar={(v) => setSaidaForm({ ...saidaForm, formaPagamento: v })} opcoes={formasPagamento} />
+              <Campo label="Tipo saída" valor={saidaForm.tipoSaida} mudar={(v) => setSaidaForm({ ...saidaForm, tipoSaida: v })} />
+              <Campo label="Conta" valor={saidaForm.conta} mudar={(v) => setSaidaForm({ ...saidaForm, conta: v })} />
+              <Campo label="Valor saída" tipo="number" valor={saidaForm.valor} mudar={(v) => setSaidaForm({ ...saidaForm, valor: v })} />
+              <button style={styles.botao} onClick={salvarSaida}>{editando.tipo === "saida" ? "Salvar edição" : "Adicionar"}</button>
+              {editando.tipo === "saida" && <button style={styles.botaoCinza} onClick={cancelarEdicao}>Cancelar</button>}
+            </div>
+
+            <Tabela
+              colunas={["Dia saída", "Pagamento", "Tipo saída", "Conta", "Valor", "Destino", "Ações"]}
+              dados={saidas.map((x) => [x.data, x.formaPagamento, x.tipoSaida, x.conta, moeda.format(x.valor), destinoDinheiro(x.formaPagamento), <Acoes editar={() => editar("saida", x)} excluir={() => remover("saida", x.id)} />])}
+            />
+            </Card>
+          </>
+        )}
+
+        {aba === "Contas a Pagar" && (
+          <>
+            <ResumoTabela
+              quantidade={contas.length}
+              soma={contas.reduce((s, x) => s + x.valor, 0)}
+              media={contas.length ? contas.reduce((s, x) => s + x.valor, 0) / contas.length : 0}
+              moeda={moeda}
+            />
+
+            <Card titulo={editando.tipo === "conta" ? "Editando conta" : "Lançar conta a pagar"}>
+            <div style={styles.formGrid}>
+              <Campo label="Conta a pagar" valor={contaForm.conta} mudar={(v) => setContaForm({ ...contaForm, conta: v })} />
+              <Campo label="Dia que vence" tipo="date" valor={contaForm.vencimento} mudar={(v) => setContaForm({ ...contaForm, vencimento: v })} />
+              <Campo label="Valor" tipo="number" valor={contaForm.valor} mudar={(v) => setContaForm({ ...contaForm, valor: v })} />
+              <Select label="Status" valor={contaForm.status} mudar={(v) => setContaForm({ ...contaForm, status: v })} opcoes={["Pendente", "Pago", "Atrasado"]} />
+              <button style={styles.botao} onClick={salvarConta}>{editando.tipo === "conta" ? "Salvar edição" : "Adicionar"}</button>
+              {editando.tipo === "conta" && <button style={styles.botaoCinza} onClick={cancelarEdicao}>Cancelar</button>}
+            </div>
+
+            <Tabela
+              colunas={["Conta a pagar", "Dia que vence", "Valor", "Status", "Ações"]}
+              dados={contas.map((x) => [x.conta, x.vencimento, moeda.format(x.valor), <button style={styles.status} onClick={() => alternarConta(x.id)}>{statusConta(x)}</button>, <Acoes editar={() => editar("conta", x)} excluir={() => remover("conta", x.id)} />])}
+            />
+            </Card>
+          </>
+        )}
+
+        {aba === "Controle de Estoque" && (
+          <>
+            <div style={styles.kpis}>
+              {estoqueResumo.map((item) => (
+                <Kpi key={item.produto} titulo={item.produto} valor={`${item.saldo} un.`} />
+              ))}
+            </div>
+
+            <div style={styles.grid2}>
+              <Card titulo="Adicionar compra de estoque">
+                <div style={styles.formGrid}>
+                  <Campo label="Data" tipo="date" valor={compraEstoqueForm.data} mudar={(v) => setCompraEstoqueForm({ ...compraEstoqueForm, data: v })} />
+                  <Select label="Produto" valor={compraEstoqueForm.produto} mudar={(v) => setCompraEstoqueForm({ ...compraEstoqueForm, produto: v })} opcoes={produtosEstoque} />
+                  <Campo label="Quantidade" tipo="number" valor={compraEstoqueForm.quantidade} mudar={(v) => setCompraEstoqueForm({ ...compraEstoqueForm, quantidade: v })} />
+                  <Campo label="Observação" valor={compraEstoqueForm.observacao} mudar={(v) => setCompraEstoqueForm({ ...compraEstoqueForm, observacao: v })} />
+                  <button style={styles.botao} onClick={salvarCompraEstoque}>Adicionar compra</button>
+                </div>
+              </Card>
+
+              <Card titulo="Lançar placa errada / perda">
+                <div style={styles.formGrid}>
+                  <Campo label="Data" tipo="date" valor={perdaEstoqueForm.data} mudar={(v) => setPerdaEstoqueForm({ ...perdaEstoqueForm, data: v })} />
+                  <Select label="Produto" valor={perdaEstoqueForm.produto} mudar={(v) => setPerdaEstoqueForm({ ...perdaEstoqueForm, produto: v })} opcoes={produtosEstoque} />
+                  <Campo label="Quantidade" tipo="number" valor={perdaEstoqueForm.quantidade} mudar={(v) => setPerdaEstoqueForm({ ...perdaEstoqueForm, quantidade: v })} />
+                  <Campo label="Motivo" valor={perdaEstoqueForm.motivo} mudar={(v) => setPerdaEstoqueForm({ ...perdaEstoqueForm, motivo: v })} />
+                  <button style={styles.botao} onClick={salvarPerdaEstoque}>Lançar perda</button>
+                </div>
+              </Card>
+            </div>
+
+            <Card titulo="Resumo do estoque">
+              <Tabela
+                colunas={["Produto", "Compras", "Usado em serviços", "Perdas/erros", "Saldo atual"]}
+                dados={estoqueResumo.map((x) => [x.produto, x.compras, x.usadoEmServicos, x.perdas, x.saldo])}
+              />
+            </Card>
+
+            <div style={styles.grid2}>
+              <Card titulo="Histórico de compras">
+                <Tabela
+                  colunas={["Data", "Produto", "Quantidade", "Observação", "Ações"]}
+                  dados={estoqueCompras.map((x) => [x.data, x.produto, x.quantidade, x.observacao, <button style={styles.excluir} onClick={() => removerMovimentoEstoque("compra", x.id)}>Excluir</button>])}
+                />
+              </Card>
+
+              <Card titulo="Histórico de perdas / placas erradas">
+                <Tabela
+                  colunas={["Data", "Produto", "Quantidade", "Motivo", "Ações"]}
+                  dados={estoquePerdas.map((x) => [x.data, x.produto, x.quantidade, x.motivo, <button style={styles.excluir} onClick={() => removerMovimentoEstoque("perda", x.id)}>Excluir</button>])}
+                />
+              </Card>
+            </div>
+
+            <Card titulo="Baixa automática pelos serviços vendidos">
+              <Tabela
+                colunas={["Data", "Cliente", "Serviço", "Placa", "Item baixado", "Quantidade"]}
+                dados={usosEstoqueServicos.map((x) => [x.data, x.cliente, x.produtoServico, x.placa, x.itemEstoque, x.quantidade])}
+              />
+            </Card>
+          </>
+        )}
+
+        {aba === "Pendências de Clientes" && (
+          <>
+            <Card titulo="Clientes com pendência">
+              <Tabela
+                colunas={["Cliente", "Placas em aberto", "Total", "Ações"]}
+                dados={pendenciasClientes.map((p) => [
+                  p.cliente,
+                  p.quantidade,
+                  moeda.format(p.total),
+                  <div style={styles.acoes}>
+                    <button style={styles.editar} onClick={() => setClientePendenciaSelecionado(p.cliente)}>Ver relação</button>
+                    <button style={styles.botaoPequeno} onClick={() => copiarCobranca(p)}>Copiar cobrança</button>
+                  </div>,
+                ])}
+              />
+            </Card>
+
+            {detalhePendencia && (
+              <Card titulo={`Relação em aberto - ${detalhePendencia.cliente}`}>
+                <Tabela
+                  colunas={["Data", "Cliente", "Produto", "Placa", "Renavan", "Valor", "Status", "Processo"]}
+                  dados={detalhePendencia.itens.map((x) => [
+                    x.data,
+                    x.cliente,
+                    x.produto,
+                    x.placa,
+                    x.renavan,
+                    moeda.format(x.valor),
+                    x.status,
+                    x.processo,
+                  ])}
+                />
+
+                <div style={styles.caixaCobranca}>
+                  <strong>Total em aberto: {moeda.format(detalhePendencia.total)}</strong>
+                  <p>Chave Pix: {chavePix}</p>
+                  <button style={styles.botao} onClick={() => copiarCobranca(detalhePendencia)}>
+                    Copiar cobrança para WhatsApp
+                  </button>
+                </div>
+              </Card>
+            )}
+          </>
+        )}
+
+        {aba === "Clientes" && (
+          <Card titulo={editando.tipo === "cliente" ? "Editando cliente" : "Cadastrar cliente"}>
+            <div style={styles.formGrid}>
+              <Campo label="Nome" valor={clienteForm.nome} mudar={(v) => setClienteForm({ ...clienteForm, nome: v })} />
+              <Campo label="Telefone" valor={clienteForm.telefone} mudar={(v) => setClienteForm({ ...clienteForm, telefone: v })} />
+              <Campo label="E-mail" valor={clienteForm.email} mudar={(v) => setClienteForm({ ...clienteForm, email: v })} />
+              <Campo label="Observação" valor={clienteForm.observacao} mudar={(v) => setClienteForm({ ...clienteForm, observacao: v })} />
+              <button style={styles.botao} onClick={salvarCliente}>{editando.tipo === "cliente" ? "Salvar edição" : "Adicionar"}</button>
+              {editando.tipo === "cliente" && <button style={styles.botaoCinza} onClick={cancelarEdicao}>Cancelar</button>}
+            </div>
+
+            <Tabela
+              colunas={["Nome", "Telefone", "E-mail", "Observação", "Ações"]}
+              dados={clientes.map((x) => [x.nome, x.telefone, x.email, x.observacao, <Acoes editar={() => editar("cliente", x)} excluir={() => remover("cliente", x.id)} />])}
+            />
+          </Card>
+        )}
+
+        {aba === "Importar Entradas" && (
+          <Card titulo="Importar entradas">
+            <p style={styles.ajuda}>Cole do Excel nesta ordem: DATA, TIPO, CLIENTE, PRODUTO, PLACA, RENAVAN, FORMA DE PAGAMENTO, VALOR, STATUS, PROCESSO.</p>
+            <textarea
+              value={textoImportacao}
+              onChange={(e) => setTextoImportacao(e.target.value)}
+              placeholder={`DATA\tTIPO\tCLIENTE\tPRODUTO\tPLACA\tRENAVAN\tFORMA DE PAGAMENTO\tVALOR\tSTATUS\tPROCESSO\n15/05/2026\tPARTICULAR\tJOÃO\tREBOQUE\tABC1D23\t123456789\tPIX\t80,00\tPAGO\t192304316159`}
+              style={styles.textarea}
+            />
+            <button style={styles.botao} onClick={importarDados}>Importar entradas</button>
+            {resultadoImportacao && <p style={styles.resultado}>{resultadoImportacao}</p>}
+          </Card>
+        )}
+
+        {aba === "Importar Saídas" && (
+          <Card titulo="Importar saídas">
+            <p style={styles.ajuda}>Cole do Excel nesta ordem: DIA SAÍDA, FORMA DE PAGAMENTO SAÍDA, TIPO SAÍDA, CONTA, VALOR SAÍDA.</p>
+            <textarea
+              value={textoImportacao}
+              onChange={(e) => setTextoImportacao(e.target.value)}
+              placeholder={`DIA SAÍDA\tFORMA DE PAGAMENTO SAÍDA\tTIPO SAÍDA\tCONTA\tVALOR SAÍDA\n15/05/2026\tDINHEIRO\tMATERIAL\tCOMPRA DE MATERIAL\t80,00`}
+              style={styles.textarea}
+            />
+            <button style={styles.botao} onClick={importarDados}>Importar saídas</button>
+            {resultadoImportacao && <p style={styles.resultado}>{resultadoImportacao}</p>}
+          </Card>
+        )}
+
+        {aba === "Importar Contas" && (
+          <Card titulo="Importar contas a pagar">
+            <p style={styles.ajuda}>Cole do Excel nesta ordem: CONTA A PAGAR, DIA QUE VENCE, VALOR, ETATUS.</p>
+            <textarea
+              value={textoImportacao}
+              onChange={(e) => setTextoImportacao(e.target.value)}
+              placeholder={`CONTA A PAGAR\tDIA QUE VENCE\tVALOR\tETATUS\nALUGUEL\t20/05/2026\t1000,00\tPENDENTE`}
+              style={styles.textarea}
+            />
+            <button style={styles.botao} onClick={importarDados}>Importar contas</button>
+            {resultadoImportacao && <p style={styles.resultado}>{resultadoImportacao}</p>}
+          </Card>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function TabelaEntradas({ entradas, moeda, destinoDinheiro, editar, remover }) {
+  const [detalhesAbertos, setDetalhesAbertos] = useState({});
+  const [copiados, setCopiados] = useState({});
+  const [filtros, setFiltros] = useState({
+    data: "",
+    tipo: "",
+    cliente: "",
+    produto: "",
+    placa: "",
+    pagamento: "",
+    status: "",
+  });
+
+  const colunas = ["Data", "Tipo", "Cliente", "Produto", "Placa", "Pagamento", "Valor", "Status", "Ações"];
+
+  const formatarDataVisual = (data) => {
+    if (!data || !data.includes("-")) return data || "Sem data";
+    const [ano, mes, dia] = data.split("-");
+    return `${dia}/${mes}/${ano}`;
+  };
+
+  function copiarTexto(texto, nomeCampo = "Informação") {
+    navigator.clipboard.writeText(texto || "");
+
+    setCopiados((prev) => ({ ...prev, [nomeCampo]: true }));
+
+    setTimeout(() => {
+      setCopiados((prev) => ({ ...prev, [nomeCampo]: false }));
+    }, 2000);
+  }
+
+  function copiarTudo(item) {
+    const texto = `PLACA: ${item.placa || ""}
+RENAVAN: ${item.renavan || ""}
+PROCESSO: ${item.processo || ""}`;
+    copiarTexto(texto, "Dados");
+  }
+
+  const entradasFiltradas = entradas.filter((entrada) => {
+    const dataVisual = formatarDataVisual(entrada.data);
+
+    return (
+      dataVisual.toLowerCase().includes(filtros.data.toLowerCase()) &&
+      String(entrada.tipo || "").toLowerCase().includes(filtros.tipo.toLowerCase()) &&
+      String(entrada.cliente || "").toLowerCase().includes(filtros.cliente.toLowerCase()) &&
+      String(entrada.produto || "").toLowerCase().includes(filtros.produto.toLowerCase()) &&
+      String(entrada.placa || "").toLowerCase().includes(filtros.placa.toLowerCase()) &&
+      String(entrada.formaPagamento || "").toLowerCase().includes(filtros.pagamento.toLowerCase()) &&
+      String(entrada.status || "").toLowerCase().includes(filtros.status.toLowerCase())
+    );
+  });
+
+  const resumoFiltro = {
+    contagem: entradasFiltradas.length,
+    soma: entradasFiltradas.reduce((s, entrada) => s + entrada.valor, 0),
+    media:
+      entradasFiltradas.length > 0
+        ? entradasFiltradas.reduce((s, entrada) => s + entrada.valor, 0) / entradasFiltradas.length
+        : 0,
+  };
+
+  const grupos = entradasFiltradas.reduce((acc, entrada) => {
+    const data = entrada.data || "Sem data";
+    if (!acc[data]) acc[data] = [];
+    acc[data].push(entrada);
+    return acc;
+  }, {});
+
+  const datasOrdenadas = Object.keys(grupos).sort((a, b) => b.localeCompare(a));
+
+  return (
+    <div style={styles.tabelaBox}>
+      <div style={styles.resumoFiltro}>
+        <span><strong>Contagem:</strong> {resumoFiltro.contagem}</span>
+        <span><strong>Soma:</strong> {moeda.format(resumoFiltro.soma)}</span>
+        <span><strong>Média:</strong> {moeda.format(resumoFiltro.media)}</span>
+      </div>
+
+      <table style={styles.tabelaCompacta}>
+        <thead>
+          <tr>{colunas.map((c) => <th style={styles.th} key={c}>{c}</th>)}</tr>
+          <tr>
+            <th style={styles.th}><input style={styles.filtroInput} placeholder="Filtrar" value={filtros.data} onChange={(e) => setFiltros({ ...filtros, data: e.target.value })} /></th>
+            <th style={styles.th}><input style={styles.filtroInput} placeholder="Filtrar" value={filtros.tipo} onChange={(e) => setFiltros({ ...filtros, tipo: e.target.value })} /></th>
+            <th style={styles.th}><input style={styles.filtroInput} placeholder="Filtrar" value={filtros.cliente} onChange={(e) => setFiltros({ ...filtros, cliente: e.target.value })} /></th>
+            <th style={styles.th}><input style={styles.filtroInput} placeholder="Filtrar" value={filtros.produto} onChange={(e) => setFiltros({ ...filtros, produto: e.target.value })} /></th>
+            <th style={styles.th}><input style={styles.filtroInput} placeholder="Filtrar" value={filtros.placa} onChange={(e) => setFiltros({ ...filtros, placa: e.target.value.toUpperCase() })} /></th>
+            <th style={styles.th}><input style={styles.filtroInput} placeholder="Filtrar" value={filtros.pagamento} onChange={(e) => setFiltros({ ...filtros, pagamento: e.target.value })} /></th>
+            <th style={styles.th}></th>
+            <th style={styles.th}><input style={styles.filtroInput} placeholder="Filtrar" value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })} /></th>
+            <th style={styles.th}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {entradasFiltradas.length === 0 ? (
+            <tr><td colSpan={colunas.length} style={styles.vazio}>Nenhum dado lançado ainda.</td></tr>
+          ) : (
+            datasOrdenadas.map((data) => (
+              <>
+                <tr key={`grupo-${data}`}>
+                  <td colSpan={colunas.length} style={styles.linhaData}>
+                    {formatarDataVisual(data)} · {grupos[data].length} serviço{grupos[data].length > 1 ? "s" : ""} no dia
+                  </td>
+                </tr>
+
+                {grupos[data].map((x) => (
+                  <>
+                    <tr key={x.id}>
+                      <td style={styles.tdData}>{formatarDataVisual(x.data)}</td>
+                      <td style={styles.td}>{x.tipo}</td>
+                      <td style={styles.td}>{x.cliente}</td>
+                      <td style={styles.td}>{x.produto}</td>
+                      <td style={styles.tdPlaca}>{x.placa}</td>
+                      <td style={styles.td}>{x.formaPagamento}</td>
+                      <td style={styles.tdValor}>{moeda.format(x.valor)}</td>
+                      <td style={styles.td}>{x.status}</td>
+                      <td style={styles.tdAcoes}>
+                        <div style={styles.acoes}>
+                          <button
+                            style={styles.detalhes}
+                            onClick={() => setDetalhesAbertos({
+                              ...detalhesAbertos,
+                              [x.id]: !detalhesAbertos[x.id],
+                            })}
+                          >
+                            {detalhesAbertos[x.id] ? "Ocultar" : "Ver detalhes"}
+                          </button>
+                          <button style={styles.editar} onClick={() => editar("entrada", x)}>Editar</button>
+                          <button style={styles.excluir} onClick={() => remover("entrada", x.id)}>Excluir</button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {detalhesAbertos[x.id] && (
+                      <tr key={`detalhe-${x.id}`}>
+                        <td colSpan={colunas.length} style={styles.detalheLinha}>
+                          <div style={styles.detalheGrid}>
+                            <DetalheCopiavel label="Placa" valor={x.placa} copiado={copiados["Placa"]} copiar={() => copiarTexto(x.placa, "Placa")} />
+                            <DetalheCopiavel label="Renavan" valor={x.renavan} copiado={copiados["Renavan"]} copiar={() => copiarTexto(x.renavan, "Renavan")} />
+                            <DetalheCopiavel label="Processo" valor={x.processo} copiado={copiados["Processo"]} copiar={() => copiarTexto(x.processo, "Processo")} />
+                            <DetalheSimples label="Destino" valor={destinoDinheiro(x.formaPagamento)} />
+                          </div>
+
+                          <button style={styles.botaoPequeno} onClick={() => copiarTudo(x)}>
+                            Copiar placa, Renavan e processo
+                          </button>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))}
+              </>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DetalheCopiavel({ label, valor, copiar, copiado }) {
+  return (
+    <div style={styles.detalheItem}>
+      <span style={styles.detalheLabel}>{label}</span>
+      <strong>{valor || "Não informado"}</strong>
+      <button style={copiado ? styles.copiado : styles.copiar} onClick={copiar}>
+        {copiado ? "Copiado" : "Copiar"}
+      </button>
+    </div>
+  );
+}
+
+function DetalheSimples({ label, valor }) {
+  return (
+    <div style={styles.detalheItem}>
+      <span style={styles.detalheLabel}>{label}</span>
+      <strong>{valor || "Não informado"}</strong>
+    </div>
+  );
+}
+
+function ResumoTabela({ quantidade, soma, media, moeda }) {
+  return (
+    <div style={styles.resumoFiltro}>
+      <span><strong>Contagem:</strong> {quantidade}</span>
+      <span><strong>Soma:</strong> {moeda.format(soma)}</span>
+      <span><strong>Média:</strong> {moeda.format(media)}</span>
+    </div>
+  );
+}
+
+function GraficoLinha({ dados, moeda }) {
+  if (dados.length === 0) return <p style={styles.vazio}>Nenhuma venda no período.</p>;
+
+  return (
+    <div style={styles.grafico}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={dados}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="data" />
+          <YAxis />
+          <Tooltip formatter={(value) => moeda.format(value)} />
+          <Legend />
+          <Line type="monotone" dataKey="valor" name="Vendas" stroke="#2563eb" strokeWidth={3} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function GraficoBarras({ dados, moeda }) {
+  if (dados.length === 0) return <p style={styles.vazio}>Nenhuma conta no período.</p>;
+
+  return (
+    <div style={styles.grafico}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={dados}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="conta" />
+          <YAxis />
+          <Tooltip formatter={(value) => moeda.format(value)} />
+          <Legend />
+          <Bar dataKey="valor" name="Valor" fill="#f97316" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function GraficoPizza({ dados, moeda }) {
+  const cores = ["#22c55e", "#facc15", "#ef4444"];
+
+  if (dados.length === 0) return <p style={styles.vazio}>Nenhuma conta no período.</p>;
+
+  return (
+    <div style={styles.grafico}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie data={dados} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
+            {dados.map((_, index) => (
+              <Cell key={index} fill={cores[index % cores.length]} />
+            ))}
+          </Pie>
+          <Tooltip formatter={(value) => moeda.format(value)} />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function Kpi({ titulo, valor }) {
+  return (
+    <div style={styles.kpi}>
+      <p>{titulo}</p>
+      <strong>{valor}</strong>
+    </div>
+  );
+}
+
+function Card({ titulo, children }) {
+  return (
+    <section style={styles.card}>
+      <h2 style={styles.cardTitulo}>{titulo}</h2>
+      {children}
+    </section>
+  );
+}
+
+function Campo({ label, tipo = "text", valor, mudar }) {
+  return (
+    <label style={styles.label}>
+      {label}
+      <input type={tipo} value={valor} onChange={(e) => mudar(e.target.value)} style={styles.input} />
+    </label>
+  );
+}
+
+function Select({ label, valor, mudar, opcoes, placeholder }) {
+  return (
+    <label style={styles.label}>
+      {label}
+      <select value={valor} onChange={(e) => mudar(e.target.value)} style={styles.input}>
+        {placeholder && <option value="">{placeholder}</option>}
+        {opcoes.map((o) => (
+          <option key={o} value={o}>{o || placeholder}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function Acoes({ editar, excluir }) {
+  return (
+    <div style={styles.acoes}>
+      <button style={styles.editar} onClick={editar}>Editar</button>
+      <button style={styles.excluir} onClick={excluir}>Excluir</button>
+    </div>
+  );
+}
+
+function Tabela({ colunas, dados }) {
+  return (
+    <div style={styles.tabelaBox}>
+      <table style={styles.tabela}>
+        <thead>
+          <tr>{colunas.map((c) => <th style={styles.th} key={c}>{c}</th>)}</tr>
+        </thead>
+        <tbody>
+          {dados.length === 0 ? (
+            <tr><td colSpan={colunas.length} style={styles.vazio}>Nenhum dado lançado ainda.</td></tr>
+          ) : (
+            dados.map((linha, i) => (
+              <tr key={i}>{linha.map((celula, j) => <td style={styles.td} key={j}>{celula}</td>)}</tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const styles = {
+  app: { width: "100%", minHeight: "100vh", display: "flex", background: "#f1f5f9", color: "#0f172a", fontFamily: "Arial, sans-serif" },
+  sidebar: { minWidth: 220, width: 220, background: "#0f172a", color: "white", padding: 20, display: "flex", flexDirection: "column", gap: 10 },
+  logoBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 24,
+  },
+  logoImagem: {
+    width: 64,
+    height: 64,
+    objectFit: "cover",
+    borderRadius: 14,
+    border: "2px solid #2563eb",
+  },
+  logo: {
+    margin: 0,
+    fontSize: 24,
+  },
+  logoSubtitulo: {
+    margin: "4px 0 0",
+    fontSize: 13,
+    color: "#93c5fd",
+  },
+  menuRodape: {
+    marginTop: "auto",
+    paddingTop: 16,
+    borderTop: "1px solid #334155",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+  menuSecundario: {
+    padding: "10px 12px",
+    border: 0,
+    borderRadius: 10,
+    background: "#1e293b",
+    color: "#e2e8f0",
+    textAlign: "left",
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: "bold",
+  },
+  dadosEmpresaBox: {
+    background: "#020617",
+    border: "1px solid #334155",
+    borderRadius: 12,
+    padding: 10,
+  },
+  dadosEmpresaTexto: {
+    margin: 0,
+    marginBottom: 10,
+    whiteSpace: "pre-wrap",
+    fontSize: 11,
+    lineHeight: 1.5,
+    color: "#cbd5e1",
+    fontFamily: "Arial, sans-serif",
+  },
+  botaoCopiarMenu: {
+    width: "100%",
+    padding: "9px 10px",
+    border: 0,
+    borderRadius: 10,
+    background: "#22c55e",
+    color: "white",
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  botaoCopiadoMenu: {
+    width: "100%",
+    padding: "9px 10px",
+    border: 0,
+    borderRadius: 10,
+    background: "#94a3b8",
+    color: "white",
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  logoBox: { display: "flex", alignItems: "center", gap: 12, marginBottom: 24 },
+  logoImagem: { width: 58, height: 58, objectFit: "cover", borderRadius: 14, border: "2px solid #2563eb" },
+  logo: { margin: 0, fontSize: 24 },
+  logoSubtitulo: { margin: "4px 0 0", fontSize: 13, color: "#93c5fd" },
+  menu: { padding: "12px 14px", border: 0, borderRadius: 12, background: "transparent", color: "#cbd5e1", textAlign: "left", cursor: "pointer", fontSize: 15 },
+  menuAtivo: { padding: "12px 14px", border: 0, borderRadius: 12, background: "#2563eb", color: "white", textAlign: "left", cursor: "pointer", fontSize: 15, fontWeight: "bold" },
+  main: { flex: 1, width: "100%", minWidth: 0, padding: 28, overflowX: "hidden" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
+  titulo: { margin: 0, fontSize: 34 },
+  subtitulo: { margin: "6px 0 0", color: "#64748b" },
+  kpis: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, marginBottom: 22 },
+  kpi: { background: "white", padding: 20, borderRadius: 18, boxShadow: "0 8px 20px rgba(15, 23, 42, 0.08)" },
+  grafico: { width: "100%", height: 300 },
+  card: { background: "white", borderRadius: 18, padding: 20, boxShadow: "0 8px 20px rgba(15, 23, 42, 0.08)", marginBottom: 20, overflow: "hidden" },
+  cardTitulo: { marginTop: 0, marginBottom: 18 },
+  grid2: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20 },
+  formGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 20 },
+  label: { display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontWeight: "bold", color: "#334155" },
+  input: { padding: "12px 14px", borderRadius: 12, border: "1px solid #cbd5e1", fontSize: 15, background: "white" },
+  botao: { padding: "12px 16px", borderRadius: 12, border: 0, background: "#2563eb", color: "white", fontWeight: "bold", cursor: "pointer", alignSelf: "end", marginTop: 10 },
+  botaoCinza: { padding: "12px 16px", borderRadius: 12, border: 0, background: "#64748b", color: "white", fontWeight: "bold", cursor: "pointer", alignSelf: "end" },
+  acoes: { display: "flex", gap: 6, flexWrap: "nowrap", alignItems: "center" },
+  editar: { padding: "6px 9px", borderRadius: 8, border: 0, background: "#dbeafe", color: "#1d4ed8", cursor: "pointer", fontSize: 12 },
+  excluir: { padding: "6px 9px", borderRadius: 8, border: 0, background: "#fee2e2", color: "#991b1b", cursor: "pointer", fontSize: 12 },
+  detalhes: { padding: "6px 9px", borderRadius: 8, border: 0, background: "#e0f2fe", color: "#0369a1", cursor: "pointer", fontSize: 12, fontWeight: "bold" },
+  copiar: { padding: "6px 9px", borderRadius: 8, border: 0, background: "#22c55e", color: "white", cursor: "pointer", fontSize: 12, fontWeight: "bold", transition: "0.2s" },
+  copiado: { padding: "6px 9px", borderRadius: 8, border: 0, background: "#94a3b8", color: "white", cursor: "pointer", fontSize: 12, fontWeight: "bold", transition: "0.2s" },
+  botaoPequeno: { padding: "7px 10px", borderRadius: 8, border: 0, background: "#dcfce7", color: "#166534", cursor: "pointer", fontWeight: "bold" },
+  caixaCobranca: { marginTop: 18, padding: 16, borderRadius: 14, background: "#eff6ff", color: "#1e3a8a", display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" },
+  status: { padding: "7px 10px", borderRadius: 8, border: 0, background: "#dcfce7", color: "#166534", cursor: "pointer", fontWeight: "bold" },
+  tabelaBox: { width: "100%", maxWidth: "100%", overflowX: "auto", overflowY: "hidden", paddingBottom: 8 },
+  tabela: { width: "100%", minWidth: 1180, tableLayout: "auto", borderCollapse: "collapse", fontSize: 12 },
+  tabelaCompacta: { width: "100%", tableLayout: "auto", borderCollapse: "collapse", fontSize: 13 },
+  th: { padding: "10px 6px", textAlign: "left", whiteSpace: "normal", borderBottom: "1px solid #e2e8f0", wordBreak: "break-word" },
+  td: { padding: "8px 6px", whiteSpace: "normal", borderBottom: "1px solid #e2e8f0", verticalAlign: "middle", wordBreak: "break-word" },
+  tdData: { padding: "8px 6px", whiteSpace: "nowrap", borderBottom: "1px solid #e2e8f0", verticalAlign: "middle", fontWeight: "bold", color: "#1e3a8a" },
+  tdValor: { padding: "8px 6px", whiteSpace: "nowrap", borderBottom: "1px solid #e2e8f0", verticalAlign: "middle", fontWeight: "bold" },
+  tdPlaca: { padding: "8px 6px", whiteSpace: "nowrap", borderBottom: "1px solid #e2e8f0", verticalAlign: "middle", fontWeight: "bold", color: "#1d4ed8" },
+  tdAcoes: { padding: "8px 6px", whiteSpace: "nowrap", borderBottom: "1px solid #e2e8f0", verticalAlign: "middle", minWidth: 130 },
+  linhaData: { padding: "12px 10px", background: "#dbeafe", color: "#1e3a8a", fontWeight: "bold", whiteSpace: "nowrap", borderTop: "1px solid #93c5fd", borderBottom: "1px solid #93c5fd" },
+  detalheLinha: { padding: 14, background: "#f8fafc", borderBottom: "1px solid #e2e8f0" },
+  detalheGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 12 },
+  detalheItem: { background: "white", border: "1px solid #e2e8f0", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 },
+  detalheLabel: { fontSize: 12, color: "#64748b", fontWeight: "bold" },
+  filtroInput: { width: "100%", padding: "7px 8px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 12, boxSizing: "border-box" },
+  resumoFiltro: { display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "10px 12px", marginBottom: 12, color: "#0f172a", fontSize: 13 },
+  vazio: { textAlign: "center", color: "#64748b", padding: 20 },
+  ajuda: { color: "#475569", lineHeight: 1.5, marginTop: 0 },
+  textarea: { width: "100%", minHeight: 260, padding: 14, borderRadius: 14, border: "1px solid #cbd5e1", fontSize: 14, fontFamily: "Consolas, monospace", boxSizing: "border-box" },
+  resultado: { background: "#dcfce7", color: "#166534", padding: 12, borderRadius: 12, fontWeight: "bold", marginTop: 12, marginBottom: 20 },
+};
