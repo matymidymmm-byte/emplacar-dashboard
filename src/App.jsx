@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 
-import { db, auth } from "./services/firebase.js";
-
+import { auth, db } from "./services/firebase.js";
 import styles from "./styles/styles.js";
 
 import Sidebar from "./components/Sidebar.jsx";
@@ -49,24 +48,15 @@ export default function App() {
   }
 
   if (!usuario) {
-  return <Login />;
-}
+    return <Login />;
+  }
 
-return <Sistema />;
+  return <Sistema />;
 }
 
 function Sistema() {
   const hoje = new Date().toISOString().slice(0, 10);
   const docSistema = doc(db, "sistema", "emplacar");
-
-  function carregar(nome, padrao) {
-    try {
-      const salvo = localStorage.getItem(nome);
-      return salvo ? JSON.parse(salvo) : padrao;
-    } catch {
-      return padrao;
-    }
-  }
 
   const [nuvemCarregada, setNuvemCarregada] = useState(false);
 
@@ -76,23 +66,18 @@ function Sistema() {
 
   const [textoImportacao, setTextoImportacao] = useState("");
   const [resultadoImportacao, setResultadoImportacao] = useState("");
-  const [clientePendenciaSelecionado, setClientePendenciaSelecionado] = useState(null);
+  const [clientePendenciaSelecionado, setClientePendenciaSelecionado] =
+    useState(null);
   const [mostrarDadosEmpresa, setMostrarDadosEmpresa] = useState(false);
   const [botaoCopiado, setBotaoCopiado] = useState("");
 
-  const [entradas, setEntradas] = useState(() => carregar("emplacar_entradas", []));
-  const [saidas, setSaidas] = useState(() => carregar("emplacar_saidas", []));
-  const [contas, setContas] = useState(() => carregar("emplacar_contas", []));
-  const [clientes, setClientes] = useState(() => carregar("emplacar_clientes", []));
-  const [estoqueCompras, setEstoqueCompras] = useState(() =>
-    carregar("emplacar_estoque_compras", [])
-  );
-  const [estoquePerdas, setEstoquePerdas] = useState(() =>
-    carregar("emplacar_estoque_perdas", [])
-  );
-  const [historicoRelacoes, setHistoricoRelacoes] = useState(() =>
-    carregar("emplacar_historico_relacoes", [])
-  );
+  const [entradas, setEntradas] = useState([]);
+  const [saidas, setSaidas] = useState([]);
+  const [contas, setContas] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [estoqueCompras, setEstoqueCompras] = useState([]);
+  const [estoquePerdas, setEstoquePerdas] = useState([]);
+  const [historicoRelacoes, setHistoricoRelacoes] = useState([]);
 
   useEffect(() => {
     const cancelar = onSnapshot(docSistema, async (snapshot) => {
@@ -108,13 +93,13 @@ function Sistema() {
         setHistoricoRelacoes(dados.historicoRelacoes || []);
       } else {
         await setDoc(docSistema, {
-          entradas,
-          saidas,
-          contas,
-          clientes,
-          estoqueCompras,
-          estoquePerdas,
-          historicoRelacoes,
+          entradas: [],
+          saidas: [],
+          contas: [],
+          clientes: [],
+          estoqueCompras: [],
+          estoquePerdas: [],
+          historicoRelacoes: [],
         });
       }
 
@@ -137,37 +122,30 @@ function Sistema() {
   }
 
   useEffect(() => {
-    localStorage.setItem("emplacar_entradas", JSON.stringify(entradas));
     salvarNaNuvem("entradas", entradas);
   }, [entradas]);
 
   useEffect(() => {
-    localStorage.setItem("emplacar_saidas", JSON.stringify(saidas));
     salvarNaNuvem("saidas", saidas);
   }, [saidas]);
 
   useEffect(() => {
-    localStorage.setItem("emplacar_contas", JSON.stringify(contas));
     salvarNaNuvem("contas", contas);
   }, [contas]);
 
   useEffect(() => {
-    localStorage.setItem("emplacar_clientes", JSON.stringify(clientes));
     salvarNaNuvem("clientes", clientes);
   }, [clientes]);
 
   useEffect(() => {
-    localStorage.setItem("emplacar_estoque_compras", JSON.stringify(estoqueCompras));
     salvarNaNuvem("estoqueCompras", estoqueCompras);
   }, [estoqueCompras]);
 
   useEffect(() => {
-    localStorage.setItem("emplacar_estoque_perdas", JSON.stringify(estoquePerdas));
     salvarNaNuvem("estoquePerdas", estoquePerdas);
   }, [estoquePerdas]);
 
   useEffect(() => {
-    localStorage.setItem("emplacar_historico_relacoes", JSON.stringify(historicoRelacoes));
     salvarNaNuvem("historicoRelacoes", historicoRelacoes);
   }, [historicoRelacoes]);
 
@@ -256,8 +234,10 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   const [saidaForm, setSaidaForm] = useState(saidaVazia);
   const [contaForm, setContaForm] = useState(contaVazia);
   const [clienteForm, setClienteForm] = useState(clienteVazio);
-  const [compraEstoqueForm, setCompraEstoqueForm] = useState(compraEstoqueVazia);
-  const [perdaEstoqueForm, setPerdaEstoqueForm] = useState(perdaEstoqueVazia);
+  const [compraEstoqueForm, setCompraEstoqueForm] =
+    useState(compraEstoqueVazia);
+  const [perdaEstoqueForm, setPerdaEstoqueForm] =
+    useState(perdaEstoqueVazia);
 
   const [editando, setEditando] = useState({
     tipo: null,
@@ -505,10 +485,6 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
       .filter((x) => statusConta(x) === "Pago")
       .reduce((s, x) => s + x.valor, 0);
 
-    const contasAPagarEmAberto = dadosPeriodo.contas
-      .filter((x) => statusConta(x) !== "Pago")
-      .reduce((s, x) => s + x.valor, 0);
-
     const saidasBanco = dadosPeriodo.saidas
       .filter((x) => destinoDinheiro(x.formaPagamento) === "Banco")
       .reduce((s, x) => s + x.valor, 0);
@@ -517,8 +493,8 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
       .filter((x) => destinoDinheiro(x.formaPagamento) === "Caixa")
       .reduce((s, x) => s + x.valor, 0);
 
-    const pagos = saidasTotal + contasPagas;
     const recebidoTotal = recebidoBanco + recebidoCaixa + recebidoFaturado;
+    const pagos = saidasTotal + contasPagas;
     const entradaLiquida = recebidoTotal - pagos;
     const tenhoNoBanco = recebidoBanco + recebidoFaturado - saidasBanco - contasPagas;
     const tenhoNoCaixa = recebidoCaixa - saidasCaixa;
@@ -534,18 +510,14 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
       entradaBruta,
       entradaLiquida,
       saidasTotal,
-      contasEmAberto: contasAPagarEmAberto,
-      contasAPagarEmAberto,
-      contasAReceberEmAberto: notasPendentes,
-      pagos,
-      mediaPorDia: entradaBruta / dias,
+      faturadoEmAberto: notasPendentes,
+      notasPendentes,
       recebidoBanco,
       recebidoCaixa,
       recebidoFaturado,
       recebidoTotal,
-      totalFaturado: notasPendentes + recebidoFaturado,
-      faturadoEmAberto: notasPendentes,
-      notasPendentes,
+      pagos,
+      mediaPorDia: entradaBruta / dias,
       tenhoNoBanco,
       tenhoNoCaixa,
     };
@@ -559,10 +531,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     });
 
     return Object.entries(mapa)
-      .map(([data, valor]) => ({
-        data,
-        valor,
-      }))
+      .map(([data, valor]) => ({ data, valor }))
       .sort((a, b) => a.data.localeCompare(b.data));
   }, [dadosPeriodo]);
 
@@ -574,10 +543,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     });
 
     return Object.entries(mapa)
-      .map(([data, quantidade]) => ({
-        data,
-        quantidade,
-      }))
+      .map(([data, quantidade]) => ({ data, quantidade }))
       .sort((a, b) => a.data.localeCompare(b.data));
   }, [dadosPeriodo]);
 
@@ -590,10 +556,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     });
 
     return Object.entries(mapa)
-      .map(([conta, valor]) => ({
-        conta,
-        valor,
-      }))
+      .map(([conta, valor]) => ({ conta, valor }))
       .sort((a, b) => b.valor - a.valor);
   }, [dadosPeriodo]);
 
@@ -611,10 +574,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
 
     return Object.entries(mapa)
       .filter(([, valor]) => valor > 0)
-      .map(([name, value]) => ({
-        name,
-        value,
-      }));
+      .map(([name, value]) => ({ name, value }));
   }, [dadosPeriodo]);
 
   const rankingClientes = useMemo(() => {
@@ -626,10 +586,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     });
 
     return Object.entries(mapa)
-      .map(([cliente, valor]) => ({
-        cliente,
-        valor,
-      }))
+      .map(([cliente, valor]) => ({ cliente, valor }))
       .sort((a, b) => b.valor - a.valor);
   }, [dadosPeriodo]);
 
