@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+
+import { db, auth } from "./services/firebase.js";
 
 import styles from "./styles/styles.js";
 
@@ -12,9 +16,48 @@ import Clientes from "./pages/Clientes.jsx";
 import Pendencias from "./pages/Pendencias.jsx";
 import Estoque from "./pages/Estoque.jsx";
 import Importacao from "./pages/Importacao.jsx";
+import Login from "./pages/Login.jsx";
 
 export default function App() {
+  const [usuario, setUsuario] = useState(null);
+  const [carregandoAuth, setCarregandoAuth] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUsuario(user);
+      setCarregandoAuth(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  if (carregandoAuth) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#050816",
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        Carregando...
+      </div>
+    );
+  }
+
+  if (!usuario) {
+  return <Login />;
+}
+
+return <Sistema />;
+}
+
+function Sistema() {
   const hoje = new Date().toISOString().slice(0, 10);
+  const docSistema = doc(db, "sistema", "emplacar");
 
   function carregar(nome, padrao) {
     try {
@@ -24,6 +67,8 @@ export default function App() {
       return padrao;
     }
   }
+
+  const [nuvemCarregada, setNuvemCarregada] = useState(false);
 
   const [aba, setAba] = useState("Dashboard");
   const [inicioMes, setInicioMes] = useState(hoje.slice(0, 8) + "01");
@@ -50,31 +95,80 @@ export default function App() {
   );
 
   useEffect(() => {
+    const cancelar = onSnapshot(docSistema, async (snapshot) => {
+      if (snapshot.exists()) {
+        const dados = snapshot.data();
+
+        setEntradas(dados.entradas || []);
+        setSaidas(dados.saidas || []);
+        setContas(dados.contas || []);
+        setClientes(dados.clientes || []);
+        setEstoqueCompras(dados.estoqueCompras || []);
+        setEstoquePerdas(dados.estoquePerdas || []);
+        setHistoricoRelacoes(dados.historicoRelacoes || []);
+      } else {
+        await setDoc(docSistema, {
+          entradas,
+          saidas,
+          contas,
+          clientes,
+          estoqueCompras,
+          estoquePerdas,
+          historicoRelacoes,
+        });
+      }
+
+      setNuvemCarregada(true);
+    });
+
+    return () => cancelar();
+  }, []);
+
+  async function salvarNaNuvem(campo, valor) {
+    if (!nuvemCarregada) return;
+
+    await setDoc(
+      docSistema,
+      {
+        [campo]: valor,
+      },
+      { merge: true }
+    );
+  }
+
+  useEffect(() => {
     localStorage.setItem("emplacar_entradas", JSON.stringify(entradas));
+    salvarNaNuvem("entradas", entradas);
   }, [entradas]);
 
   useEffect(() => {
     localStorage.setItem("emplacar_saidas", JSON.stringify(saidas));
+    salvarNaNuvem("saidas", saidas);
   }, [saidas]);
 
   useEffect(() => {
     localStorage.setItem("emplacar_contas", JSON.stringify(contas));
+    salvarNaNuvem("contas", contas);
   }, [contas]);
 
   useEffect(() => {
     localStorage.setItem("emplacar_clientes", JSON.stringify(clientes));
+    salvarNaNuvem("clientes", clientes);
   }, [clientes]);
 
   useEffect(() => {
     localStorage.setItem("emplacar_estoque_compras", JSON.stringify(estoqueCompras));
+    salvarNaNuvem("estoqueCompras", estoqueCompras);
   }, [estoqueCompras]);
 
   useEffect(() => {
     localStorage.setItem("emplacar_estoque_perdas", JSON.stringify(estoquePerdas));
+    salvarNaNuvem("estoquePerdas", estoquePerdas);
   }, [estoquePerdas]);
 
   useEffect(() => {
     localStorage.setItem("emplacar_historico_relacoes", JSON.stringify(historicoRelacoes));
+    salvarNaNuvem("historicoRelacoes", historicoRelacoes);
   }, [historicoRelacoes]);
 
   const chavePix = "63.488.249/0001-08";
@@ -295,7 +389,6 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     if (!pendencia || !diaPago) return;
 
     const idRelacao = Date.now();
-
     const idsEntradas = pendencia.itens.map((item) => item.id);
 
     const novaRelacao = {
@@ -339,7 +432,9 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   }
 
   function excluirRelacaoHistorico(idRelacao) {
-    setHistoricoRelacoes((old) => old.filter((relacao) => relacao.id !== idRelacao));
+    setHistoricoRelacoes((old) =>
+      old.filter((relacao) => relacao.id !== idRelacao)
+    );
   }
 
   function editar(tipo, item) {
