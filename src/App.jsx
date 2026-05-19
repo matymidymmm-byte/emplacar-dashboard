@@ -316,16 +316,44 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   }
 
   function ehInjecaoCaixa(item) {
-    return textoMovimento(item).includes("INJECAO CAIXA");
-  }
+  const t = textoMovimento(item);
 
-  function ehInjecaoLoja(item) {
-    return textoMovimento(item).includes("INJECAO LOJA");
-  }
+  return (
+    t.includes("INJECAO CAIXA") ||
+    t.includes("APORTE CAIXA")
+  );
+}
 
-  function ehInjecaoSocios(item) {
-    return ehInjecaoCaixa(item) || ehInjecaoLoja(item);
-  }
+function ehInjecaoLoja(item) {
+  const t = textoMovimento(item);
+
+  return (
+    t.includes("INJECAO LOJA") ||
+    t.includes("CAPITAL LOJA") ||
+    t.includes("APORTE LOJA")
+  );
+}
+
+function ehInjecaoSocios(item) {
+  const t = textoMovimento(item);
+
+  return (
+    ehInjecaoCaixa(item) ||
+    ehInjecaoLoja(item) ||
+
+    t.includes("INJECAO SOCIOS") ||
+    t.includes("INJECAO SOCIO") ||
+    t.includes("INJECAO SÓCIOS") ||
+    t.includes("INJECAO SÓCIO") ||
+
+    t.includes("APORTE") ||
+    t.includes("APORTE SOCIOS") ||
+    t.includes("APORTE SÓCIOS") ||
+
+    t.includes("CAPITAL SOCIOS") ||
+    t.includes("CAPITAL SÓCIOS")
+  );
+}
 
   function ehRecuperacaoVale(item) {
     const t = textoMovimento(item);
