@@ -81,13 +81,7 @@ export default function Sidebar({
   const admin =
     nivel === "admin";
 
-  const lojista =
-    nivel === "lojista";
-
-  const socio =
-    nivel === "socio";
-
-  const menusAdmin = [
+  const menusBase = [
     "Dashboard",
     "Entradas",
     "Saídas",
@@ -99,29 +93,15 @@ export default function Sidebar({
     "Importar Entradas",
     "Importar Saídas",
     "Importar Contas",
-    "Gerenciar Acessos",
-  ];
-
-  const menusLojista = [
-    "Dashboard",
-    "Entradas",
-    "Saídas",
-    "Clientes",
-    "Pendências de Clientes",
-    "Relatório Diário",
-  ];
-
-  const menusSocio = [
-    "Dashboard",
-    "Relatório Diário",
   ];
 
   const menus =
     admin
-      ? menusAdmin
-      : lojista
-      ? menusLojista
-      : menusSocio;
+      ? [
+          ...menusBase,
+          "Gerenciar Acessos",
+        ]
+      : menusBase;
 
   const botaoFerramenta = {
     width: "100%",
@@ -490,131 +470,131 @@ export default function Sidebar({
             : "Copiar Pix"}
         </button>
 
-        {(admin ||
-          lojista) && (
-          <button
+        <button
+          style={
+            styles.menuSecundario
+          }
+          onClick={() =>
+            setMostrarFerramentas(
+              !mostrarFerramentas
+            )
+          }
+        >
+          {mostrarFerramentas
+            ? "Fechar ferramentas"
+            : "Ferramentas"}
+        </button>
+
+        {mostrarFerramentas && (
+          <div
             style={
-              styles.menuSecundario
-            }
-            onClick={() =>
-              setMostrarFerramentas(
-                !mostrarFerramentas
-              )
+              painelFerramentas
             }
           >
-            {mostrarFerramentas
-              ? "Fechar ferramentas"
-              : "Ferramentas"}
-          </button>
-        )}
-
-        {mostrarFerramentas &&
-          admin && (
-            <div
+            <button
               style={
-                painelFerramentas
+                botaoFerramenta
+              }
+              onClick={() =>
+                setMostrarDadosEmpresa(
+                  !mostrarDadosEmpresa
+                )
               }
             >
-              <button
-                style={
-                  botaoFerramenta
-                }
-                onClick={() =>
-                  setMostrarDadosEmpresa(
-                    !mostrarDadosEmpresa
-                  )
-                }
-              >
-                {mostrarDadosEmpresa
-                  ? "Ocultar dados da loja"
-                  : "Dados da loja"}
-              </button>
+              {mostrarDadosEmpresa
+                ? "Ocultar dados da loja"
+                : "Dados da loja"}
+            </button>
 
-              {mostrarDadosEmpresa && (
-                <>
-                  <pre
-                    style={
-                      styles.dadosEmpresaTexto
-                    }
-                  >
-                    {
-                      dadosEmpresaTexto
-                    }
-                  </pre>
-
-                  <button
-                    style={
-                      botaoFerramenta
-                    }
-                    onClick={() =>
-                      copiarInformacao(
-                        dadosEmpresaTexto,
-                        "dados"
-                      )
-                    }
-                  >
-                    Copiar dados
-                  </button>
-                </>
-              )}
-
-              <button
-                style={
-                  botaoFerramenta
-                }
-                onClick={
-                  exportarBackup
-                }
-              >
-                Exportar backup
-              </button>
-
-              <label
-                style={{
-                  ...botaoFerramenta,
-
-                  opacity:
-                    importandoBackup
-                      ? 0.6
-                      : 1,
-                }}
-              >
-                {importandoBackup
-                  ? "Importando..."
-                  : "Importar backup"}
-
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={
-                    importarBackup
+            {mostrarDadosEmpresa && (
+              <>
+                <pre
+                  style={
+                    styles.dadosEmpresaTexto
                   }
+                >
+                  {
+                    dadosEmpresaTexto
+                  }
+                </pre>
+
+                <button
+                  style={
+                    botaoFerramenta
+                  }
+                  onClick={() =>
+                    copiarInformacao(
+                      dadosEmpresaTexto,
+                      "dados"
+                    )
+                  }
+                >
+                  Copiar dados
+                </button>
+              </>
+            )}
+
+            {admin && (
+              <>
+                <button
+                  style={
+                    botaoFerramenta
+                  }
+                  onClick={
+                    exportarBackup
+                  }
+                >
+                  Exportar backup
+                </button>
+
+                <label
                   style={{
-                    display:
-                      "none",
+                    ...botaoFerramenta,
+
+                    opacity:
+                      importandoBackup
+                        ? 0.6
+                        : 1,
                   }}
-                />
-              </label>
+                >
+                  {importandoBackup
+                    ? "Importando..."
+                    : "Importar backup"}
 
-              <button
-                style={{
-                  ...botaoFerramenta,
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={
+                      importarBackup
+                    }
+                    style={{
+                      display:
+                        "none",
+                    }}
+                  />
+                </label>
 
-                  background:
-                    confirmandoLimpeza
-                      ? "#b91c1c"
-                      : "#ef4444",
-                }}
-                onClick={
-                  limparSistema
-                }
-              >
-                {confirmandoLimpeza
-                  ? "Clique novamente"
-                  : "Limpar sistema"}
-              </button>
-            </div>
-          )}
+                <button
+                  style={{
+                    ...botaoFerramenta,
+
+                    background:
+                      confirmandoLimpeza
+                        ? "#b91c1c"
+                        : "#ef4444",
+                  }}
+                  onClick={
+                    limparSistema
+                  }
+                >
+                  {confirmandoLimpeza
+                    ? "Clique novamente"
+                    : "Limpar sistema"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         <button
           style={{
