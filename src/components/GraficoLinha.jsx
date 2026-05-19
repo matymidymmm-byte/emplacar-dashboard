@@ -14,41 +14,48 @@ import styles from "../styles/styles.js";
 export default function GraficoLinha({
   dados,
   moeda,
+  linhas,
+  vazio = "Nenhum dado no período.",
 }) {
   if (!dados || dados.length === 0) {
-    return (
-      <p style={styles.vazio}>
-        Nenhuma venda no período.
-      </p>
-    );
+    return <p style={styles.vazio}>{vazio}</p>;
   }
 
   function dataCurta(data) {
-    if (!data || !data.includes("-")) return data || "";
+    if (!data || !String(data).includes("-")) return data || "";
 
-    const [ano, mes, dia] = data.split("-");
+    const [ano, mes, dia] = String(data).split("-");
 
     return `${dia}/${mes}`;
   }
 
   function dataCompleta(data) {
-    if (!data || !data.includes("-")) return data || "";
+    if (!data || !String(data).includes("-")) return data || "";
 
-    const [ano, mes, dia] = data.split("-");
+    const [ano, mes, dia] = String(data).split("-");
     const dataObj = new Date(Number(ano), Number(mes) - 1, Number(dia));
 
     const diasSemana = [
       "Domingo",
       "Segunda-feira",
       "Terça-feira",
-      "Quarta-feira",
       "Quinta-feira",
       "Sexta-feira",
       "Sábado",
     ];
 
-    return `${diasSemana[dataObj.getDay()]} - ${dia}/${mes}/${ano}`;
+    return `${diasSemana[dataObj.getDay()] || ""} - ${dia}/${mes}/${ano}`;
   }
+
+  const linhasPadrao = [
+    {
+      dataKey: "valor",
+      name: "Faturamento",
+      stroke: "#38bdf8",
+    },
+  ];
+
+  const linhasGrafico = linhas && linhas.length > 0 ? linhas : linhasPadrao;
 
   return (
     <div style={styles.graficoGrande}>
@@ -92,7 +99,9 @@ export default function GraficoLinha({
               color: "#f8fafc",
             }}
             labelFormatter={(value) => dataCompleta(value)}
-            formatter={(value) => moeda.format(value)}
+            formatter={(value) =>
+              moeda ? moeda.format(value || 0) : value
+            }
           />
 
           <Legend
@@ -102,25 +111,28 @@ export default function GraficoLinha({
             }}
           />
 
-          <Line
-            type="monotone"
-            dataKey="valor"
-            name="Faturamento"
-            stroke="#38bdf8"
-            strokeWidth={4}
-            dot={{
-              r: 4,
-              fill: "#38bdf8",
-              stroke: "#0f172a",
-              strokeWidth: 2,
-            }}
-            activeDot={{
-              r: 7,
-              fill: "#7c3aed",
-              stroke: "#f8fafc",
-              strokeWidth: 2,
-            }}
-          />
+          {linhasGrafico.map((linha) => (
+            <Line
+              key={linha.dataKey}
+              type="monotone"
+              dataKey={linha.dataKey}
+              name={linha.name}
+              stroke={linha.stroke}
+              strokeWidth={linha.strokeWidth || 4}
+              dot={{
+                r: 4,
+                fill: linha.stroke,
+                stroke: "#0f172a",
+                strokeWidth: 2,
+              }}
+              activeDot={{
+                r: 7,
+                fill: linha.stroke,
+                stroke: "#f8fafc",
+                strokeWidth: 2,
+              }}
+            />
+          ))}
         </LineChart>
       </ResponsiveContainer>
     </div>

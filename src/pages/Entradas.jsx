@@ -1,3 +1,8 @@
+import {
+  useEffect,
+  useRef,
+} from "react";
+
 import Card from "../components/Card.jsx";
 import Campo from "../components/Campo.jsx";
 import Select from "../components/Select.jsx";
@@ -8,19 +13,70 @@ import styles from "../styles/styles.js";
 export default function Entradas({
   entradaForm,
   setEntradaForm,
+
   clientes,
   formasPagamento,
+
   salvarEntrada,
   editando,
   cancelarEdicao,
+
   entradas,
   moeda,
+
   destinoDinheiro,
+
   editar,
   remover,
 }) {
+  const formRef = useRef(null);
+
+  const scrollAnteriorRef =
+    useRef(0);
+
+  useEffect(() => {
+    if (
+      editando.tipo === "entrada"
+    ) {
+      scrollAnteriorRef.current =
+        window.scrollY;
+
+      setTimeout(() => {
+        formRef.current?.scrollIntoView(
+          {
+            behavior: "smooth",
+            block: "start",
+          }
+        );
+      }, 120);
+    }
+  }, [editando]);
+
+  function salvarComRetorno() {
+    salvarEntrada();
+
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollAnteriorRef.current,
+        behavior: "smooth",
+      });
+    }, 220);
+  }
+
+  function cancelarComRetorno() {
+    cancelarEdicao();
+
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollAnteriorRef.current,
+        behavior: "smooth",
+      });
+    }, 220);
+  }
+
   const total = entradas.reduce(
-    (soma, entrada) => soma + entrada.valor,
+    (soma, entrada) =>
+      soma + entrada.valor,
     0
   );
 
@@ -29,9 +85,11 @@ export default function Entradas({
       ? total / entradas.length
       : 0;
 
-  const recebidas = entradas.filter(
-    (entrada) => entrada.diaPago
-  ).length;
+  const recebidas =
+    entradas.filter(
+      (entrada) =>
+        entrada.diaPago
+    ).length;
 
   return (
     <>
@@ -57,176 +115,220 @@ export default function Entradas({
         </span>
       </div>
 
-      <Card
-        titulo={
-          editando.tipo === "entrada"
-            ? "Editando entrada"
-            : "Lançar entrada"
-        }
-      >
-        <div style={styles.formGrid}>
-          <Campo
-            label="Data"
-            tipo="date"
-            valor={entradaForm.data}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                data: v,
-              })
-            }
-          />
+      <div ref={formRef}>
+        <Card
+          titulo={
+            editando.tipo ===
+            "entrada"
+              ? "Editando entrada"
+              : "Lançar entrada"
+          }
+        >
+          <div style={styles.formGrid}>
+            <Campo
+              label="Data"
+              tipo="date"
+              valor={
+                entradaForm.data
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  data: v,
+                })
+              }
+            />
 
-          <Campo
-            label="Tipo"
-            valor={entradaForm.tipo}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                tipo: v,
-              })
-            }
-          />
+            <Campo
+              label="Tipo"
+              valor={
+                entradaForm.tipo
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  tipo: v,
+                })
+              }
+            />
 
-          <Select
-            label="Cliente"
-            valor={entradaForm.cliente}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                cliente: v,
-              })
-            }
-            opcoes={[
-              "",
-              ...clientes.map((c) => c.nome),
-            ]}
-            placeholder="Cliente"
-          />
+            <Select
+              label="Cliente"
+              valor={
+                entradaForm.cliente
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  cliente: v,
+                })
+              }
+              opcoes={[
+                "",
+                ...clientes.map(
+                  (c) => c.nome
+                ),
+              ]}
+              placeholder="Cliente"
+            />
 
-          <Campo
-            label="Produto"
-            valor={entradaForm.produto}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                produto: v,
-              })
-            }
-          />
+            <Campo
+              label="Produto"
+              valor={
+                entradaForm.produto
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  produto: v,
+                })
+              }
+            />
 
-          <Campo
-            label="Placa"
-            valor={entradaForm.placa}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                placa: v.toUpperCase(),
-              })
-            }
-          />
+            <Campo
+              label="Placa"
+              valor={
+                entradaForm.placa
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  placa:
+                    v.toUpperCase(),
+                })
+              }
+            />
 
-          <Campo
-            label="Renavan"
-            valor={entradaForm.renavan}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                renavan: v,
-              })
-            }
-          />
+            <Campo
+              label="Renavan"
+              valor={
+                entradaForm.renavan
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  renavan: v,
+                })
+              }
+            />
 
-          <Select
-            label="Forma de pagamento"
-            valor={entradaForm.formaPagamento}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                formaPagamento: v,
-              })
-            }
-            opcoes={formasPagamento}
-          />
+            <Select
+              label="Forma de pagamento"
+              valor={
+                entradaForm.formaPagamento
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  formaPagamento:
+                    v,
+                })
+              }
+              opcoes={
+                formasPagamento
+              }
+            />
 
-          <Campo
-            label="Valor"
-            tipo="number"
-            valor={entradaForm.valor}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                valor: v,
-              })
-            }
-          />
+            <Campo
+              label="Valor"
+              tipo="number"
+              valor={
+                entradaForm.valor
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  valor: v,
+                })
+              }
+            />
 
-          <Select
-            label="Status"
-            valor={entradaForm.status}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                status: v,
-              })
-            }
-            opcoes={[
-              "Pago",
-              "Pendente",
-              "Atrasado",
-            ]}
-          />
+            <Select
+              label="Status"
+              valor={
+                entradaForm.status
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  status: v,
+                })
+              }
+              opcoes={[
+                "Pago",
+                "Pendente",
+                "Atrasado",
+              ]}
+            />
 
-          <Campo
-            label="Processo"
-            valor={entradaForm.processo}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                processo: v,
-              })
-            }
-          />
+            <Campo
+              label="Processo"
+              valor={
+                entradaForm.processo
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  processo: v,
+                })
+              }
+            />
 
-          <Campo
-            label="Dia pago"
-            tipo="date"
-            valor={entradaForm.diaPago || ""}
-            mudar={(v) =>
-              setEntradaForm({
-                ...entradaForm,
-                diaPago: v,
-              })
-            }
-          />
+            <Campo
+              label="Dia pago"
+              tipo="date"
+              valor={
+                entradaForm.diaPago ||
+                ""
+              }
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  diaPago: v,
+                })
+              }
+            />
 
-          <button
-            style={styles.botao}
-            onClick={salvarEntrada}
-          >
-            {editando.tipo === "entrada"
-              ? "Salvar edição"
-              : "Adicionar"}
-          </button>
-
-          {editando.tipo === "entrada" && (
             <button
-              style={styles.botaoCinza}
-              onClick={cancelarEdicao}
+              style={
+                styles.botao
+              }
+              onClick={
+                salvarComRetorno
+              }
             >
-              Cancelar
+              {editando.tipo ===
+              "entrada"
+                ? "Salvar edição"
+                : "Adicionar"}
             </button>
-          )}
-        </div>
 
-        <TabelaEntradas
-          entradas={entradas}
-          moeda={moeda}
-          destinoDinheiro={destinoDinheiro}
-          editar={editar}
-          remover={remover}
-        />
-      </Card>
+            {editando.tipo ===
+              "entrada" && (
+              <button
+                style={
+                  styles.botaoCinza
+                }
+                onClick={
+                  cancelarComRetorno
+                }
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+
+          <TabelaEntradas
+            entradas={entradas}
+            moeda={moeda}
+            destinoDinheiro={
+              destinoDinheiro
+            }
+            editar={editar}
+            remover={remover}
+          />
+        </Card>
+      </div>
     </>
   );
 }

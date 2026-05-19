@@ -19,6 +19,23 @@ export default function Saidas({
   editar,
   remover,
 }) {
+  const categoriasSaida = [
+    "Placas / Matéria-prima",
+    "Aluguel",
+    "Energia",
+    "Água",
+    "Internet",
+    "Marketing",
+    "Taxas",
+    "Vale colaborador",
+    "Manutenção",
+    "Pró-labore",
+    "Combustível",
+    "Sistema / Software",
+    "Material de escritório",
+    "Outros",
+  ];
+
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
 
@@ -33,18 +50,60 @@ export default function Saidas({
   return (
     <>
       <div style={styles.resumoFiltro}>
-        <span><strong>Saídas:</strong> {saidas.length}</span>
-        <span><strong>Total:</strong> {moeda.format(total)}</span>
-        <span><strong>Média:</strong> {moeda.format(media)}</span>
+        <span>
+          <strong>Saídas:</strong> {saidas.length}
+        </span>
+
+        <span>
+          <strong>Total:</strong> {moeda.format(total)}
+        </span>
+
+        <span>
+          <strong>Média:</strong> {moeda.format(media)}
+        </span>
       </div>
 
       <Card titulo={editando.tipo === "saida" ? "Editando saída" : "Lançar saída"}>
         <div style={styles.formGrid}>
-          <Campo label="Dia saída" tipo="date" valor={saidaForm.data} mudar={(v) => setSaidaForm({ ...saidaForm, data: v })} />
-          <Select label="Forma de pagamento saída" valor={saidaForm.formaPagamento} mudar={(v) => setSaidaForm({ ...saidaForm, formaPagamento: v })} opcoes={formasPagamento} />
-          <Campo label="Tipo saída" valor={saidaForm.tipoSaida} mudar={(v) => setSaidaForm({ ...saidaForm, tipoSaida: v })} />
-          <Campo label="Conta" valor={saidaForm.conta} mudar={(v) => setSaidaForm({ ...saidaForm, conta: v })} />
-          <Campo label="Valor saída" tipo="number" valor={saidaForm.valor} mudar={(v) => setSaidaForm({ ...saidaForm, valor: v })} />
+          <Campo
+            label="Dia saída"
+            tipo="date"
+            valor={saidaForm.data}
+            mudar={(v) => setSaidaForm({ ...saidaForm, data: v })}
+          />
+
+          <Select
+            label="Forma de pagamento saída"
+            valor={saidaForm.formaPagamento}
+            mudar={(v) => setSaidaForm({ ...saidaForm, formaPagamento: v })}
+            opcoes={formasPagamento}
+          />
+
+          <Select
+            label="Centro de custo"
+            valor={saidaForm.categoria || "Outros"}
+            mudar={(v) => setSaidaForm({ ...saidaForm, categoria: v })}
+            opcoes={categoriasSaida}
+          />
+
+          <Campo
+            label="Tipo saída"
+            valor={saidaForm.tipoSaida}
+            mudar={(v) => setSaidaForm({ ...saidaForm, tipoSaida: v })}
+          />
+
+          <Campo
+            label="Conta"
+            valor={saidaForm.conta}
+            mudar={(v) => setSaidaForm({ ...saidaForm, conta: v })}
+          />
+
+          <Campo
+            label="Valor saída"
+            tipo="number"
+            valor={saidaForm.valor}
+            mudar={(v) => setSaidaForm({ ...saidaForm, valor: v })}
+          />
 
           <button style={styles.botao} onClick={salvarSaida}>
             {editando.tipo === "saida" ? "Salvar edição" : "Adicionar"}
@@ -58,10 +117,20 @@ export default function Saidas({
         </div>
 
         <Tabela
-          colunas={["Dia saída", "Pagamento", "Tipo saída", "Conta", "Valor", "Destino", "Ações"]}
+          colunas={[
+            "Dia saída",
+            "Pagamento",
+            "Centro de custo",
+            "Tipo saída",
+            "Conta",
+            "Valor",
+            "Destino",
+            "Ações",
+          ]}
           dados={saidas.map((saida) => [
             dataBR(saida.data),
             saida.formaPagamento,
+            saida.categoria || "Outros",
             saida.tipoSaida,
             saida.conta,
             moeda.format(saida.valor),

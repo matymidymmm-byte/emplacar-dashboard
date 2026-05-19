@@ -6,24 +6,28 @@ const styles = {
     background: "#0b1020",
     color: "#e2e8f0",
     fontFamily: "Arial, sans-serif",
+    overflow: "hidden",
   },
 
   sidebar: {
-    width: 240,
-    minWidth: 240,
+    width: "clamp(210px, 18vw, 240px)",
+    minWidth: "210px",
     background: "#111827",
     padding: 20,
     display: "flex",
     flexDirection: "column",
     gap: 10,
     borderRight: "1px solid #1e293b",
+    overflowY: "auto",
   },
 
   main: {
     flex: 1,
     padding: 18,
     overflowX: "hidden",
-    background: "linear-gradient(135deg, #0b1020 0%, #121937 100%)",
+    overflowY: "auto",
+    background:
+      "linear-gradient(135deg, #0b1020 0%, #121937 100%)",
   },
 
   logoBox: {
@@ -69,18 +73,21 @@ const styles = {
     cursor: "pointer",
     textAlign: "left",
     fontSize: 14,
+    width: "100%",
   },
 
   menuAtivo: {
     padding: "12px 14px",
     borderRadius: 12,
     border: "1px solid #2563eb",
-    background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+    background:
+      "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
     color: "white",
     cursor: "pointer",
     textAlign: "left",
     fontWeight: "bold",
     fontSize: 14,
+    width: "100%",
   },
 
   menuRodape: {
@@ -102,6 +109,7 @@ const styles = {
     textAlign: "left",
     fontSize: 13,
     fontWeight: "bold",
+    width: "100%",
   },
 
   dadosEmpresaBox: {
@@ -109,6 +117,7 @@ const styles = {
     border: "1px solid #334155",
     borderRadius: 12,
     padding: 10,
+    overflowWrap: "break-word",
   },
 
   dadosEmpresaTexto: {
@@ -168,7 +177,7 @@ const styles = {
 
   dashboardTitulo: {
     margin: 0,
-    fontSize: 34,
+    fontSize: "clamp(24px, 3vw, 34px)",
     fontWeight: 800,
     color: "#f8fafc",
   },
@@ -190,7 +199,7 @@ const styles = {
 
   titulo: {
     margin: 0,
-    fontSize: 30,
+    fontSize: "clamp(22px, 2.8vw, 30px)",
     fontWeight: 800,
     color: "#f8fafc",
   },
@@ -206,9 +215,12 @@ const styles = {
     borderRadius: 18,
     padding: 14,
     border: "1px solid #1e293b",
-    boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
+    boxShadow:
+      "0 12px 30px rgba(0,0,0,0.35)",
     marginBottom: 14,
     overflow: "hidden",
+    width: "100%",
+    boxSizing: "border-box",
   },
 
   cardTitulo: {
@@ -221,27 +233,33 @@ const styles = {
 
   kpis: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(220px, 1fr))",
     gap: 12,
     marginBottom: 14,
   },
 
   kpisModernos: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(220px, 1fr))",
     gap: 12,
     marginBottom: 14,
   },
 
   kpi: {
-    background: "linear-gradient(135deg, #1e293b 0%, #312e81 100%)",
+    background:
+      "linear-gradient(135deg, #1e293b 0%, #312e81 100%)",
     padding: 14,
     borderRadius: 18,
     border: "1px solid #334155",
-    boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+    boxShadow:
+      "0 10px 25px rgba(0,0,0,0.35)",
+    overflow: "hidden",
+    minWidth: 0,
   },
 
-    kpiHeader: {
+  kpiHeader: {
     display: "flex",
     alignItems: "center",
     gap: 14,
@@ -272,35 +290,39 @@ const styles = {
   },
 
   kpiValor: {
-    fontSize: 20,
+    fontSize: "clamp(16px, 2vw, 20px)",
     fontWeight: 800,
     color: "#f8fafc",
     lineHeight: 1.1,
-    whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
-    width: "100%",
   },
 
   dashboardGridNova: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(320px, 1fr))",
     gap: 14,
     alignItems: "start",
+    width: "100%",
   },
 
   grid2: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(320px, 1fr))",
     gap: 16,
     alignItems: "start",
+    width: "100%",
   },
 
   formGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(220px, 1fr))",
     gap: 10,
     marginBottom: 10,
+    width: "100%",
   },
 
   label: {
@@ -310,6 +332,7 @@ const styles = {
     color: "#cbd5e1",
     fontSize: 13,
     fontWeight: "bold",
+    minWidth: 0,
   },
 
   input: {
@@ -319,13 +342,16 @@ const styles = {
     background: "#0f172a",
     color: "#f8fafc",
     fontSize: 14,
+    width: "100%",
+    boxSizing: "border-box",
   },
 
   botao: {
     padding: "10px 14px",
     borderRadius: 12,
     border: 0,
-    background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+    background:
+      "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
     color: "white",
     fontWeight: "bold",
     cursor: "pointer",
@@ -335,7 +361,8 @@ const styles = {
     padding: "10px 16px",
     borderRadius: 12,
     border: 0,
-    background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+    background:
+      "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
     color: "white",
     fontWeight: "bold",
     cursor: "pointer",
@@ -365,7 +392,7 @@ const styles = {
   acoes: {
     display: "flex",
     gap: 6,
-    flexWrap: "nowrap",
+    flexWrap: "wrap",
     alignItems: "center",
   },
 
@@ -446,11 +473,11 @@ const styles = {
 
   tabelaContainer: {
     width: "100%",
+    overflow: "hidden",
   },
 
   tabelaBox: {
     width: "100%",
-    maxWidth: "100%",
     overflowX: "auto",
     overflowY: "hidden",
     paddingBottom: 6,
@@ -467,7 +494,6 @@ const styles = {
   tabelaCompacta: {
     width: "100%",
     minWidth: 1180,
-    tableLayout: "auto",
     borderCollapse: "collapse",
     fontSize: 13,
     color: "#e2e8f0",
@@ -533,12 +559,15 @@ const styles = {
 
   linhaData: {
     padding: "11px 10px",
-    background: "linear-gradient(90deg, rgba(37, 99, 235, 0.28), rgba(14, 165, 233, 0.12))",
+    background:
+      "linear-gradient(90deg, rgba(37,99,235,0.28), rgba(14,165,233,0.12))",
     color: "#bfdbfe",
     fontWeight: "bold",
     whiteSpace: "nowrap",
-    borderTop: "1px solid rgba(147, 197, 253, 0.35)",
-    borderBottom: "1px solid rgba(147, 197, 253, 0.35)",
+    borderTop:
+      "1px solid rgba(147,197,253,0.35)",
+    borderBottom:
+      "1px solid rgba(147,197,253,0.35)",
   },
 
   detalheLinha: {
@@ -549,7 +578,8 @@ const styles = {
 
   detalheGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(180px, 1fr))",
     gap: 12,
     marginBottom: 12,
   },
@@ -562,8 +592,10 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 8,
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.25)",
+    boxShadow:
+      "0 4px 12px rgba(0,0,0,0.25)",
     color: "#e2e8f0",
+    minWidth: 0,
   },
 
   detalheLabel: {
@@ -581,6 +613,7 @@ const styles = {
     fontSize: 12,
     background: "#020617",
     color: "#f8fafc",
+    boxSizing: "border-box",
   },
 
   totalTabela: {
@@ -602,7 +635,7 @@ const styles = {
 
   graficoGrande: {
     width: "100%",
-    height: 220,
+    height: 260,
   },
 
   textarea: {
@@ -616,6 +649,7 @@ const styles = {
     marginBottom: 14,
     background: "#0f172a",
     color: "#f8fafc",
+    boxSizing: "border-box",
   },
 
   ajuda: {

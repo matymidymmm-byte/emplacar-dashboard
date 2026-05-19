@@ -1,3 +1,4 @@
+import { useState } from "react";
 import jsPDF from "jspdf";
 
 import styles from "../styles/styles.js";
@@ -14,167 +15,291 @@ export default function Dashboard({
   setInicioMes,
   fimMes,
   setFimMes,
+
   indicadores,
   moeda,
+
   vendasPorDia,
   contasPorNome,
   statusContasPizza,
   rankingClientes,
+
   dadosPeriodo,
   statusConta,
-  servicosPorDia,
-}) {
-  function dataBR(data) {
-    if (!data || !data.includes("-")) return data || "";
 
-    const [ano, mes, dia] = data.split("-");
+  servicosPorDia,
+
+  entradas,
+  saidas,
+  contas,
+
+  dataRecebimentoEntrada,
+  destinoDinheiro,
+
+  metaMensal,
+  setMetaMensal,
+}) {
+  const [modoDetalhado, setModoDetalhado] =
+    useState(false);
+
+  function dataBR(data) {
+    if (!data || !data.includes("-"))
+      return data || "";
+
+    const [ano, mes, dia] =
+      data.split("-");
 
     return `${dia}/${mes}/${ano}`;
   }
 
-  function exportarPDF() {
-    const doc = new jsPDF();
+  function dentroDoPeriodo(data) {
+    if (!data) return false;
 
-    let y = 16;
-
-    doc.setFontSize(18);
-
-    doc.text(
-      "Relatório Financeiro - Emplacar",
-      14,
-      y
-    );
-
-    y += 10;
-
-    doc.setFontSize(10);
-
-    doc.text(
-      `Período: ${inicioMes} até ${fimMes}`,
-      14,
-      y
-    );
-
-    y += 14;
-
-    doc.setFontSize(13);
-
-    doc.text(
-      "Indicadores",
-      14,
-      y
-    );
-
-    y += 8;
-
-    const indicadoresLista = [
-      [
-        "Entrada bruta",
-        moeda.format(
-          indicadores.entradaBruta
-        ),
-      ],
-
-      [
-        "Entrada líquida",
-        moeda.format(
-          indicadores.entradaLiquida
-        ),
-      ],
-
-      [
-        "Saídas",
-        moeda.format(
-          indicadores.saidasTotal
-        ),
-      ],
-
-      [
-        "Faturado em aberto",
-        moeda.format(
-          indicadores.faturadoEmAberto
-        ),
-      ],
-
-      [
-        "Banco",
-        moeda.format(
-          indicadores.tenhoNoBanco
-        ),
-      ],
-
-      [
-        "Caixa",
-        moeda.format(
-          indicadores.tenhoNoCaixa
-        ),
-      ],
-    ];
-
-    indicadoresLista.forEach(
-      ([titulo, valor]) => {
-        doc.text(
-          `${titulo}: ${valor}`,
-          18,
-          y
-        );
-
-        y += 7;
-      }
-    );
-
-    doc.save(
-      "relatorio-financeiro-emplacar.pdf"
+    return (
+      data >= inicioMes &&
+      data <= fimMes
     );
   }
 
-  const kpis = [
-    {
-      titulo: "Entrada Bruta",
-      valor: moeda.format(
-        indicadores.entradaBruta
-      ),
-    },
+  const hojeSistema = new Date();
 
-    {
-      titulo: "Entrada Líquida",
-      valor: moeda.format(
-        indicadores.entradaLiquida
-      ),
-    },
+  const diaAtual =
+    hojeSistema.getDate();
 
-    {
-      titulo: "Saídas",
-      valor: moeda.format(
-        indicadores.saidasTotal
-      ),
-    },
+  const ultimoDiaMes = new Date(
+    hojeSistema.getFullYear(),
+    hojeSistema.getMonth() + 1,
+    0
+  ).getDate();
 
-    {
-      titulo:
-        "Faturado em Aberto",
+  const fluxoCaixaDiario = (() => {
+    const mapa = {};
 
-      valor: moeda.format(
-        indicadores.faturadoEmAberto
-      ),
-    },
+    function criarDia(data) {
+      if (!mapa[data]) {
+        mapa[data] = {
+          data,
 
-    {
-      titulo: "Banco",
+          entradaBanco: 0,
+          entradaCaixa: 0,
 
-      valor: moeda.format(
-        indicadores.tenhoNoBanco
-      ),
-    },
+          saidaBanco: 0,
+          saidaCaixa: 0,
 
-    {
-      titulo: "Caixa",
+          saldoBanco: 0,
+          saldoCaixa: 0,
 
-      valor: moeda.format(
-        indicadores.tenhoNoCaixa
-      ),
-    },
-  ];
+          saldoTotal: 0,
+        };
+      }
+    }
+
+    entradas.forEach((entrada) => {
+      const dataRecebimento =
+        dataRecebimentoEntrada(
+          entrada
+        );
+
+      if (
+        !dentroDoPeriodo(
+          dataRecebimento
+        )
+      )
+        return;
+
+      if (entrada.status !== "Pago")
+        return;
+
+      criarDia(dataRecebimento);
+
+      const valor = Number(
+        entrada.valor || 0
+      );
+
+      if (
+        destinoDinheiro(
+          entrada.formaPagamento
+        ) === "Caixa"
+      ) {
+        mapa[
+          dataRecebimento
+        ].entradaCaixa += valor;
+      } else {
+        mapa[
+          dataRecebimento
+        ].entradaBanco += valor;
+      }
+    });
+
+    saidas.forEach((saida) => {
+      if (
+        !dentroDoPeriodo(saida.data)
+      )
+        return;
+
+      criarDia(saida.data);
+
+      const valor = Number(
+        saida.valor || 0
+      );
+
+      if (
+        destinoDinheiro(
+          saida.formaPagamento
+        ) === "Caixa"
+      ) {
+        mapa[
+          saida.data
+        ].saidaCaixa += valor;
+      } else {
+        mapa[
+          saida.data
+        ].saidaBanco += valor;
+      }
+    });
+
+    contas.forEach((conta) => {
+      if (
+        !dentroDoPeriodo(
+          conta.vencimento
+        )
+      )
+        return;
+
+      if (
+        statusConta(conta) !==
+        "Pago"
+      )
+        return;
+
+      criarDia(conta.vencimento);
+
+      mapa[
+        conta.vencimento
+      ].saidaBanco += Number(
+        conta.valor || 0
+      );
+    });
+
+    let saldoBancoAcumulado = 0;
+
+    let saldoCaixaAcumulado = 0;
+
+    return Object.values(mapa)
+      .sort((a, b) =>
+        a.data.localeCompare(b.data)
+      )
+      .map((dia) => {
+        const saldoBancoDia =
+          dia.entradaBanco -
+          dia.saidaBanco;
+
+        const saldoCaixaDia =
+          dia.entradaCaixa -
+          dia.saidaCaixa;
+
+        saldoBancoAcumulado +=
+          saldoBancoDia;
+
+        saldoCaixaAcumulado +=
+          saldoCaixaDia;
+
+        return {
+          ...dia,
+
+          saldoBanco:
+            saldoBancoAcumulado,
+
+          saldoCaixa:
+            saldoCaixaAcumulado,
+
+          saldoTotal:
+            saldoBancoAcumulado +
+            saldoCaixaAcumulado,
+        };
+      });
+  })();
+
+  const receitaOperacional =
+    indicadores
+      .faturamentoCompetencia ||
+    indicadores.entradaBruta ||
+    0;
+
+  const despesasOperacionais =
+    indicadores.saidasTotal || 0;
+
+  const resultadoOperacional =
+    receitaOperacional -
+    despesasOperacionais;
+
+  const margemOperacional =
+    receitaOperacional > 0
+      ? (resultadoOperacional /
+          receitaOperacional) *
+        100
+      : 0;
+
+  const percentualMeta =
+    metaMensal > 0
+      ? (receitaOperacional /
+          metaMensal) *
+        100
+      : 0;
+
+  const faltaMeta =
+    metaMensal -
+    receitaOperacional;
+
+  const mediaNecessaria =
+    faltaMeta > 0
+      ? faltaMeta /
+        Math.max(
+          ultimoDiaMes - diaAtual,
+          1
+        )
+      : 0;
+
+  const projecaoMes =
+    diaAtual > 0
+      ? (receitaOperacional /
+          diaAtual) *
+        ultimoDiaMes
+      : 0;
+
+  const despesasPorCategoria =
+    (() => {
+      const mapa = {};
+
+      saidas.forEach((saida) => {
+        if (
+          !dentroDoPeriodo(
+            saida.data
+          )
+        )
+          return;
+
+        const categoria =
+          saida.categoria ||
+          "Outros";
+
+        mapa[categoria] =
+          (mapa[categoria] || 0) +
+          Number(saida.valor || 0);
+      });
+
+      return Object.entries(mapa)
+        .map(
+          ([categoria, valor]) => ({
+            categoria,
+            valor,
+          })
+        )
+        .sort(
+          (a, b) =>
+            b.valor - a.valor
+        );
+    })();
 
   const clientesTop =
     (rankingClientes || []).slice(
@@ -198,21 +323,139 @@ export default function Dashboard({
       0
     );
 
+  const diferencaFaturamentoCaixa =
+    receitaOperacional -
+    (indicadores.caixaRecebidoTotal ||
+      indicadores.recebidoTotal ||
+      0);
+
+  function exportarPDF() {
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+
+    doc.text(
+      "Relatório Financeiro",
+      14,
+      20
+    );
+
+    doc.save(
+      "relatorio-financeiro.pdf"
+    );
+  }
+
+  const kpisSimples = [
+    [
+      "Faturamento",
+      receitaOperacional,
+    ],
+
+    [
+      "Caixa Real",
+      indicadores.entradaLiquida ||
+        0,
+    ],
+
+    [
+      "Saídas",
+      indicadores.saidasTotal || 0,
+    ],
+
+    [
+      "Faturado em Aberto",
+      indicadores.faturadoEmAberto ||
+        0,
+    ],
+
+    [
+      "Banco",
+      indicadores.tenhoNoBanco ||
+        0,
+    ],
+
+    [
+      "Caixa Físico",
+      indicadores.tenhoNoCaixa ||
+        0,
+    ],
+  ];
+
+  const kpisDetalhados = [
+    [
+      "Faturamento",
+      receitaOperacional,
+    ],
+
+    [
+      "Caixa Real",
+      indicadores.entradaLiquida ||
+        0,
+    ],
+
+    [
+      "Caixa Recebido",
+      indicadores.caixaRecebidoTotal ||
+        indicadores.recebidoTotal ||
+        0,
+    ],
+
+    [
+      "Saídas",
+      indicadores.saidasTotal || 0,
+    ],
+
+    [
+      "Faturado em Aberto",
+      indicadores.faturadoEmAberto ||
+        0,
+    ],
+
+    [
+      "Recebidos Antigos",
+      indicadores.recebimentosAntigos ||
+        0,
+    ],
+
+    [
+      "Injeção Sócios",
+      indicadores.injecaoSociosTotal ||
+        0,
+    ],
+
+    [
+      "Recuperação Vale",
+      indicadores.recuperacaoValeTotal ||
+        0,
+    ],
+
+    [
+      "Banco",
+      indicadores.tenhoNoBanco ||
+        0,
+    ],
+
+    [
+      "Caixa Físico",
+      indicadores.tenhoNoCaixa ||
+        0,
+    ],
+  ];
+
+  const kpis = modoDetalhado
+    ? kpisDetalhados
+    : kpisSimples;
+
   return (
     <>
-      <div
-        style={
-          styles.dashboardTopo
-        }
-      >
+      <div style={styles.dashboardTopo}>
         <div>
           <h1
             style={
               styles.dashboardTitulo
             }
           >
-            Dashboard
-            Financeiro
+            Dashboard Financeiro
           </h1>
 
           <p
@@ -220,37 +463,68 @@ export default function Dashboard({
               styles.dashboardSubtitulo
             }
           >
-            Visão geral
-            operacional e
-            financeira
+            Visão geral operacional
+            e financeira
           </p>
         </div>
 
-        <button
-          style={
-            styles.botaoDashboard
-          }
-          onClick={
-            exportarPDF
-          }
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
         >
-          Exportar PDF
-        </button>
+          <button
+            style={{
+              ...styles.botaoDashboard,
+
+              background:
+                modoDetalhado
+                  ? "#334155"
+                  : "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)",
+            }}
+            onClick={() =>
+              setModoDetalhado(false)
+            }
+          >
+            Simples
+          </button>
+
+          <button
+            style={{
+              ...styles.botaoDashboard,
+
+              background:
+                modoDetalhado
+                  ? "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)"
+                  : "#334155",
+            }}
+            onClick={() =>
+              setModoDetalhado(true)
+            }
+          >
+            Detalhado
+          </button>
+
+          <button
+            style={
+              styles.botaoDashboard
+            }
+            onClick={exportarPDF}
+          >
+            Exportar PDF
+          </button>
+        </div>
       </div>
 
       <Card titulo="Período analisado">
-        <div
-          style={
-            styles.formGrid
-          }
-        >
+        <div style={styles.formGrid}>
           <Campo
             label="Começa em"
             tipo="date"
             valor={inicioMes}
-            mudar={
-              setInicioMes
-            }
+            mudar={setInicioMes}
           />
 
           <Campo
@@ -262,30 +536,126 @@ export default function Dashboard({
         </div>
       </Card>
 
-      <div
-        style={
-          styles.kpisModernos
-        }
-      >
-        {kpis.map((kpi) => (
-          <Kpi
-            key={kpi.titulo}
-            titulo={kpi.titulo}
-            valor={kpi.valor}
-          />
-        ))}
+      <div style={styles.kpisModernos}>
+        {kpis.map(
+          ([titulo, valor]) => (
+            <Kpi
+              key={titulo}
+              titulo={titulo}
+              valor={moeda.format(
+                valor
+              )}
+            />
+          )
+        )}
       </div>
 
-      <div
-        style={
-          styles.dashboardGridNova
-        }
-      >
+      <Card titulo="Fluxo de caixa acumulado">
+        <GraficoLinha
+          dados={fluxoCaixaDiario}
+          moeda={moeda}
+          linhas={[
+            {
+              dataKey: "saldoBanco",
+              name: "Banco",
+              stroke: "#38bdf8",
+            },
+
+            {
+              dataKey: "saldoCaixa",
+              name: "Caixa físico",
+              stroke: "#22c55e",
+            },
+
+            {
+              dataKey: "saldoTotal",
+              name: "Saldo total",
+              stroke: "#a855f7",
+            },
+          ]}
+        />
+      </Card>
+
+      <Card titulo="DRE gerencial simples">
+        <div style={styles.kpisModernos}>
+          <Kpi
+            titulo="Receita Operacional"
+            valor={moeda.format(
+              receitaOperacional
+            )}
+          />
+
+          <Kpi
+            titulo="Despesas Operacionais"
+            valor={moeda.format(
+              despesasOperacionais
+            )}
+          />
+
+          <Kpi
+            titulo="Resultado Operacional"
+            valor={moeda.format(
+              resultadoOperacional
+            )}
+          />
+
+          <Kpi
+            titulo="Margem Operacional"
+            valor={`${margemOperacional.toFixed(
+              1
+            )}%`}
+          />
+        </div>
+      </Card>
+
+      <Card titulo="Meta mensal">
+        <div style={styles.formGrid}>
+          <Campo
+            label="Meta do mês"
+            tipo="number"
+            valor={metaMensal}
+            mudar={setMetaMensal}
+          />
+        </div>
+
+        <div style={styles.kpisModernos}>
+          <Kpi
+            titulo="% Meta"
+            valor={`${percentualMeta.toFixed(
+              1
+            )}%`}
+          />
+
+          <Kpi
+            titulo="Falta para meta"
+            valor={moeda.format(
+              Math.max(
+                faltaMeta,
+                0
+              )
+            )}
+          />
+
+          <Kpi
+            titulo="Meta diária necessária"
+            valor={moeda.format(
+              mediaNecessaria
+            )}
+          />
+
+          <Kpi
+            titulo="Projeção mês"
+            valor={moeda.format(
+              projecaoMes
+            )}
+          />
+        </div>
+      </Card>
+
+      <div style={styles.dashboardGridNova}>
         <Card titulo="Faturamento por dia">
           <GraficoLinha
-            dados={
-              vendasPorDia || []
-            }
+            dados={vendasPorDia || []}
             moeda={moeda}
           />
         </Card>
@@ -293,375 +663,228 @@ export default function Dashboard({
         <Card titulo="Serviços por dia">
           <GraficoBarras
             dados={
-              servicosPorDia ||
-              []
+              servicosPorDia || []
             }
             dataKey="quantidade"
             xKey="data"
             nome="Serviços"
           />
         </Card>
+      </div>
 
-        <Card titulo="Contas a pagar">
-          <GraficoBarras
-            dados={
-              contasPorNome ||
-              []
-            }
-            moeda={moeda}
-            horizontal
-            dataKey="valor"
-            xKey="conta"
-            nome="Contas"
-          />
-        </Card>
-
-        <Card titulo="Status financeiro">
-          <GraficoPizza
-            dados={
-              statusContasPizza ||
-              []
-            }
-            moeda={moeda}
-          />
-        </Card>
-
-        <Card titulo="Top clientes">
-          <div
-            style={{
-              width: "100%",
-              overflow:
-                "hidden",
-            }}
-          >
+      {modoDetalhado && (
+        <>
+          <Card titulo="Leitura executiva do caixa">
             <div
               style={{
-                display:
-                  "grid",
-
+                display: "grid",
                 gridTemplateColumns:
-                  "1fr 130px 90px",
+                  "repeat(auto-fit,minmax(220px,1fr))",
 
-                gap: 10,
-
-                padding:
-                  "8px 0",
-
-                borderBottom:
-                  "1px solid rgba(148, 163, 184, 0.22)",
-
-                color:
-                  "#cbd5e1",
-
-                fontWeight:
-                  "bold",
-
-                fontSize: 12,
+                gap: 14,
               }}
             >
-              <span>
-                Cliente
-              </span>
+              <div>
+                <p
+                  style={{
+                    color: "#94a3b8",
+                    margin: 0,
+                    fontSize: 13,
+                  }}
+                >
+                  Diferença
+                  faturamento x caixa
+                </p>
 
-              <span
-                style={{
-                  textAlign:
-                    "right",
-                }}
-              >
-                Valor
-              </span>
+                <strong
+                  style={{
+                    color:
+                      diferencaFaturamentoCaixa >
+                      0
+                        ? "#f59e0b"
+                        : "#22c55e",
 
-              <span
-                style={{
-                  textAlign:
-                    "right",
-                }}
-              >
-                %
-              </span>
+                    fontSize: 22,
+                  }}
+                >
+                  {moeda.format(
+                    diferencaFaturamentoCaixa
+                  )}
+                </strong>
+              </div>
             </div>
+          </Card>
 
-            {clientesTop.length ===
-            0 ? (
-              <p
-                style={
-                  styles.vazio
+          <div style={styles.dashboardGridNova}>
+            <Card titulo="Contas a pagar">
+              <GraficoBarras
+                dados={
+                  contasPorNome || []
                 }
-              >
-                Nenhum
-                cliente no
-                período.
-              </p>
-            ) : (
-              clientesTop.map(
-                (cliente) => {
-                  const percentual =
-                    totalClientesTop >
-                    0
-                      ? (cliente.valor /
-                          totalClientesTop) *
-                        100
-                      : 0;
+                moeda={moeda}
+                horizontal
+                dataKey="valor"
+                xKey="conta"
+                nome="Contas"
+              />
+            </Card>
 
-                  return (
-                    <div
-                      key={
-                        cliente.cliente
-                      }
-                      style={{
-                        display:
-                          "grid",
+            <Card titulo="Status financeiro">
+              <GraficoPizza
+                dados={
+                  statusContasPizza ||
+                  []
+                }
+                moeda={moeda}
+              />
+            </Card>
 
-                        gridTemplateColumns:
-                          "1fr 130px 90px",
+            <Card titulo="Despesas por centro de custo">
+              <GraficoBarras
+                dados={
+                  despesasPorCategoria
+                }
+                moeda={moeda}
+                horizontal
+                dataKey="valor"
+                xKey="categoria"
+                nome="Despesas"
+              />
+            </Card>
 
-                        gap: 10,
+            <Card titulo="Top clientes">
+              {clientesTop.length ===
+              0 ? (
+                <p style={styles.vazio}>
+                  Nenhum cliente no
+                  período.
+                </p>
+              ) : (
+                clientesTop.map(
+                  (cliente) => {
+                    const percentual =
+                      totalClientesTop >
+                      0
+                        ? (cliente.valor /
+                            totalClientesTop) *
+                          100
+                        : 0;
 
-                        padding:
-                          "9px 0",
-
-                        borderBottom:
-                          "1px solid rgba(148, 163, 184, 0.12)",
-
-                        alignItems:
-                          "center",
-
-                        fontSize: 13,
-                      }}
-                    >
-                      <span
-                        style={{
-                          color:
-                            "#f8fafc",
-
-                          overflow:
-                            "hidden",
-
-                          textOverflow:
-                            "ellipsis",
-
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {
+                    return (
+                      <div
+                        key={
                           cliente.cliente
                         }
-                      </span>
-
-                      <strong
                         style={{
-                          color:
-                            "#38bdf8",
+                          display:
+                            "grid",
 
-                          textAlign:
-                            "right",
+                          gridTemplateColumns:
+                            "1fr 130px 90px",
 
-                          whiteSpace:
-                            "nowrap",
+                          gap: 10,
+
+                          padding:
+                            "9px 0",
+
+                          borderBottom:
+                            "1px solid rgba(148,163,184,0.12)",
+
+                          alignItems:
+                            "center",
+
+                          fontSize: 13,
                         }}
                       >
-                        {moeda.format(
-                          cliente.valor
-                        )}
-                      </strong>
+                        <span
+                          style={{
+                            color:
+                              "#f8fafc",
 
-                      <span
-                        style={{
-                          color:
-                            "#94a3b8",
+                            overflow:
+                              "hidden",
 
-                          textAlign:
-                            "right",
+                            textOverflow:
+                              "ellipsis",
 
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {percentual.toFixed(
-                          1
-                        )}
-                        %
-                      </span>
-                    </div>
-                  );
-                }
-              )
-            )}
-          </div>
-        </Card>
+                            whiteSpace:
+                              "nowrap",
+                          }}
+                        >
+                          {
+                            cliente.cliente
+                          }
+                        </span>
 
-        <Card titulo="Contas pendentes">
-          {contasPendentes.length ===
-          0 ? (
-            <div
-              style={{
-                minHeight: 150,
+                        <strong
+                          style={{
+                            color:
+                              "#38bdf8",
 
-                display:
-                  "flex",
+                            textAlign:
+                              "right",
+                          }}
+                        >
+                          {moeda.format(
+                            cliente.valor
+                          )}
+                        </strong>
 
-                flexDirection:
-                  "column",
+                        <span
+                          style={{
+                            color:
+                              "#94a3b8",
 
-                alignItems:
-                  "center",
+                            textAlign:
+                              "right",
+                          }}
+                        >
+                          {percentual.toFixed(
+                            1
+                          )}
+                          %
+                        </span>
+                      </div>
+                    );
+                  }
+                )
+              )}
+            </Card>
 
-                justifyContent:
-                  "center",
-
-                gap: 12,
-
-                color:
-                  "#94a3b8",
-              }}
-            >
-              <div
-                style={{
-                  width: 58,
-
-                  height: 58,
-
-                  borderRadius:
-                    "50%",
-
-                  border:
-                    "1px solid rgba(148, 163, 184, 0.28)",
-
-                  display:
-                    "flex",
-
-                  alignItems:
-                    "center",
-
-                  justifyContent:
-                    "center",
-
-                  fontSize: 26,
-                }}
-              >
-                $
-              </div>
-
-              <span>
-                Nenhuma
-                conta
-                pendente no
-                período.
-              </span>
-            </div>
-          ) : (
-            <div>
-              <div
-                style={{
-                  display:
-                    "grid",
-
-                  gridTemplateColumns:
-                    "100px 1fr 120px 90px",
-
-                  gap: 10,
-
-                  padding:
-                    "8px 0",
-
-                  borderBottom:
-                    "1px solid rgba(148, 163, 184, 0.22)",
-
-                  color:
-                    "#cbd5e1",
-
-                  fontWeight:
-                    "bold",
-
-                  fontSize: 12,
-                }}
-              >
-                <span>
-                  Vencimento
-                </span>
-
-                <span>
-                  Conta
-                </span>
-
-                <span
-                  style={{
-                    textAlign:
-                      "right",
-                  }}
-                >
-                  Valor
-                </span>
-
-                <span
-                  style={{
-                    textAlign:
-                      "right",
-                  }}
-                >
-                  Status
-                </span>
-              </div>
-
-              {contasPendentes
-                .slice(0, 8)
-                .map(
-                  (
-                    conta
-                  ) => (
+            <Card titulo="Contas pendentes">
+              {contasPendentes.length ===
+              0 ? (
+                <p style={styles.vazio}>
+                  Nenhuma conta
+                  pendente.
+                </p>
+              ) : (
+                contasPendentes
+                  .slice(0, 8)
+                  .map((conta) => (
                     <div
-                      key={
-                        conta.id
-                      }
+                      key={conta.id}
                       style={{
                         display:
-                          "grid",
+                          "flex",
 
-                        gridTemplateColumns:
-                          "100px 1fr 120px 90px",
-
-                        gap: 10,
+                        justifyContent:
+                          "space-between",
 
                         padding:
-                          "9px 0",
+                          "10px 0",
 
                         borderBottom:
-                          "1px solid rgba(148, 163, 184, 0.12)",
+                          "1px solid rgba(148,163,184,0.12)",
 
-                        alignItems:
-                          "center",
-
-                        fontSize: 13,
+                        gap: 12,
                       }}
                     >
-                      <span
-                        style={{
-                          color:
-                            "#cbd5e1",
-                        }}
-                      >
+                      <span>
                         {dataBR(
                           conta.vencimento
-                        )}
-                      </span>
-
-                      <span
-                        style={{
-                          color:
-                            "#f8fafc",
-
-                          overflow:
-                            "hidden",
-
-                          textOverflow:
-                            "ellipsis",
-
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
+                        )}{" "}
+                        -{" "}
                         {
                           conta.conta
                         }
@@ -671,62 +894,19 @@ export default function Dashboard({
                         style={{
                           color:
                             "#f59e0b",
-
-                          textAlign:
-                            "right",
-
-                          whiteSpace:
-                            "nowrap",
                         }}
                       >
                         {moeda.format(
                           conta.valor
                         )}
                       </strong>
-
-                      <span
-                        style={{
-                          justifySelf:
-                            "end",
-
-                          padding:
-                            "4px 8px",
-
-                          borderRadius: 999,
-
-                          background:
-                            statusConta(
-                              conta
-                            ) ===
-                            "Atrasado"
-                              ? "rgba(239, 68, 68, 0.18)"
-                              : "rgba(245, 158, 11, 0.18)",
-
-                          color:
-                            statusConta(
-                              conta
-                            ) ===
-                            "Atrasado"
-                              ? "#fca5a5"
-                              : "#fbbf24",
-
-                          fontWeight:
-                            "bold",
-
-                          fontSize: 11,
-                        }}
-                      >
-                        {statusConta(
-                          conta
-                        )}
-                      </span>
                     </div>
-                  )
-                )}
-            </div>
-          )}
-        </Card>
-      </div>
+                  ))
+              )}
+            </Card>
+          </div>
+        </>
+      )}
     </>
   );
 }

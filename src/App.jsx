@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 
@@ -15,7 +15,9 @@ import Clientes from "./pages/Clientes.jsx";
 import Pendencias from "./pages/Pendencias.jsx";
 import Estoque from "./pages/Estoque.jsx";
 import Importacao from "./pages/Importacao.jsx";
+import RelatorioDiario from "./pages/RelatorioDiario.jsx";
 import Login from "./pages/Login.jsx";
+import Acessos from "./pages/Acessos.jsx";
 
 export default function App() {
   const [usuario, setUsuario] = useState(null);
@@ -51,18 +53,24 @@ export default function App() {
     return <Login />;
   }
 
-  return <Sistema />;
+  return <Sistema usuario={usuario} />;
 }
 
-function Sistema() {
+function Sistema({ usuario }) {
   const hoje = new Date().toISOString().slice(0, 10);
   const docSistema = doc(db, "sistema", "emplacar");
 
+  const nuvemCarregadaRef = useRef(false);
+  const podeSalvarRef = useRef(false);
+
   const [nuvemCarregada, setNuvemCarregada] = useState(false);
+  const [menuMobile, setMenuMobile] = useState(false);
+  const [mobile, setMobile] = useState(window.innerWidth <= 900);
 
   const [aba, setAba] = useState("Dashboard");
   const [inicioMes, setInicioMes] = useState(hoje.slice(0, 8) + "01");
   const [fimMes, setFimMes] = useState(hoje);
+  const [metaMensal, setMetaMensal] = useState(80000);
 
   const [textoImportacao, setTextoImportacao] = useState("");
   const [resultadoImportacao, setResultadoImportacao] = useState("");
@@ -80,17 +88,35 @@ function Sistema() {
   const [historicoRelacoes, setHistoricoRelacoes] = useState([]);
 
   useEffect(() => {
+    function ajustarTela() {
+      setMobile(window.innerWidth <= 900);
+    }
+
+    window.addEventListener("resize", ajustarTela);
+
+    return () => window.removeEventListener("resize", ajustarTela);
+  }, []);
+
+  useEffect(() => {
     const cancelar = onSnapshot(docSistema, async (snapshot) => {
+      podeSalvarRef.current = false;
+
       if (snapshot.exists()) {
         const dados = snapshot.data();
 
-        setEntradas(dados.entradas || []);
-        setSaidas(dados.saidas || []);
-        setContas(dados.contas || []);
-        setClientes(dados.clientes || []);
-        setEstoqueCompras(dados.estoqueCompras || []);
-        setEstoquePerdas(dados.estoquePerdas || []);
-        setHistoricoRelacoes(dados.historicoRelacoes || []);
+        setEntradas(Array.isArray(dados.entradas) ? dados.entradas : []);
+        setSaidas(Array.isArray(dados.saidas) ? dados.saidas : []);
+        setContas(Array.isArray(dados.contas) ? dados.contas : []);
+        setClientes(Array.isArray(dados.clientes) ? dados.clientes : []);
+        setEstoqueCompras(
+          Array.isArray(dados.estoqueCompras) ? dados.estoqueCompras : []
+        );
+        setEstoquePerdas(
+          Array.isArray(dados.estoquePerdas) ? dados.estoquePerdas : []
+        );
+        setHistoricoRelacoes(
+          Array.isArray(dados.historicoRelacoes) ? dados.historicoRelacoes : []
+        );
       } else {
         await setDoc(docSistema, {
           entradas: [],
@@ -103,14 +129,20 @@ function Sistema() {
         });
       }
 
+      nuvemCarregadaRef.current = true;
       setNuvemCarregada(true);
+
+      setTimeout(() => {
+        podeSalvarRef.current = true;
+      }, 700);
     });
 
     return () => cancelar();
   }, []);
 
   async function salvarNaNuvem(campo, valor) {
-    if (!nuvemCarregada) return;
+    if (!nuvemCarregadaRef.current) return;
+    if (!podeSalvarRef.current) return;
 
     await setDoc(
       docSistema,
@@ -196,6 +228,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   const saidaVazia = {
     data: hoje,
     formaPagamento: "Pix",
+    categoria: "Outros",
     tipoSaida: "",
     conta: "",
     valor: "",
@@ -236,8 +269,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   const [clienteForm, setClienteForm] = useState(clienteVazio);
   const [compraEstoqueForm, setCompraEstoqueForm] =
     useState(compraEstoqueVazia);
-  const [perdaEstoqueForm, setPerdaEstoqueForm] =
-    useState(perdaEstoqueVazia);
+  const [perdaEstoqueForm, setPerdaEstoqueForm] = useState(perdaEstoqueVazia);
 
   const [editando, setEditando] = useState({
     tipo: null,
@@ -266,6 +298,73 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/\s+/g, " ");
+  }
+
+  function textoMovimento(item) {
+    return normalizar(
+      [
+        item?.tipo,
+        item?.produto,
+        item?.processo,
+        item?.cliente,
+        item?.conta,
+        item?.tipoSaida,
+        item?.categoria,
+        item?.observacao,
+      ].join(" ")
+    );
+  }
+
+  function ehInjecaoCaixa(item) {
+    return textoMovimento(item).includes("INJECAO CAIXA");
+  }
+
+  function ehInjecaoLoja(item) {
+    return textoMovimento(item).includes("INJECAO LOJA");
+  }
+
+  function ehInjecaoSocios(item) {
+    return ehInjecaoCaixa(item) || ehInjecaoLoja(item);
+  }
+
+  function ehRecuperacaoVale(item) {
+    const t = textoMovimento(item);
+
+    return (
+      t.includes("DESCONTO VALE") ||
+      t.includes("VALE DESCONTADO") ||
+      t.includes("RECUPERACAO VALE") ||
+      t.includes("DEVOLUCAO VALE")
+    );
+  }
+
+  function ehValeColaborador(item) {
+    const t = textoMovimento(item);
+
+    return (
+      t.includes("VALE") &&
+      !t.includes("DESCONTO VALE") &&
+      !t.includes("VALE DESCONTADO") &&
+      !t.includes("RECUPERACAO VALE") &&
+      !t.includes("DEVOLUCAO VALE")
+    );
+  }
+
+  function ehVendaReal(item) {
+    return !ehInjecaoSocios(item) && !ehRecuperacaoVale(item);
+  }
+
+  function dataRecebimentoEntrada(entrada) {
+    if (entrada?.diaPago) return entrada.diaPago;
+
+    if (
+      entrada?.status === "Pago" &&
+      entrada?.formaPagamento !== "Nota / Faturado"
+    ) {
+      return entrada.data;
+    }
+
+    return "";
   }
 
   function destinoDinheiro(forma) {
@@ -321,6 +420,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   function salvarSaida() {
     const nova = {
       ...saidaForm,
+      categoria: saidaForm.categoria || "Outros",
       valor: numero(saidaForm.valor),
       id: editando.tipo === "saida" ? editando.id : Date.now(),
     };
@@ -430,7 +530,15 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
       });
     }
 
-    if (tipo === "saida") setSaidaForm(item);
+    if (tipo === "saida") {
+      setSaidaForm({
+        ...saidaVazia,
+        ...item,
+        valor: String(item.valor ?? ""),
+        categoria: item.categoria || "Outros",
+      });
+    }
+
     if (tipo === "conta") setContaForm(item);
     if (tipo === "cliente") setClienteForm(item);
   }
@@ -461,25 +569,77 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   }, [entradas, saidas, contas, inicioMes, fimMes]);
 
   const indicadores = useMemo(() => {
-    const entradaBruta = dadosPeriodo.entradas.reduce((s, x) => s + x.valor, 0);
+    const entradasCompetencia = entradas.filter(
+      (x) => dentroDoPeriodo(x.data) && ehVendaReal(x)
+    );
 
-    const notasPendentes = dadosPeriodo.entradas
-      .filter((x) => x.formaPagamento === "Nota / Faturado" && !x.diaPago)
+    const entradasRecebidasPeriodo = entradas.filter((x) => {
+      const dataRecebimento = dataRecebimentoEntrada(x);
+
+      return (
+        dataRecebimento &&
+        dentroDoPeriodo(dataRecebimento) &&
+        x.status === "Pago"
+      );
+    });
+
+    const vendasRecebidasPeriodo = entradasRecebidasPeriodo.filter(ehVendaReal);
+    const injecoesPeriodo = entradasRecebidasPeriodo.filter(ehInjecaoSocios);
+    const recuperacaoValesPeriodo =
+      entradasRecebidasPeriodo.filter(ehRecuperacaoVale);
+
+    const recebimentosAntigos = vendasRecebidasPeriodo.filter((x) => {
+      const dataRecebimento = dataRecebimentoEntrada(x);
+      return x.data < inicioMes && dataRecebimento >= inicioMes;
+    });
+
+    const entradaBruta = entradasCompetencia.reduce((s, x) => s + x.valor, 0);
+
+    const caixaRecebidoVendas = vendasRecebidasPeriodo.reduce(
+      (s, x) => s + x.valor,
+      0
+    );
+
+    const injecaoSociosTotal = injecoesPeriodo.reduce(
+      (s, x) => s + x.valor,
+      0
+    );
+
+    const recuperacaoValeTotal = recuperacaoValesPeriodo.reduce(
+      (s, x) => s + x.valor,
+      0
+    );
+
+    const recebidoBanco = entradasRecebidasPeriodo
+      .filter((x) => {
+        if (ehInjecaoCaixa(x)) return false;
+        if (destinoDinheiro(x.formaPagamento) === "Caixa") return false;
+        return true;
+      })
       .reduce((s, x) => s + x.valor, 0);
 
-    const recebidoBanco = dadosPeriodo.entradas
-      .filter((x) => destinoDinheiro(x.formaPagamento) === "Banco" && x.status === "Pago")
+    const recebidoCaixa = entradasRecebidasPeriodo
+      .filter((x) => {
+        if (ehInjecaoCaixa(x)) return true;
+        return destinoDinheiro(x.formaPagamento) === "Caixa";
+      })
       .reduce((s, x) => s + x.valor, 0);
 
-    const recebidoCaixa = dadosPeriodo.entradas
-      .filter((x) => destinoDinheiro(x.formaPagamento) === "Caixa" && x.status === "Pago")
-      .reduce((s, x) => s + x.valor, 0);
-
-    const recebidoFaturado = dadosPeriodo.entradas
-      .filter((x) => x.formaPagamento === "Nota / Faturado" && x.diaPago)
+    const notasPendentes = entradas
+      .filter(
+        (x) =>
+          dentroDoPeriodo(x.data) &&
+          ehVendaReal(x) &&
+          x.formaPagamento === "Nota / Faturado" &&
+          !x.diaPago
+      )
       .reduce((s, x) => s + x.valor, 0);
 
     const saidasTotal = dadosPeriodo.saidas.reduce((s, x) => s + x.valor, 0);
+
+    const valesColaboradores = dadosPeriodo.saidas
+      .filter(ehValeColaborador)
+      .reduce((s, x) => s + x.valor, 0);
 
     const contasPagas = dadosPeriodo.contas
       .filter((x) => statusConta(x) === "Pago")
@@ -493,40 +653,54 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
       .filter((x) => destinoDinheiro(x.formaPagamento) === "Caixa")
       .reduce((s, x) => s + x.valor, 0);
 
-    const recebidoTotal = recebidoBanco + recebidoCaixa + recebidoFaturado;
+    const caixaRecebidoTotal =
+      caixaRecebidoVendas + injecaoSociosTotal + recuperacaoValeTotal;
+
     const pagos = saidasTotal + contasPagas;
-    const entradaLiquida = recebidoTotal - pagos;
-    const tenhoNoBanco = recebidoBanco + recebidoFaturado - saidasBanco - contasPagas;
+    const entradaLiquida = caixaRecebidoTotal - pagos;
+
+    const tenhoNoBanco = recebidoBanco - saidasBanco - contasPagas;
     const tenhoNoCaixa = recebidoCaixa - saidasCaixa;
 
     const dias =
       new Set([
-        ...dadosPeriodo.entradas.map((x) => x.data),
+        ...entradasCompetencia.map((x) => x.data),
         ...dadosPeriodo.saidas.map((x) => x.data),
         ...dadosPeriodo.contas.map((x) => x.vencimento),
       ]).size || 1;
 
     return {
       entradaBruta,
+      faturamentoCompetencia: entradaBruta,
+      caixaRecebidoVendas,
+      caixaRecebidoTotal,
       entradaLiquida,
       saidasTotal,
+      contasPagas,
+      pagos,
       faturadoEmAberto: notasPendentes,
       notasPendentes,
       recebidoBanco,
       recebidoCaixa,
-      recebidoFaturado,
-      recebidoTotal,
-      pagos,
+      recebidoFaturado: caixaRecebidoVendas,
+      recebidoTotal: caixaRecebidoTotal,
+      recebimentosAntigos: recebimentosAntigos.reduce(
+        (s, x) => s + x.valor,
+        0
+      ),
+      injecaoSociosTotal,
+      recuperacaoValeTotal,
+      valesColaboradores,
       mediaPorDia: entradaBruta / dias,
       tenhoNoBanco,
       tenhoNoCaixa,
     };
-  }, [dadosPeriodo]);
+  }, [entradas, dadosPeriodo, inicioMes, fimMes]);
 
   const vendasPorDia = useMemo(() => {
     const mapa = {};
 
-    dadosPeriodo.entradas.forEach((entrada) => {
+    dadosPeriodo.entradas.filter(ehVendaReal).forEach((entrada) => {
       mapa[entrada.data] = (mapa[entrada.data] || 0) + entrada.valor;
     });
 
@@ -538,7 +712,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   const servicosPorDia = useMemo(() => {
     const mapa = {};
 
-    dadosPeriodo.entradas.forEach((entrada) => {
+    dadosPeriodo.entradas.filter(ehVendaReal).forEach((entrada) => {
       mapa[entrada.data] = (mapa[entrada.data] || 0) + 1;
     });
 
@@ -580,7 +754,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   const rankingClientes = useMemo(() => {
     const mapa = {};
 
-    dadosPeriodo.entradas.forEach((entrada) => {
+    dadosPeriodo.entradas.filter(ehVendaReal).forEach((entrada) => {
       const nome = entrada.cliente || "Sem cliente";
       mapa[nome] = (mapa[nome] || 0) + entrada.valor;
     });
@@ -608,6 +782,8 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     setInicioMes,
     fimMes,
     setFimMes,
+    metaMensal,
+    setMetaMensal,
     moeda,
     formasPagamento,
     produtosEstoque,
@@ -664,22 +840,145 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     destinoDinheiro,
     statusConta,
     entradaEmAberto,
+    textoMovimento,
+    ehInjecaoCaixa,
+    ehInjecaoLoja,
+    ehInjecaoSocios,
+    ehRecuperacaoVale,
+    ehValeColaborador,
+    ehVendaReal,
+    dataRecebimentoEntrada,
+    nuvemCarregada,
   };
 
   return (
-    <div style={styles.app}>
-      <Sidebar {...propsGlobais} />
+  <div style={styles.app}>
+    {mobile && (
+      <button
+        onClick={() =>
+          setMenuMobile(!menuMobile)
+        }
+        style={{
+          position: "fixed",
+          top: 14,
+          left: 14,
+          zIndex: 10000,
+          width: 48,
+          height: 48,
+          borderRadius: 14,
+          border: 0,
+          background:
+            "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)",
+          color: "#fff",
+          fontSize: 22,
+          fontWeight: "bold",
+          boxShadow:
+            "0 10px 25px rgba(0,0,0,0.35)",
+        }}
+      >
+        ☰
+      </button>
+    )}
 
-      <main style={styles.main}>
-        {aba === "Dashboard" && <Dashboard {...propsGlobais} />}
-        {aba === "Entradas" && <Entradas {...propsGlobais} />}
-        {aba === "Saídas" && <Saidas {...propsGlobais} />}
-        {aba === "Contas a Pagar" && <Contas {...propsGlobais} />}
-        {aba === "Clientes" && <Clientes {...propsGlobais} />}
-        {aba === "Pendências de Clientes" && <Pendencias {...propsGlobais} />}
-        {aba === "Controle de Estoque" && <Estoque {...propsGlobais} />}
-        {aba.startsWith("Importar") && <Importacao {...propsGlobais} />}
-      </main>
-    </div>
-  );
+    {mobile && menuMobile && (
+      <div
+        onClick={() =>
+          setMenuMobile(false)
+        }
+        style={{
+          position: "fixed",
+          inset: 0,
+          background:
+            "rgba(0,0,0,0.55)",
+          zIndex: 9998,
+        }}
+      />
+    )}
+
+    <Sidebar
+      {...propsGlobais}
+      mobile={mobile}
+      menuMobile={menuMobile}
+      setMenuMobile={
+        setMenuMobile
+      }
+      usuario={usuario}
+    />
+
+    <main
+      style={{
+        ...styles.main,
+        paddingTop: mobile
+          ? 76
+          : styles.main.padding,
+      }}
+    >
+      {aba === "Dashboard" && (
+        <Dashboard
+          {...propsGlobais}
+        />
+      )}
+
+      {aba === "Entradas" && (
+        <Entradas
+          {...propsGlobais}
+        />
+      )}
+
+      {aba === "Saídas" && (
+        <Saidas
+          {...propsGlobais}
+        />
+      )}
+
+      {aba ===
+        "Contas a Pagar" && (
+        <Contas
+          {...propsGlobais}
+        />
+      )}
+
+      {aba === "Clientes" && (
+        <Clientes
+          {...propsGlobais}
+        />
+      )}
+
+      {aba ===
+        "Pendências de Clientes" && (
+        <Pendencias
+          {...propsGlobais}
+        />
+      )}
+
+      {aba ===
+        "Controle de Estoque" && (
+        <Estoque
+          {...propsGlobais}
+        />
+      )}
+
+      {aba ===
+        "Relatório Diário" && (
+        <RelatorioDiario
+          {...propsGlobais}
+        />
+      )}
+      {aba ===
+  "Gerenciar Acessos" && (
+  <Acessos
+    {...propsGlobais}
+  />
+)}
+
+      {aba.startsWith(
+        "Importar"
+      ) && (
+        <Importacao
+          {...propsGlobais}
+        />
+      )}
+    </main>
+  </div>
+);
 }
