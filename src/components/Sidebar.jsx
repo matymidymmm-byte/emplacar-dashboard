@@ -90,6 +90,7 @@ export default function Sidebar({
     "Pendências de Clientes",
     "Controle de Estoque",
     "Relatório Diário",
+    "Atualizações",
     "Importar Entradas",
     "Importar Saídas",
     "Importar Contas",

@@ -316,44 +316,61 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   }
 
   function ehInjecaoCaixa(item) {
-  const t = textoMovimento(item);
+    const t = textoMovimento(item);
 
-  return (
-    t.includes("INJECAO CAIXA") ||
-    t.includes("APORTE CAIXA")
-  );
-}
+    return (
+      t.includes("INJECAO CAIXA") ||
+      t.includes("APORTE CAIXA") ||
+      t.includes("REFORCO CAIXA") ||
+      t.includes("SOBRA CAIXA")
+    );
+  }
 
-function ehInjecaoLoja(item) {
-  const t = textoMovimento(item);
+  function ehInjecaoLoja(item) {
+    const t = textoMovimento(item);
 
-  return (
-    t.includes("INJECAO LOJA") ||
-    t.includes("CAPITAL LOJA") ||
-    t.includes("APORTE LOJA")
-  );
-}
+    return (
+      t.includes("INJECAO LOJA") ||
+      t.includes("CAPITAL LOJA") ||
+      t.includes("APORTE LOJA") ||
+      t.includes("DINHEIRO LOJA") ||
+      t.includes("CAIXA LOJA")
+    );
+  }
 
-function ehInjecaoSocios(item) {
-  const t = textoMovimento(item);
+  function ehInjecaoSocios(item) {
+    const t = textoMovimento(item);
 
-  return (
-    ehInjecaoCaixa(item) ||
-    ehInjecaoLoja(item) ||
+    return (
+      t.includes("INJECAO SOCIOS") ||
+      t.includes("INJECAO SOCIO") ||
+      t.includes("INJECAO SÓCIOS") ||
+      t.includes("INJECAO SÓCIO") ||
+      t.includes("APORTE SOCIOS") ||
+      t.includes("APORTE SOCIO") ||
+      t.includes("APORTE SÓCIOS") ||
+      t.includes("APORTE SÓCIO") ||
+      t.includes("CAPITAL SOCIOS") ||
+      t.includes("CAPITAL SOCIO") ||
+      t.includes("CAPITAL SÓCIOS") ||
+      t.includes("CAPITAL SÓCIO") ||
+      t.includes("SOCIOS") ||
+      t.includes("SÓCIOS")
+    );
+  }
 
-    t.includes("INJECAO SOCIOS") ||
-    t.includes("INJECAO SOCIO") ||
-    t.includes("INJECAO SÓCIOS") ||
-    t.includes("INJECAO SÓCIO") ||
+  function ehInjecaoCapital(item) {
+    const t = textoMovimento(item);
 
-    t.includes("APORTE") ||
-    t.includes("APORTE SOCIOS") ||
-    t.includes("APORTE SÓCIOS") ||
-
-    t.includes("CAPITAL SOCIOS") ||
-    t.includes("CAPITAL SÓCIOS")
-  );
-}
+    return (
+      ehInjecaoCaixa(item) ||
+      ehInjecaoLoja(item) ||
+      ehInjecaoSocios(item) ||
+      t.includes("INJECAO") ||
+      t.includes("APORTE") ||
+      t.includes("CAPITAL")
+    );
+  }
 
   function ehRecuperacaoVale(item) {
     const t = textoMovimento(item);
@@ -379,7 +396,7 @@ function ehInjecaoSocios(item) {
   }
 
   function ehVendaReal(item) {
-    return !ehInjecaoSocios(item) && !ehRecuperacaoVale(item);
+    return !ehInjecaoCapital(item) && !ehRecuperacaoVale(item);
   }
 
   function dataRecebimentoEntrada(entrada) {
@@ -612,7 +629,12 @@ function ehInjecaoSocios(item) {
     });
 
     const vendasRecebidasPeriodo = entradasRecebidasPeriodo.filter(ehVendaReal);
-    const injecoesPeriodo = entradasRecebidasPeriodo.filter(ehInjecaoSocios);
+
+    const injecaoCaixaPeriodo = entradasRecebidasPeriodo.filter(ehInjecaoCaixa);
+    const injecaoLojaPeriodo = entradasRecebidasPeriodo.filter(ehInjecaoLoja);
+    const injecaoSociosPeriodo = entradasRecebidasPeriodo.filter(ehInjecaoSocios);
+    const injecoesPeriodo = entradasRecebidasPeriodo.filter(ehInjecaoCapital);
+
     const recuperacaoValesPeriodo =
       entradasRecebidasPeriodo.filter(ehRecuperacaoVale);
 
@@ -628,7 +650,22 @@ function ehInjecaoSocios(item) {
       0
     );
 
-    const injecaoSociosTotal = injecoesPeriodo.reduce(
+    const injecaoCaixaTotal = injecaoCaixaPeriodo.reduce(
+      (s, x) => s + x.valor,
+      0
+    );
+
+    const injecaoLojaTotal = injecaoLojaPeriodo.reduce(
+      (s, x) => s + x.valor,
+      0
+    );
+
+    const injecaoSociosTotal = injecaoSociosPeriodo.reduce(
+      (s, x) => s + x.valor,
+      0
+    );
+
+    const injecaoCapitalTotal = injecoesPeriodo.reduce(
       (s, x) => s + x.valor,
       0
     );
@@ -682,7 +719,7 @@ function ehInjecaoSocios(item) {
       .reduce((s, x) => s + x.valor, 0);
 
     const caixaRecebidoTotal =
-      caixaRecebidoVendas + injecaoSociosTotal + recuperacaoValeTotal;
+      caixaRecebidoVendas + injecaoCapitalTotal + recuperacaoValeTotal;
 
     const pagos = saidasTotal + contasPagas;
     const entradaLiquida = caixaRecebidoTotal - pagos;
@@ -712,11 +749,12 @@ function ehInjecaoSocios(item) {
       recebidoCaixa,
       recebidoFaturado: caixaRecebidoVendas,
       recebidoTotal: caixaRecebidoTotal,
-      recebimentosAntigos: recebimentosAntigos.reduce(
-        (s, x) => s + x.valor,
-        0
-      ),
+      recebimentosAntigos: recebimentosAntigos.reduce((s, x) => s + x.valor, 0),
+      injecaoCaixaTotal,
+      injecaoLojaTotal,
       injecaoSociosTotal,
+      injecaoCapitalTotal,
+      aporteTotal: injecaoCapitalTotal,
       recuperacaoValeTotal,
       valesColaboradores,
       mediaPorDia: entradaBruta / dias,
@@ -872,6 +910,7 @@ function ehInjecaoSocios(item) {
     ehInjecaoCaixa,
     ehInjecaoLoja,
     ehInjecaoSocios,
+    ehInjecaoCapital,
     ehRecuperacaoVale,
     ehValeColaborador,
     ehVendaReal,
@@ -880,133 +919,67 @@ function ehInjecaoSocios(item) {
   };
 
   return (
-  <div style={styles.app}>
-    {mobile && (
-      <button
-        onClick={() =>
-          setMenuMobile(!menuMobile)
-        }
+    <div style={styles.app}>
+      {mobile && (
+        <button
+          onClick={() => setMenuMobile(!menuMobile)}
+          style={{
+            position: "fixed",
+            top: 14,
+            left: 14,
+            zIndex: 10000,
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            border: 0,
+            background: "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)",
+            color: "#fff",
+            fontSize: 22,
+            fontWeight: "bold",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+          }}
+        >
+          ☰
+        </button>
+      )}
+
+      {mobile && menuMobile && (
+        <div
+          onClick={() => setMenuMobile(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            zIndex: 9998,
+          }}
+        />
+      )}
+
+      <Sidebar
+        {...propsGlobais}
+        mobile={mobile}
+        menuMobile={menuMobile}
+        setMenuMobile={setMenuMobile}
+        usuario={usuario}
+      />
+
+      <main
         style={{
-          position: "fixed",
-          top: 14,
-          left: 14,
-          zIndex: 10000,
-          width: 48,
-          height: 48,
-          borderRadius: 14,
-          border: 0,
-          background:
-            "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)",
-          color: "#fff",
-          fontSize: 22,
-          fontWeight: "bold",
-          boxShadow:
-            "0 10px 25px rgba(0,0,0,0.35)",
+          ...styles.main,
+          paddingTop: mobile ? 76 : styles.main.padding,
         }}
       >
-        ☰
-      </button>
-    )}
-
-    {mobile && menuMobile && (
-      <div
-        onClick={() =>
-          setMenuMobile(false)
-        }
-        style={{
-          position: "fixed",
-          inset: 0,
-          background:
-            "rgba(0,0,0,0.55)",
-          zIndex: 9998,
-        }}
-      />
-    )}
-
-    <Sidebar
-      {...propsGlobais}
-      mobile={mobile}
-      menuMobile={menuMobile}
-      setMenuMobile={
-        setMenuMobile
-      }
-      usuario={usuario}
-    />
-
-    <main
-      style={{
-        ...styles.main,
-        paddingTop: mobile
-          ? 76
-          : styles.main.padding,
-      }}
-    >
-      {aba === "Dashboard" && (
-        <Dashboard
-          {...propsGlobais}
-        />
-      )}
-
-      {aba === "Entradas" && (
-        <Entradas
-          {...propsGlobais}
-        />
-      )}
-
-      {aba === "Saídas" && (
-        <Saidas
-          {...propsGlobais}
-        />
-      )}
-
-      {aba ===
-        "Contas a Pagar" && (
-        <Contas
-          {...propsGlobais}
-        />
-      )}
-
-      {aba === "Clientes" && (
-        <Clientes
-          {...propsGlobais}
-        />
-      )}
-
-      {aba ===
-        "Pendências de Clientes" && (
-        <Pendencias
-          {...propsGlobais}
-        />
-      )}
-
-      {aba ===
-        "Controle de Estoque" && (
-        <Estoque
-          {...propsGlobais}
-        />
-      )}
-
-      {aba ===
-        "Relatório Diário" && (
-        <RelatorioDiario
-          {...propsGlobais}
-        />
-      )}
-      {aba ===
-  "Gerenciar Acessos" && (
-  <Acessos
-    {...propsGlobais}
-  />
-)}
-
-      {aba.startsWith(
-        "Importar"
-      ) && (
-        <Importacao
-          {...propsGlobais}
-        />
-      )}
-    </main>
-  </div>
-);
+        {aba === "Dashboard" && <Dashboard {...propsGlobais} />}
+        {aba === "Entradas" && <Entradas {...propsGlobais} />}
+        {aba === "Saídas" && <Saidas {...propsGlobais} />}
+        {aba === "Contas a Pagar" && <Contas {...propsGlobais} />}
+        {aba === "Clientes" && <Clientes {...propsGlobais} />}
+        {aba === "Pendências de Clientes" && <Pendencias {...propsGlobais} />}
+        {aba === "Controle de Estoque" && <Estoque {...propsGlobais} />}
+        {aba === "Relatório Diário" && <RelatorioDiario {...propsGlobais} />}
+        {aba === "Gerenciar Acessos" && <Acessos {...propsGlobais} />}
+        {aba.startsWith("Importar") && <Importacao {...propsGlobais} />}
+      </main>
+    </div>
+  );
 }

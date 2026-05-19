@@ -382,66 +382,83 @@ export default function Dashboard({
   ];
 
   const kpisDetalhados = [
-    [
-      "Faturamento",
-      receitaOperacional,
-    ],
+  [
+    "Faturamento",
+    receitaOperacional,
+  ],
 
-    [
-      "Caixa Real",
-      indicadores.entradaLiquida ||
-        0,
-    ],
+  [
+    "Caixa Real",
+    indicadores.entradaLiquida ||
+      0,
+  ],
 
-    [
-      "Caixa Recebido",
-      indicadores.caixaRecebidoTotal ||
-        indicadores.recebidoTotal ||
-        0,
-    ],
+  [
+    "Caixa Recebido",
+    indicadores.caixaRecebidoTotal ||
+      indicadores.recebidoTotal ||
+      0,
+  ],
 
-    [
-      "Saídas",
-      indicadores.saidasTotal || 0,
-    ],
+  [
+    "Saídas",
+    indicadores.saidasTotal || 0,
+  ],
 
-    [
-      "Faturado em Aberto",
-      indicadores.faturadoEmAberto ||
-        0,
-    ],
+  [
+    "Faturado em Aberto",
+    indicadores.faturadoEmAberto ||
+      0,
+  ],
 
-    [
-      "Recebidos Antigos",
-      indicadores.recebimentosAntigos ||
-        0,
-    ],
+  [
+    "Recebidos Antigos",
+    indicadores.recebimentosAntigos ||
+      0,
+  ],
 
-    [
-      "Injeção Sócios",
-      indicadores.injecaoSociosTotal ||
-        0,
-    ],
+  [
+    "Injeção Caixa",
+    indicadores.injecaoCaixaTotal ||
+      0,
+  ],
 
-    [
-      "Recuperação Vale",
-      indicadores.recuperacaoValeTotal ||
-        0,
-    ],
+  [
+    "Injeção Loja",
+    indicadores.injecaoLojaTotal ||
+      0,
+  ],
 
-    [
-      "Banco",
-      indicadores.tenhoNoBanco ||
-        0,
-    ],
+  [
+    "Injeção Sócios",
+    indicadores.injecaoSociosTotal ||
+      0,
+  ],
 
-    [
-      "Caixa Físico",
-      indicadores.tenhoNoCaixa ||
-        0,
-    ],
-  ];
+  [
+    "Aporte Total",
+    indicadores.aporteTotal ||
+      0,
+  ],
 
+  [
+    "Recuperação Vale",
+    indicadores.recuperacaoValeTotal ||
+      0,
+  ],
+
+  [
+    "Banco",
+    indicadores.tenhoNoBanco ||
+      0,
+  ],
+
+  [
+    "Caixa Físico",
+    indicadores.tenhoNoCaixa ||
+      0,
+  ],
+];
   const kpis = modoDetalhado
     ? kpisDetalhados
     : kpisSimples;
