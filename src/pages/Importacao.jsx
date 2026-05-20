@@ -252,9 +252,11 @@ export default function Importacao(props) {
 
             cliente,
 
-            produto:
-              row["PRODUTO"] ||
-              "",
+           produto:
+  row["PRODUTO"] ||
+  row["SERVICO"] ||
+  row["SERVIÇO"] ||
+  "",
 
             placa:
               row["PLACA"] ||

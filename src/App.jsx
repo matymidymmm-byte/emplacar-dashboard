@@ -18,6 +18,7 @@ import Importacao from "./pages/Importacao.jsx";
 import RelatorioDiario from "./pages/RelatorioDiario.jsx";
 import Login from "./pages/Login.jsx";
 import Acessos from "./pages/Acessos.jsx";
+import Atualizacoes from "./pages/Atualizacoes.jsx";
 
 export default function App() {
   const [usuario, setUsuario] = useState(null);
@@ -413,10 +414,20 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   }
 
   function destinoDinheiro(forma) {
-    if (forma === "Nota / Faturado") return "Faturado";
-    if (["Cheque", "Dinheiro"].includes(forma)) return "Caixa";
-    return "Banco";
+  const f = normalizar(forma);
+
+  if (f.includes("NOTA") || f.includes("FATURADO")) return "Faturado";
+
+  if (
+    f.includes("DINHEIRO") ||
+    f.includes("CHEQUE") ||
+    f.includes("CAIXA")
+  ) {
+    return "Caixa";
   }
+
+  return "Banco";
+}
 
   function statusConta(conta) {
     if (conta.status === "Pago") return "Pago";
@@ -832,6 +843,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
 
   const propsGlobais = {
     hoje,
+    usuario,
     aba,
     setAba,
     salvarEntrada,
@@ -979,6 +991,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
         {aba === "Relatório Diário" && <RelatorioDiario {...propsGlobais} />}
         {aba === "Gerenciar Acessos" && <Acessos {...propsGlobais} />}
         {aba.startsWith("Importar") && <Importacao {...propsGlobais} />}
+        {aba === "Atualizações" && <Atualizacoes {...propsGlobais} />}
       </main>
     </div>
   );
