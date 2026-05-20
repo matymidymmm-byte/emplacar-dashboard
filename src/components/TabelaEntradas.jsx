@@ -9,6 +9,7 @@ export default function TabelaEntradas({
   remover,
 }) {
   const [detalhesAbertos, setDetalhesAbertos] = useState({});
+  const [copiados, setCopiados] = useState({});
 
   function formatarData(data) {
     if (!data) return "-";
@@ -19,6 +20,30 @@ export default function TabelaEntradas({
     }
 
     return data;
+  }
+
+  function copiarTexto(texto, chave) {
+    navigator.clipboard.writeText(texto || "");
+
+    setCopiados((old) => ({
+      ...old,
+      [chave]: true,
+    }));
+
+    setTimeout(() => {
+      setCopiados((old) => ({
+        ...old,
+        [chave]: false,
+      }));
+    }, 1500);
+  }
+
+  function copiarTudo(item) {
+    const texto = `PLACA: ${item.placa || ""}
+RENAVAN: ${item.renavan || ""}
+PROCESSO: ${item.processo || ""}`;
+
+    copiarTexto(texto, `tudo-${item.id}`);
   }
 
   const colunas = ["Data", "Cliente", "Produto", "Placa", "Valor", "Status", "⋮"];
@@ -39,6 +64,20 @@ export default function TabelaEntradas({
 
   function totalDoDia(lista) {
     return lista.reduce((soma, item) => soma + Number(item.valor || 0), 0);
+  }
+
+  function BotaoCopiar({ item, campo, label }) {
+    const chave = `${campo}-${item.id}`;
+    const valor = item[campo] || "";
+
+    return (
+      <button
+        style={copiados[chave] ? styles.copiado : styles.copiar}
+        onClick={() => copiarTexto(valor, chave)}
+      >
+        {copiados[chave] ? "Copiado" : `Copiar ${label}`}
+      </button>
+    );
   }
 
   return (
@@ -94,7 +133,7 @@ export default function TabelaEntradas({
                             color: "#c4b5fd",
                           }}
                         >
-                          {x.produto}
+                          {x.produto || x.servico || "-"}
                         </td>
 
                         <td
@@ -172,15 +211,27 @@ export default function TabelaEntradas({
                               </div>
 
                               <div>
+                                <strong>Placa:</strong>
+                                <br />
+                                {x.placa || "-"}
+                                <br />
+                                <BotaoCopiar item={x} campo="placa" label="placa" />
+                              </div>
+
+                              <div>
                                 <strong>Renavan:</strong>
                                 <br />
                                 {x.renavan || "-"}
+                                <br />
+                                <BotaoCopiar item={x} campo="renavan" label="renavan" />
                               </div>
 
                               <div>
                                 <strong>Processo:</strong>
                                 <br />
                                 {x.processo || "-"}
+                                <br />
+                                <BotaoCopiar item={x} campo="processo" label="processo" />
                               </div>
 
                               <div>
@@ -198,6 +249,15 @@ export default function TabelaEntradas({
                                 flexWrap: "wrap",
                               }}
                             >
+                              <button
+                                style={copiados[`tudo-${x.id}`] ? styles.copiado : styles.botaoPequeno}
+                                onClick={() => copiarTudo(x)}
+                              >
+                                {copiados[`tudo-${x.id}`]
+                                  ? "Dados copiados"
+                                  : "Copiar placa, Renavan e processo"}
+                              </button>
+
                               <button
                                 style={styles.editar}
                                 onClick={() => editar("entrada", x)}
