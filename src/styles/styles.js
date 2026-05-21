@@ -476,12 +476,14 @@ const styles = {
     overflow: "hidden",
   },
 
-  tabelaBox: {
-    width: "100%",
-    overflowX: "auto",
-    overflowY: "hidden",
-    paddingBottom: 6,
-  },
+ tabelaBox: {
+  width: "100%",
+  maxWidth: "100%",
+  overflowX: "auto",
+  overflowY: "hidden",
+  paddingBottom: 6,
+  boxSizing: "border-box",
+},
 
   tabela: {
     width: "100%",
@@ -492,21 +494,14 @@ const styles = {
   },
 
   tabelaCompacta: {
-    width: "100%",
-    minWidth: 1180,
-    borderCollapse: "collapse",
-    fontSize: 13,
-    color: "#e2e8f0",
-  },
+  width: "100%",
+  borderCollapse: "collapse",
+  fontSize: 11,
+  color: "#e2e8f0",
+},
 
-  th: {
-    padding: "9px 8px",
-    textAlign: "left",
-    borderBottom: "1px solid #334155",
-    background: "#0f172a",
-    color: "#cbd5e1",
-    whiteSpace: "nowrap",
-  },
+  padding: "6px 8px",
+fontSize: 11,
 
   thFiltro: {
     padding: "6px 8px",
@@ -514,13 +509,8 @@ const styles = {
     background: "#0f172a",
   },
 
-  td: {
-    padding: "8px 8px",
-    borderBottom: "1px solid #1e293b",
-    whiteSpace: "nowrap",
-    verticalAlign: "middle",
-    color: "#e2e8f0",
-  },
+  padding: "6px 8px",
+fontSize: 11,
 
   tdData: {
     padding: "8px 8px",
@@ -531,23 +521,11 @@ const styles = {
     color: "#93c5fd",
   },
 
-  tdValor: {
-    padding: "8px 8px",
-    whiteSpace: "nowrap",
-    borderBottom: "1px solid #1e293b",
-    verticalAlign: "middle",
-    fontWeight: "bold",
-    color: "#f8fafc",
-  },
+  padding: "6px 8px",
+fontSize: 11,
 
-  tdPlaca: {
-    padding: "8px 8px",
-    whiteSpace: "nowrap",
-    borderBottom: "1px solid #1e293b",
-    verticalAlign: "middle",
-    fontWeight: "bold",
-    color: "#7dd3fc",
-  },
+  padding: "6px 8px",
+fontSize: 11,
 
   tdAcoes: {
     padding: "8px 8px",

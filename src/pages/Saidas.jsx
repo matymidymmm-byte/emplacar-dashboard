@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import Card from "../components/Card.jsx";
 import Campo from "../components/Campo.jsx";
 import Select from "../components/Select.jsx";
@@ -19,6 +21,9 @@ export default function Saidas({
   editar,
   remover,
 }) {
+  const formRef = useRef(null);
+  const scrollAnteriorRef = useRef(0);
+
   const categoriasSaida = [
     "Placas / Matéria-prima",
     "Aluguel",
@@ -36,6 +41,41 @@ export default function Saidas({
     "Outros",
   ];
 
+  useEffect(() => {
+    if (editando.tipo === "saida") {
+      scrollAnteriorRef.current = window.scrollY;
+
+      setTimeout(() => {
+        formRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 120);
+    }
+  }, [editando]);
+
+  function salvarComRetorno() {
+    salvarSaida();
+
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollAnteriorRef.current,
+        behavior: "smooth",
+      });
+    }, 220);
+  }
+
+  function cancelarComRetorno() {
+    cancelarEdicao();
+
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollAnteriorRef.current,
+        behavior: "smooth",
+      });
+    }, 220);
+  }
+
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
 
@@ -44,8 +84,19 @@ export default function Saidas({
     return `${dia}/${mes}/${ano}`;
   }
 
-  const total = saidas.reduce((soma, saida) => soma + saida.valor, 0);
+  const total = saidas.reduce(
+    (soma, saida) => soma + Number(saida.valor || 0),
+    0
+  );
+
   const media = saidas.length > 0 ? total / saidas.length : 0;
+
+  const saidasOrdenadas = [...saidas].sort((a, b) => {
+    if (!a.data) return 1;
+    if (!b.data) return -1;
+
+    return new Date(b.data) - new Date(a.data);
+  });
 
   return (
     <>
@@ -63,88 +114,123 @@ export default function Saidas({
         </span>
       </div>
 
-      <Card titulo={editando.tipo === "saida" ? "Editando saída" : "Lançar saída"}>
-        <div style={styles.formGrid}>
-          <Campo
-            label="Dia saída"
-            tipo="date"
-            valor={saidaForm.data}
-            mudar={(v) => setSaidaForm({ ...saidaForm, data: v })}
-          />
+      <div ref={formRef}>
+        <Card
+          titulo={
+            editando.tipo === "saida"
+              ? "Editando saída"
+              : "Lançar saída"
+          }
+        >
+          <div style={styles.formGrid}>
+            <Campo
+              label="Dia saída"
+              tipo="date"
+              valor={saidaForm.data}
+              mudar={(v) =>
+                setSaidaForm({
+                  ...saidaForm,
+                  data: v,
+                })
+              }
+            />
 
-          <Select
-            label="Forma de pagamento saída"
-            valor={saidaForm.formaPagamento}
-            mudar={(v) => setSaidaForm({ ...saidaForm, formaPagamento: v })}
-            opcoes={formasPagamento}
-          />
+            <Select
+              label="Forma de pagamento saída"
+              valor={saidaForm.formaPagamento}
+              mudar={(v) =>
+                setSaidaForm({
+                  ...saidaForm,
+                  formaPagamento: v,
+                })
+              }
+              opcoes={formasPagamento}
+            />
 
-          <Select
-            label="Centro de custo"
-            valor={saidaForm.categoria || "Outros"}
-            mudar={(v) => setSaidaForm({ ...saidaForm, categoria: v })}
-            opcoes={categoriasSaida}
-          />
+            <Select
+              label="Centro de custo"
+              valor={saidaForm.categoria || "Outros"}
+              mudar={(v) =>
+                setSaidaForm({
+                  ...saidaForm,
+                  categoria: v,
+                })
+              }
+              opcoes={categoriasSaida}
+            />
 
-          <Campo
-            label="Tipo saída"
-            valor={saidaForm.tipoSaida}
-            mudar={(v) => setSaidaForm({ ...saidaForm, tipoSaida: v })}
-          />
+            <Campo
+              label="Tipo saída"
+              valor={saidaForm.tipoSaida}
+              mudar={(v) =>
+                setSaidaForm({
+                  ...saidaForm,
+                  tipoSaida: v,
+                })
+              }
+            />
 
-          <Campo
-            label="Conta"
-            valor={saidaForm.conta}
-            mudar={(v) => setSaidaForm({ ...saidaForm, conta: v })}
-          />
+            <Campo
+              label="Conta"
+              valor={saidaForm.conta}
+              mudar={(v) =>
+                setSaidaForm({
+                  ...saidaForm,
+                  conta: v,
+                })
+              }
+            />
 
-          <Campo
-            label="Valor saída"
-            tipo="number"
-            valor={saidaForm.valor}
-            mudar={(v) => setSaidaForm({ ...saidaForm, valor: v })}
-          />
+            <Campo
+              label="Valor saída"
+              tipo="number"
+              valor={saidaForm.valor}
+              mudar={(v) =>
+                setSaidaForm({
+                  ...saidaForm,
+                  valor: v,
+                })
+              }
+            />
 
-          <button style={styles.botao} onClick={salvarSaida}>
-            {editando.tipo === "saida" ? "Salvar edição" : "Adicionar"}
-          </button>
-
-          {editando.tipo === "saida" && (
-            <button style={styles.botaoCinza} onClick={cancelarEdicao}>
-              Cancelar
+            <button style={styles.botao} onClick={salvarComRetorno}>
+              {editando.tipo === "saida" ? "Salvar edição" : "Adicionar"}
             </button>
-          )}
-        </div>
 
-        <Tabela
-          colunas={[
-            "Dia saída",
-            "Pagamento",
-            "Centro de custo",
-            "Tipo saída",
-            "Conta",
-            "Valor",
-            "Destino",
-            "Ações",
-          ]}
-          dados={[...saidas]
-  .sort((a, b) => {
-    if (!a.data) return 1;
-    if (!b.data) return -1;
+            {editando.tipo === "saida" && (
+              <button style={styles.botaoCinza} onClick={cancelarComRetorno}>
+                Cancelar
+              </button>
+            )}
+          </div>
 
-    return new Date(b.data) - new Date(a.data);
-  }).map((saida) => [
-            dataBR(saida.data),
-            saida.formaPagamento,
-            saida.categoria || "Outros",
-            saida.tipoSaida,
-            saida.conta,
-            moeda.format(saida.valor),
-            destinoDinheiro(saida.formaPagamento),
-            <Acoes editar={() => editar("saida", saida)} excluir={() => remover("saida", saida.id)} />,
-          ])}
-        />
-      </Card>
+          <Tabela
+            colunas={[
+              "Dia saída",
+              "Pagamento",
+              "Centro de custo",
+              "Tipo saída",
+              "Conta",
+              "Valor",
+              "Destino",
+              "Ações",
+            ]}
+            dados={saidasOrdenadas.map((saida) => [
+              dataBR(saida.data),
+              saida.formaPagamento,
+              saida.categoria || "Outros",
+              saida.tipoSaida,
+              saida.conta,
+              moeda.format(Number(saida.valor || 0)),
+              destinoDinheiro(saida.formaPagamento),
+              <Acoes
+                editar={() => editar("saida", saida)}
+                excluir={() => remover("saida", saida.id)}
+              />,
+            ])}
+          />
+        </Card>
+      </div>
     </>
   );
 }
