@@ -21,10 +21,28 @@ export default function Pendencias({
 
   const [selecionados, setSelecionados] = useState([]);
 
+  const dadosEmpresa = {
+    nome: "Emplacar",
+    subtitulo: "Relação de Serviços em Aberto",
+    cnpj: "63.488.249/0001-08",
+    email: "emplacarmcr@gmail.com",
+    whatsapp: "45 2031-1407",
+    endereco: "Rua Rio de Janeiro, 1766 - Centro - Marechal Cândido Rondon/PR",
+  };
+
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
     const [ano, mes, dia] = data.split("-");
     return `${dia}/${mes}/${ano}`;
+  }
+
+  function carregarLogo() {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = "/logo-emplacar.png";
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+    });
   }
 
   const pendenciasClientes = useMemo(() => {
@@ -143,40 +161,145 @@ Após o pagamento, nos envie o comprovante, por favor.`;
   async function gerarPdfPendencia(pendencia) {
     if (!pendencia) return;
 
-    const doc = new jsPDF("p", "mm", "a4");
-    let y = 20;
+    const horizontal = pendencia.itens.length > 18;
+    const doc = new jsPDF(horizontal ? "l" : "p", "mm", "a4");
+    const logo = await carregarLogo();
 
-    doc.setFontSize(18);
-    doc.text("Relação de Serviços em Aberto", 14, y);
+    const larguraPagina = doc.internal.pageSize.getWidth();
+    const alturaPagina = doc.internal.pageSize.getHeight();
+    const margem = 10;
 
-    y += 12;
-    doc.setFontSize(12);
-    doc.text(`Cliente: ${pendencia.cliente}`, 14, y);
+    let y = 10;
 
-    y += 8;
-    doc.text(`Total: ${moeda.format(pendencia.total)}`, 14, y);
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, larguraPagina, horizontal ? 30 : 36, "F");
 
-    y += 8;
-    doc.text(`Chave Pix: ${chavePix}`, 14, y);
+    if (logo) {
+      doc.addImage(logo, "PNG", margem, 5, horizontal ? 20 : 24, horizontal ? 20 : 24);
+    }
 
-    y += 12;
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(horizontal ? 16 : 18);
+    doc.text(dadosEmpresa.nome, logo ? (horizontal ? 36 : 42) : margem, horizontal ? 13 : 15);
 
-    pendencia.itens.forEach((item) => {
-      if (y > 280) {
-        doc.addPage();
-        y = 20;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(horizontal ? 8 : 9);
+    doc.text(dadosEmpresa.subtitulo, logo ? (horizontal ? 36 : 42) : margem, horizontal ? 19 : 23);
+    doc.text(`CNPJ: ${dadosEmpresa.cnpj}`, logo ? (horizontal ? 36 : 42) : margem, horizontal ? 24 : 29);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(horizontal ? 10 : 11);
+
+    if (horizontal) {
+      doc.text(`Cliente: ${pendencia.cliente}`, 180, 12);
+      doc.text(`Qtd: ${pendencia.quantidade}`, 180, 18);
+      doc.text(`Total: ${moeda.format(pendencia.total)}`, 180, 24);
+      y = 38;
+    } else {
+      y = 48;
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Cliente: ${pendencia.cliente}`, margem, y);
+      y += 7;
+      doc.text(`Qtd: ${pendencia.quantidade}`, margem, y);
+      y += 7;
+      doc.text(`Total: ${moeda.format(pendencia.total)}`, margem, y);
+      y += 11;
+    }
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(horizontal ? 8 : 8);
+
+    doc.setFillColor(219, 234, 254);
+    doc.rect(margem, y - 5, larguraPagina - margem * 2, 8, "F");
+
+    if (horizontal) {
+      doc.text("Data", margem + 2, y);
+      doc.text("Produto", margem + 27, y);
+      doc.text("Placa", margem + 86, y);
+      doc.text("Renavan", margem + 122, y);
+      doc.text("Pagamento", margem + 165, y);
+      doc.text("Valor", margem + 210, y);
+      doc.text("Status", margem + 238, y);
+    } else {
+      doc.text("Data", margem + 2, y);
+      doc.text("Produto", margem + 25, y);
+      doc.text("Placa", margem + 82, y);
+      doc.text("Valor", margem + 122, y);
+      doc.text("Status", margem + 155, y);
+    }
+
+    y += 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(horizontal ? 7 : 7.5);
+
+    const limiteItens = horizontal ? 50 : 18;
+    const alturaLinha = horizontal ? 4.5 : 6;
+
+    pendencia.itens.slice(0, limiteItens).forEach((item, index) => {
+      if (index % 2 === 0) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(margem, y - 3.5, larguraPagina - margem * 2, alturaLinha, "F");
       }
 
-      doc.text(
-        `${dataBR(item.data)} | ${item.placa || "-"} | ${
-          item.produto || "Serviço"
-        } | ${moeda.format(item.valor)}`,
-        14,
-        y
-      );
+      doc.setTextColor(15, 23, 42);
 
-      y += 7;
+      if (horizontal) {
+        doc.text(dataBR(item.data), margem + 2, y);
+        doc.text(String(item.produto || "Serviço").slice(0, 32), margem + 27, y);
+        doc.text(String(item.placa || "-").slice(0, 12), margem + 86, y);
+        doc.text(String(item.renavan || "-").slice(0, 16), margem + 122, y);
+        doc.text(String(item.formaPagamento || "-").slice(0, 18), margem + 165, y);
+        doc.text(moeda.format(Number(item.valor || 0)), margem + 210, y);
+        doc.text(String(item.status || "-").slice(0, 12), margem + 238, y);
+      } else {
+        doc.text(dataBR(item.data), margem + 2, y);
+        doc.text(String(item.produto || "Serviço").slice(0, 28), margem + 25, y);
+        doc.text(String(item.placa || "-").slice(0, 12), margem + 82, y);
+        doc.text(moeda.format(Number(item.valor || 0)), margem + 122, y);
+        doc.text(String(item.status || "-").slice(0, 12), margem + 155, y);
+      }
+
+      y += alturaLinha;
     });
+
+    if (pendencia.itens.length > limiteItens) {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(220, 38, 38);
+      doc.text(
+        `+ ${pendencia.itens.length - limiteItens} serviços não exibidos por limite de 1 página.`,
+        margem + 2,
+        y + 4
+      );
+    }
+
+    const rodapeY = alturaPagina - 22;
+
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margem, rodapeY - 8, larguraPagina - margem, rodapeY - 8);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(horizontal ? 9 : 9);
+    doc.text(`Chave Pix: ${chavePix}`, margem, rodapeY);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(horizontal ? 7 : 7);
+    doc.text(
+      "Observação: quando houver acréscimo de R$ 25,00 no serviço, o valor corresponde ao procedimento de replaca.",
+      margem,
+      rodapeY + 5
+    );
+
+    doc.setTextColor(100, 116, 139);
+    doc.text(dadosEmpresa.endereco, margem, rodapeY + 11);
+    doc.text(
+      `E-mail: ${dadosEmpresa.email} | WhatsApp: ${dadosEmpresa.whatsapp}`,
+      margem,
+      rodapeY + 16
+    );
 
     doc.save(
       `relacao-${pendencia.cliente.toLowerCase().replace(/\s+/g, "-")}.pdf`
