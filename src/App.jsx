@@ -69,9 +69,40 @@ function Sistema({ usuario }) {
   const [mobile, setMobile] = useState(window.innerWidth <= 900);
 
   const [aba, setAba] = useState("Dashboard");
-  const [inicioMes, setInicioMes] = useState(hoje.slice(0, 8) + "01");
-  const [fimMes, setFimMes] = useState(hoje);
-  const [metaMensal, setMetaMensal] = useState(80000);
+  const [diaInicioMesFinanceiro, setDiaInicioMesFinanceiro] = useState(1);
+
+function calcularInicioMesFinanceiro() {
+  const hojeData = new Date();
+
+  const ano = hojeData.getFullYear();
+  const mes = hojeData.getMonth();
+
+  const diaAtual = hojeData.getDate();
+
+  const inicio =
+    diaAtual >= diaInicioMesFinanceiro
+      ? new Date(ano, mes, diaInicioMesFinanceiro)
+      : new Date(ano, mes - 1, diaInicioMesFinanceiro);
+
+  return inicio.toISOString().slice(0, 10);
+}
+
+const [inicioMes, setInicioMes] = useState(calcularInicioMesFinanceiro());
+function calcularFimMesFinanceiro() {
+  const inicio = new Date(calcularInicioMesFinanceiro() + "T00:00:00");
+
+  const fim = new Date(
+    inicio.getFullYear(),
+    inicio.getMonth() + 1,
+    inicio.getDate() - 1
+  );
+
+  return fim.toISOString().slice(0, 10);
+}
+
+const [fimMes, setFimMes] = useState(calcularFimMesFinanceiro());
+
+const [metaMensal, setMetaMensal] = useState(80000);
 
   const [textoImportacao, setTextoImportacao] = useState("");
   const [resultadoImportacao, setResultadoImportacao] = useState("");
@@ -87,6 +118,7 @@ function Sistema({ usuario }) {
   const [estoqueCompras, setEstoqueCompras] = useState([]);
   const [estoquePerdas, setEstoquePerdas] = useState([]);
   const [historicoRelacoes, setHistoricoRelacoes] = useState([]);
+  const [historicoFechamentos, setHistoricoFechamentos] = useState([]);
 
   useEffect(() => {
     function ajustarTela() {
@@ -106,6 +138,9 @@ function Sistema({ usuario }) {
         const dados = snapshot.data();
 
         setEntradas(Array.isArray(dados.entradas) ? dados.entradas : []);
+        setDiaInicioMesFinanceiro(
+  Number(dados.diaInicioMesFinanceiro || 1)
+);
         setSaidas(Array.isArray(dados.saidas) ? dados.saidas : []);
         setContas(Array.isArray(dados.contas) ? dados.contas : []);
         setClientes(Array.isArray(dados.clientes) ? dados.clientes : []);
@@ -118,15 +153,22 @@ function Sistema({ usuario }) {
         setHistoricoRelacoes(
           Array.isArray(dados.historicoRelacoes) ? dados.historicoRelacoes : []
         );
+        setHistoricoFechamentos(
+  Array.isArray(dados.historicoFechamentos)
+    ? dados.historicoFechamentos
+    : []
+);
       } else {
         await setDoc(docSistema, {
           entradas: [],
+          
           saidas: [],
           contas: [],
           clientes: [],
           estoqueCompras: [],
           estoquePerdas: [],
           historicoRelacoes: [],
+          historicoFechamentos: [],
         });
       }
 
@@ -157,6 +199,16 @@ function Sistema({ usuario }) {
   useEffect(() => {
     salvarNaNuvem("entradas", entradas);
   }, [entradas]);
+  useEffect(() => {
+  salvarNaNuvem(
+    "diaInicioMesFinanceiro",
+    diaInicioMesFinanceiro
+  );
+}, [diaInicioMesFinanceiro]);
+useEffect(() => {
+  setInicioMes(calcularInicioMesFinanceiro());
+  setFimMes(calcularFimMesFinanceiro());
+}, [diaInicioMesFinanceiro]);
 
   useEffect(() => {
     salvarNaNuvem("saidas", saidas);
@@ -181,6 +233,12 @@ function Sistema({ usuario }) {
   useEffect(() => {
     salvarNaNuvem("historicoRelacoes", historicoRelacoes);
   }, [historicoRelacoes]);
+  useEffect(() => {
+  salvarNaNuvem(
+    "historicoFechamentos",
+    historicoFechamentos
+  );
+}, [historicoFechamentos]);
 
   const chavePix = "63.488.249/0001-08";
 
@@ -864,6 +922,8 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   const propsGlobais = {
     hoje,
     usuario,
+    diaInicioMesFinanceiro,
+setDiaInicioMesFinanceiro,
     aba,
     setAba,
     salvarEntrada,
@@ -932,6 +992,8 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     rankingClientes,
     historicoRelacoes,
     setHistoricoRelacoes,
+    historicoFechamentos,
+setHistoricoFechamentos,
     numero,
     texto,
     normalizar,
