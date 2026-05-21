@@ -136,6 +136,13 @@ const [metaMensal, setMetaMensal] = useState(80000);
 
       if (snapshot.exists()) {
         const dados = snapshot.data();
+        if (!Array.isArray(dados.historicoFechamentos)) {
+  await setDoc(
+    docSistema,
+    { historicoFechamentos: [] },
+    { merge: true }
+  );
+}
 
         setEntradas(Array.isArray(dados.entradas) ? dados.entradas : []);
         setDiaInicioMesFinanceiro(
