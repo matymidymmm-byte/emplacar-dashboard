@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import jsPDF from "jspdf";
 
 import Card from "../components/Card.jsx";
+
 import Tabela from "../components/Tabela.jsx";
 
 import styles from "../styles/styles.js";
@@ -37,10 +38,12 @@ export default function Pendencias({
       .filter(
         (entrada) =>
           entrada.status !== "Pago" ||
-          (entrada.formaPagamento === "Nota / Faturado" && !entrada.diaPago)
+          (entrada.formaPagamento === "Nota / Faturado" &&
+            !entrada.diaPago)
       )
       .forEach((entrada) => {
-        const cliente = entrada.cliente || "Sem cliente";
+        const cliente =
+          entrada.cliente || "Sem cliente";
 
         if (!mapa[cliente]) {
           mapa[cliente] = {
@@ -52,32 +55,45 @@ export default function Pendencias({
         }
 
         mapa[cliente].quantidade += 1;
-        mapa[cliente].total += entrada.valor;
+        mapa[cliente].total +=
+          Number(entrada.valor || 0);
+
         mapa[cliente].itens.push(entrada);
       });
 
-    return Object.values(mapa).sort((a, b) => b.total - a.total);
+    return Object.values(mapa).sort(
+      (a, b) => b.total - a.total
+    );
   }, [entradas]);
 
-  const detalhePendencia = pendenciasClientes.find(
-    (item) => item.cliente === clientePendenciaSelecionado
-  );
+  const detalhePendencia =
+    pendenciasClientes.find(
+      (item) =>
+        item.cliente ===
+        clientePendenciaSelecionado
+    );
 
   function dataBR(data) {
-    if (!data || !data.includes("-")) return data || "";
+    if (!data || !data.includes("-"))
+      return data || "";
 
-    const [ano, mes, dia] = data.split("-");
+    const [ano, mes, dia] =
+      data.split("-");
 
     return `${dia}/${mes}/${ano}`;
   }
 
-  function gerarMensagemCobranca(pendencia) {
+  function gerarMensagemCobranca(
+    pendencia
+  ) {
     if (!pendencia) return "";
 
     const linhas = pendencia.itens
       .map(
         (item) =>
-          `${item.placa || "Sem placa"} - ${moeda.format(item.valor)} - ${
+          `${item.placa || "Sem placa"} - ${moeda.format(
+            item.valor
+          )} - ${
             item.produto || "Serviço"
           }`
       )
@@ -89,7 +105,9 @@ Segue a relação das placas em aberto:
 
 ${linhas}
 
-Total em aberto: ${moeda.format(pendencia.total)}
+Total em aberto: ${moeda.format(
+      pendencia.total
+    )}
 
 Chave Pix: ${chavePix}
 
@@ -98,165 +116,329 @@ Observação: quando houver acréscimo de R$ 25,00 no serviço, o valor correspo
 Após o pagamento, nos envie o comprovante, por favor.`;
   }
 
-  function copiarCobranca(pendencia) {
-    navigator.clipboard.writeText(gerarMensagemCobranca(pendencia));
+  function copiarCobranca(
+    pendencia
+  ) {
+    navigator.clipboard.writeText(
+      gerarMensagemCobranca(
+        pendencia
+      )
+    );
 
     alert("Cobrança copiada.");
   }
 
-  function abrirWhatsAppCobranca(pendencia) {
-    const mensagem = encodeURIComponent(gerarMensagemCobranca(pendencia));
+  function abrirWhatsAppCobranca(
+    pendencia
+  ) {
+    const mensagem =
+      encodeURIComponent(
+        gerarMensagemCobranca(
+          pendencia
+        )
+      );
 
-    window.open(`https://web.whatsapp.com/send?text=${mensagem}`, "_blank");
+    window.open(
+      `https://web.whatsapp.com/send?text=${mensagem}`,
+      "_blank"
+    );
   }
 
   function carregarLogo() {
-    return new Promise((resolve) => {
-      const img = new Image();
+    return new Promise(
+      (resolve) => {
+        const img = new Image();
 
-      img.src = "/logo-emplacar.png";
+        img.src =
+          "/logo-emplacar.png";
 
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
-    });
+        img.onload = () =>
+          resolve(img);
+
+        img.onerror = () =>
+          resolve(null);
+      }
+    );
   }
 
-  async function gerarPdfPendencia(pendencia) {
+  async function gerarPdfPendencia(
+    pendencia
+  ) {
     if (!pendencia) return;
 
-    const doc = new jsPDF("p", "mm", "a4");
-    const logo = await carregarLogo();
-    const larguraPagina = doc.internal.pageSize.getWidth();
+    const doc = new jsPDF(
+      "p",
+      "mm",
+      "a4"
+    );
+
+    const logo =
+      await carregarLogo();
+
+    const larguraPagina =
+      doc.internal.pageSize.getWidth();
+
     const margem = 14;
 
     let y = 16;
 
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, larguraPagina, 38, "F");
+    doc.setFillColor(
+      15,
+      23,
+      42
+    );
+
+    doc.rect(
+      0,
+      0,
+      larguraPagina,
+      38,
+      "F"
+    );
 
     if (logo) {
-      doc.addImage(logo, "PNG", margem, 8, 24, 24);
+      doc.addImage(
+        logo,
+        "PNG",
+        margem,
+        8,
+        24,
+        24
+      );
     }
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text(dadosEmpresa.nome, logo ? 44 : margem, 17);
+    doc.setTextColor(
+      255,
+      255,
+      255
+    );
 
-    doc.setFont("helvetica", "normal");
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.setFontSize(18);
+
+    doc.text(
+      dadosEmpresa.nome,
+      logo ? 44 : margem,
+      17
+    );
+
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
+
     doc.setFontSize(10);
-    doc.text(dadosEmpresa.subtitulo, logo ? 44 : margem, 24);
-    doc.text(`CNPJ: ${dadosEmpresa.cnpj}`, logo ? 44 : margem, 30);
+
+    doc.text(
+      dadosEmpresa.subtitulo,
+      logo ? 44 : margem,
+      24
+    );
+
+    doc.text(
+      `CNPJ: ${dadosEmpresa.cnpj}`,
+      logo ? 44 : margem,
+      30
+    );
 
     y = 50;
 
-    doc.setTextColor(15, 23, 42);
-    doc.setFont("helvetica", "bold");
+    doc.setTextColor(
+      15,
+      23,
+      42
+    );
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
     doc.setFontSize(14);
-    doc.text("Cliente", margem, y);
+
+    doc.text(
+      "Cliente",
+      margem,
+      y
+    );
 
     y += 7;
 
-    doc.setFont("helvetica", "normal");
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
+
     doc.setFontSize(11);
-    doc.text(pendencia.cliente, margem, y);
+
+    doc.text(
+      pendencia.cliente,
+      margem,
+      y
+    );
 
     y += 10;
 
-    doc.setFont("helvetica", "bold");
-    doc.text("Resumo", margem, y);
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.text(
+      "Resumo",
+      margem,
+      y
+    );
 
     y += 7;
 
-    doc.setFont("helvetica", "normal");
-    doc.text(`Quantidade de serviços em aberto: ${pendencia.quantidade}`, margem, y);
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
+
+    doc.text(
+      `Quantidade de serviços em aberto: ${pendencia.quantidade}`,
+      margem,
+      y
+    );
 
     y += 6;
 
-    doc.text(`Total em aberto: ${moeda.format(pendencia.total)}`, margem, y);
+    doc.text(
+      `Total em aberto: ${moeda.format(
+        pendencia.total
+      )}`,
+      margem,
+      y
+    );
 
     y += 12;
 
-    doc.setFillColor(219, 234, 254);
-    doc.rect(margem, y, larguraPagina - margem * 2, 9, "F");
+    doc.setFillColor(
+      219,
+      234,
+      254
+    );
 
-    doc.setTextColor(30, 64, 175);
-    doc.setFont("helvetica", "bold");
+    doc.rect(
+      margem,
+      y,
+      larguraPagina -
+        margem * 2,
+      9,
+      "F"
+    );
+
+    doc.setTextColor(
+      30,
+      64,
+      175
+    );
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
     doc.setFontSize(10);
 
-    doc.text("Data", margem + 2, y + 6);
-    doc.text("Serviço", margem + 25, y + 6);
-    doc.text("Placa", margem + 90, y + 6);
-    doc.text("Valor", margem + 130, y + 6);
-    doc.text("Status", margem + 160, y + 6);
+    doc.text(
+      "Data",
+      margem + 2,
+      y + 6
+    );
+
+    doc.text(
+      "Serviço",
+      margem + 25,
+      y + 6
+    );
+
+    doc.text(
+      "Placa",
+      margem + 90,
+      y + 6
+    );
+
+    doc.text(
+      "Valor",
+      margem + 130,
+      y + 6
+    );
+
+    doc.text(
+      "Status",
+      margem + 160,
+      y + 6
+    );
 
     y += 11;
 
-    doc.setTextColor(15, 23, 42);
-    doc.setFont("helvetica", "normal");
-
-    pendencia.itens.forEach((item) => {
-      if (y > 260) {
-        doc.addPage();
-        y = 18;
-      }
-
-      doc.text(dataBR(item.data), margem + 2, y);
-      doc.text(String(item.produto || "Serviço").slice(0, 32), margem + 25, y);
-      doc.text(String(item.placa || "-"), margem + 90, y);
-      doc.text(moeda.format(item.valor), margem + 130, y);
-      doc.text(String(item.status || "-"), margem + 160, y);
-
-      y += 8;
-    });
-
-    y += 6;
-
-    doc.setDrawColor(226, 232, 240);
-    doc.line(margem, y, larguraPagina - margem, y);
-
-    y += 10;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.text(`Total em aberto: ${moeda.format(pendencia.total)}`, margem, y);
-
-    y += 9;
-
-    doc.setFontSize(11);
-    doc.text(`Chave Pix: ${chavePix}`, margem, y);
-
-    y += 12;
-
-    doc.setFillColor(248, 250, 252);
-    doc.rect(margem, y, larguraPagina - margem * 2, 25, "F");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("Observação", margem + 3, y + 7);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-
-    const observacao =
-      "Quando houver acréscimo de R$ 25,00 no serviço, o valor corresponde ao procedimento de replaca, aplicado quando necessário para regularização, substituição ou ajuste da placa.";
-
-    const textoQuebrado = doc.splitTextToSize(
-      observacao,
-      larguraPagina - margem * 2 - 6
+    doc.setTextColor(
+      15,
+      23,
+      42
     );
 
-    doc.text(textoQuebrado, margem + 3, y + 14);
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
 
-    y += 35;
+    pendencia.itens.forEach(
+      (item) => {
+        if (y > 260) {
+          doc.addPage();
 
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(9);
-    doc.text(dadosEmpresa.endereco, margem, y);
-    doc.text(
-      `E-mail: ${dadosEmpresa.email} | WhatsApp: ${dadosEmpresa.whatsapp}`,
-      margem,
-      y + 5
+          y = 18;
+        }
+
+        doc.text(
+          dataBR(item.data),
+          margem + 2,
+          y
+        );
+
+        doc.text(
+          String(
+            item.produto ||
+              "Serviço"
+          ).slice(0, 32),
+          margem + 25,
+          y
+        );
+
+        doc.text(
+          String(
+            item.placa || "-"
+          ),
+          margem + 90,
+          y
+        );
+
+        doc.text(
+          moeda.format(
+            item.valor
+          ),
+          margem + 130,
+          y
+        );
+
+        doc.text(
+          String(
+            item.status || "-"
+          ),
+          margem + 160,
+          y
+        );
+
+        y += 8;
+      }
     );
 
     const nomeArquivo = `relacao-${pendencia.cliente
@@ -270,135 +452,337 @@ Após o pagamento, nos envie o comprovante, por favor.`;
     <>
       <Card titulo="Clientes com pendência">
         <Tabela
-          colunas={["Cliente", "Placas em aberto", "Total", "Ações"]}
-          dados={pendenciasClientes.map((pendencia) => [
-            pendencia.cliente,
-            pendencia.quantidade,
-            moeda.format(pendencia.total),
-            <div style={styles.acoes}>
-              <button
-                style={styles.editar}
-                onClick={() => setClientePendenciaSelecionado(pendencia.cliente)}
-              >
-                Ver relação
-              </button>
+          colunas={[
+            "Cliente",
+            "Placas em aberto",
+            "Total",
+            "Ações",
+          ]}
+          dados={pendenciasClientes.map(
+            (pendencia) => [
+              pendencia.cliente,
+              pendencia.quantidade,
+              moeda.format(
+                pendencia.total
+              ),
 
-              <button
-                style={styles.copiar}
-                onClick={() => abrirWhatsAppCobranca(pendencia)}
+              <div
+                style={
+                  styles.acoes
+                }
               >
-                WhatsApp cobrança
-              </button>
+                <button
+                  style={
+                    styles.editar
+                  }
+                  onClick={() =>
+                    setClientePendenciaSelecionado(
+                      pendencia.cliente
+                    )
+                  }
+                >
+                  Ver relação
+                </button>
 
-              <button
-                style={styles.botaoPequeno}
-                onClick={() => copiarCobranca(pendencia)}
-              >
-                Copiar cobrança
-              </button>
+                <button
+                  style={
+                    styles.copiar
+                  }
+                  onClick={() =>
+                    abrirWhatsAppCobranca(
+                      pendencia
+                    )
+                  }
+                >
+                  WhatsApp cobrança
+                </button>
 
-              <button
-                style={styles.detalhes}
-                onClick={() => gerarPdfPendencia(pendencia)}
-              >
-                Gerar PDF
-              </button>
-            </div>,
-          ])}
+                <button
+                  style={
+                    styles.botaoPequeno
+                  }
+                  onClick={() =>
+                    copiarCobranca(
+                      pendencia
+                    )
+                  }
+                >
+                  Copiar cobrança
+                </button>
+
+                <button
+                  style={
+                    styles.detalhes
+                  }
+                  onClick={() =>
+                    gerarPdfPendencia(
+                      pendencia
+                    )
+                  }
+                >
+                  Gerar PDF
+                </button>
+              </div>,
+            ]
+          )}
         />
       </Card>
 
       {detalhePendencia && (
-        <Card titulo={`Relação em aberto - ${detalhePendencia.cliente}`}>
-          <Tabela
-            colunas={[
-              "Data",
-              "Cliente",
-              "Produto",
-              "Placa",
-              "Renavan",
-              "Valor",
-              "Status",
-              "Processo",
-            ]}
-            dados={detalhePendencia.itens.map((item) => [
-              dataBR(item.data),
-              item.cliente,
-              item.produto,
-              item.placa,
-              item.renavan,
-              moeda.format(item.valor),
-              item.status,
-              item.processo,
-            ])}
-          />
+        <Card
+          titulo={`Relação em aberto - ${detalhePendencia.cliente}`}
+        >
+          <div
+            style={{
+              overflowX:
+                "auto",
+              borderRadius: 14,
+              border:
+                "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <table
+              style={
+                styles.tabela
+              }
+            >
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Data</th>
+                  <th>Cliente</th>
+                  <th>Produto</th>
+                  <th>Placa</th>
+                  <th>Renavan</th>
+                  <th>Forma</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                  <th>Pago dia</th>
+                </tr>
+              </thead>
 
-          <div style={styles.caixaCobranca}>
-            <strong>Total em aberto: {moeda.format(detalhePendencia.total)}</strong>
+              <tbody>
+                {detalhePendencia.itens.map(
+                  (item) => (
+                    <tr
+                      key={
+                        item.id
+                      }
+                    >
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={
+                            item.status ===
+                            "Pago"
+                          }
+                          onChange={() =>
+                            salvarRelacaoPaga(
+                              {
+                                cliente:
+                                  detalhePendencia.cliente,
+                                itens: [
+                                  item,
+                                ],
+                              },
+                              diaPagamento
+                            )
+                          }
+                        />
+                      </td>
 
-            <p>Chave Pix: {chavePix}</p>
+                      <td>
+                        {dataBR(
+                          item.data
+                        )}
+                      </td>
+
+                      <td>
+                        {
+                          item.cliente
+                        }
+                      </td>
+
+                      <td>
+                        {
+                          item.produto
+                        }
+                      </td>
+
+                      <td>
+                        {
+                          item.placa
+                        }
+                      </td>
+
+                      <td>
+                        {
+                          item.renavan
+                        }
+                      </td>
+
+                      <td>
+                        {
+                          item.formaPagamento
+                        }
+                      </td>
+
+                      <td>
+                        {moeda.format(
+                          item.valor
+                        )}
+                      </td>
+
+                      <td>
+                        {
+                          item.status
+                        }
+                      </td>
+
+                      <td>
+                        {item.diaPago
+                          ? dataBR(
+                              item.diaPago
+                            )
+                          : "-"}
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div
+            style={
+              styles.caixaCobranca
+            }
+          >
+            <strong>
+              Total em aberto:{" "}
+              {moeda.format(
+                detalhePendencia.total
+              )}
+            </strong>
+
+            <p>
+              Chave Pix:{" "}
+              {chavePix}
+            </p>
 
             <div
               style={{
                 display: "flex",
                 gap: 10,
-                flexWrap: "wrap",
-                alignItems: "center",
+                flexWrap:
+                  "wrap",
+                alignItems:
+                  "center",
               }}
             >
               <label
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
+                  display:
+                    "flex",
+                  flexDirection:
+                    "column",
                   gap: 6,
                   fontSize: 13,
-                  fontWeight: "bold",
+                  fontWeight:
+                    "bold",
                 }}
               >
                 Dia do pagamento
 
                 <input
                   type="date"
-                  value={diaPagamento}
-                  onChange={(e) => setDiaPagamento(e.target.value)}
-                  style={styles.input}
+                  value={
+                    diaPagamento
+                  }
+                  onChange={(
+                    e
+                  ) =>
+                    setDiaPagamento(
+                      e.target.value
+                    )
+                  }
+                  style={
+                    styles.input
+                  }
                 />
               </label>
 
               <button
-                style={styles.botao}
-                onClick={() => salvarRelacaoPaga(detalhePendencia, diaPagamento)}
+                style={
+                  styles.botao
+                }
+                onClick={() =>
+                  salvarRelacaoPaga(
+                    detalhePendencia,
+                    diaPagamento
+                  )
+                }
               >
-                Salvar relação como paga
+                Salvar relação inteira como paga
               </button>
             </div>
 
             <p>
-              Observação: quando houver acréscimo de R$ 25,00 no serviço, o valor
-              corresponde ao procedimento de replaca, aplicado quando necessário para
-              regularização ou substituição da placa.
+              Observação:
+              quando houver
+              acréscimo de
+              R$ 25,00 no
+              serviço, o
+              valor
+              corresponde ao
+              procedimento
+              de replaca.
             </p>
 
-            <div style={styles.acoes}>
+            <div
+              style={
+                styles.acoes
+              }
+            >
               <button
-                style={styles.copiar}
-                onClick={() => abrirWhatsAppCobranca(detalhePendencia)}
+                style={
+                  styles.copiar
+                }
+                onClick={() =>
+                  abrirWhatsAppCobranca(
+                    detalhePendencia
+                  )
+                }
               >
-                Enviar cobrança no WhatsApp
+                Enviar cobrança
+                no WhatsApp
               </button>
 
               <button
-                style={styles.botao}
-                onClick={() => copiarCobranca(detalhePendencia)}
+                style={
+                  styles.botao
+                }
+                onClick={() =>
+                  copiarCobranca(
+                    detalhePendencia
+                  )
+                }
               >
                 Copiar cobrança
               </button>
 
               <button
-                style={styles.detalhes}
-                onClick={() => gerarPdfPendencia(detalhePendencia)}
+                style={
+                  styles.detalhes
+                }
+                onClick={() =>
+                  gerarPdfPendencia(
+                    detalhePendencia
+                  )
+                }
               >
-                Gerar PDF da relação
+                Gerar PDF da
+                relação
               </button>
             </div>
           </div>
@@ -406,23 +790,56 @@ Após o pagamento, nos envie o comprovante, por favor.`;
       )}
 
       <Card titulo="Histórico de relações pagas">
-        {historicoRelacoes.length === 0 ? (
-          <p style={styles.vazio}>Nenhuma relação salva ainda.</p>
+        {historicoRelacoes.length ===
+        0 ? (
+          <p
+            style={
+              styles.vazio
+            }
+          >
+            Nenhuma relação
+            salva ainda.
+          </p>
         ) : (
           <Tabela
-            colunas={["Cliente", "Dia pago", "Qtd", "Total", "Ações"]}
-            dados={historicoRelacoes.map((relacao) => [
-              relacao.cliente,
-              dataBR(relacao.diaPago),
-              relacao.quantidade,
-              moeda.format(relacao.total),
-              <button
-                style={styles.excluir}
-                onClick={() => excluirRelacaoHistorico(relacao.id)}
-              >
-                Excluir do histórico
-              </button>,
-            ])}
+            colunas={[
+              "Cliente",
+              "Dia pago",
+              "Qtd",
+              "Total",
+              "Ações",
+            ]}
+            dados={historicoRelacoes.map(
+              (
+                relacao
+              ) => [
+                relacao.cliente,
+
+                dataBR(
+                  relacao.diaPago
+                ),
+
+                relacao.quantidade,
+
+                moeda.format(
+                  relacao.total
+                ),
+
+                <button
+                  style={
+                    styles.excluir
+                  }
+                  onClick={() =>
+                    excluirRelacaoHistorico(
+                      relacao.id
+                    )
+                  }
+                >
+                  Excluir do
+                  histórico
+                </button>,
+              ]
+            )}
           />
         )}
       </Card>

@@ -13,6 +13,7 @@ import styles from "../styles/styles.js";
 export default function Entradas({
   entradaForm,
   setEntradaForm,
+  setEntradas,
 
   clientes,
   formasPagamento,
@@ -319,14 +320,14 @@ export default function Entradas({
           </div>
 
           <TabelaEntradas
-            entradas={entradas}
-            moeda={moeda}
-            destinoDinheiro={
-              destinoDinheiro
-            }
-            editar={editar}
-            remover={remover}
-          />
+  entradas={entradas}
+  setEntradas={setEntradas}
+  moeda={moeda}
+  destinoDinheiro={destinoDinheiro}
+  editar={editar}
+  remover={remover}
+  formasPagamento={formasPagamento}
+/>
         </Card>
       </div>
     </>
