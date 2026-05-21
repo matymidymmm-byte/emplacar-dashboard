@@ -127,7 +127,13 @@ export default function Saidas({
             "Destino",
             "Ações",
           ]}
-          dados={saidas.map((saida) => [
+          dados={[...saidas]
+  .sort((a, b) => {
+    if (!a.data) return 1;
+    if (!b.data) return -1;
+
+    return new Date(b.data) - new Date(a.data);
+  }).map((saida) => [
             dataBR(saida.data),
             saida.formaPagamento,
             saida.categoria || "Outros",
