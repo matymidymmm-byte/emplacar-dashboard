@@ -616,13 +616,28 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     );
   }
 
-  const dadosPeriodo = useMemo(() => {
-    return {
-      entradas: entradas.filter((x) => dentroDoPeriodo(x.data)),
-      saidas: saidas.filter((x) => dentroDoPeriodo(x.data)),
-      contas: contas.filter((x) => dentroDoPeriodo(x.vencimento)),
-    };
-  }, [entradas, saidas, contas, inicioMes, fimMes]);
+ const dadosPeriodo = useMemo(() => {
+  const entradasCompetencia = entradas.filter((x) =>
+    dentroDoPeriodo(x.data)
+  );
+
+  const entradasRecebidas = entradas.filter((x) => {
+    const dataRecebimento = dataRecebimentoEntrada(x);
+
+    return (
+      dataRecebimento &&
+      dentroDoPeriodo(dataRecebimento) &&
+      x.status === "Pago"
+    );
+  });
+
+  return {
+    entradas: entradasCompetencia,
+    entradasRecebidas,
+    saidas: saidas.filter((x) => dentroDoPeriodo(x.data)),
+    contas: contas.filter((x) => dentroDoPeriodo(x.vencimento)),
+  };
+}, [entradas, saidas, contas, inicioMes, fimMes]);
 
   const indicadores = useMemo(() => {
     const entradasCompetencia = entradas.filter(
@@ -639,15 +654,20 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
       );
     });
 
-    const vendasRecebidasPeriodo = entradasRecebidasPeriodo.filter(ehVendaReal);
+    const vendasRecebidasPeriodo =
+  dadosPeriodo.entradasRecebidas.filter(ehVendaReal);
 
-    const injecaoCaixaPeriodo = entradasRecebidasPeriodo.filter(ehInjecaoCaixa);
-    const injecaoLojaPeriodo = entradasRecebidasPeriodo.filter(ehInjecaoLoja);
-    const injecaoSociosPeriodo = entradasRecebidasPeriodo.filter(ehInjecaoSocios);
-    const injecoesPeriodo = entradasRecebidasPeriodo.filter(ehInjecaoCapital);
+    const injecaoCaixaPeriodo =
+  dadosPeriodo.entradasRecebidas.filter(ehInjecaoCaixa);
+    const injecaoLojaPeriodo =
+  dadosPeriodo.entradasRecebidas.filter(ehInjecaoLoja);
+    const injecaoSociosPeriodo =
+  dadosPeriodo.entradasRecebidas.filter(ehInjecaoSocios);
+    const injecoesPeriodo =
+  dadosPeriodo.entradasRecebidas.filter(ehInjecaoCapital);
 
     const recuperacaoValesPeriodo =
-      entradasRecebidasPeriodo.filter(ehRecuperacaoVale);
+  dadosPeriodo.entradasRecebidas.filter(ehRecuperacaoVale);
 
     const recebimentosAntigos = vendasRecebidasPeriodo.filter((x) => {
       const dataRecebimento = dataRecebimentoEntrada(x);
@@ -686,7 +706,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
       0
     );
 
-    const recebidoBanco = entradasRecebidasPeriodo
+  const recebidoBanco = dadosPeriodo.entradasRecebidas
       .filter((x) => {
         if (ehInjecaoCaixa(x)) return false;
         if (destinoDinheiro(x.formaPagamento) === "Caixa") return false;
@@ -694,7 +714,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
       })
       .reduce((s, x) => s + x.valor, 0);
 
-    const recebidoCaixa = entradasRecebidasPeriodo
+    const recebidoCaixa = dadosPeriodo.entradasRecebidas
       .filter((x) => {
         if (ehInjecaoCaixa(x)) return true;
         return destinoDinheiro(x.formaPagamento) === "Caixa";
