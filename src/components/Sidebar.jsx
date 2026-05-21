@@ -41,6 +41,9 @@ export default function Sidebar({
   historicoRelacoes,
   setHistoricoRelacoes,
 
+  historicoFechamentos,
+  setHistoricoFechamentos,
+
   mobile,
   menuMobile,
   setMenuMobile,
@@ -90,6 +93,7 @@ export default function Sidebar({
     "Pendências de Clientes",
     "Controle de Estoque",
     "Relatório Diário",
+    "Histórico Financeiro",
     "Atualizações",
     "Importar Entradas",
     "Importar Saídas",
@@ -160,7 +164,7 @@ export default function Sidebar({
         .slice(0, 10)}.json`;
 
     const dados = {
-      versao: "2.0",
+      versao: "3.0",
 
       exportadoEm:
         agora.toISOString(),
@@ -172,6 +176,7 @@ export default function Sidebar({
       estoqueCompras,
       estoquePerdas,
       historicoRelacoes,
+      historicoFechamentos,
     };
 
     const blob = new Blob(
@@ -248,6 +253,9 @@ export default function Sidebar({
           historicoRelacoes:
             dados.historicoRelacoes ||
             [],
+          historicoFechamentos:
+            dados.historicoFechamentos ||
+            [],
         };
 
         await setDoc(
@@ -281,6 +289,10 @@ export default function Sidebar({
 
         setHistoricoRelacoes(
           novoSistema.historicoRelacoes
+        );
+
+        setHistoricoFechamentos(
+          novoSistema.historicoFechamentos
         );
 
         alert(
@@ -343,6 +355,7 @@ export default function Sidebar({
       estoqueCompras: [],
       estoquePerdas: [],
       historicoRelacoes: [],
+      historicoFechamentos: [],
     };
 
     await setDoc(
@@ -357,6 +370,7 @@ export default function Sidebar({
     setEstoqueCompras([]);
     setEstoquePerdas([]);
     setHistoricoRelacoes([]);
+    setHistoricoFechamentos([]);
 
     alert("Sistema limpo.");
 

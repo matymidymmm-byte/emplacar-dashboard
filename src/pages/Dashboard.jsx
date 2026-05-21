@@ -11,6 +11,7 @@ import GraficoPizza from "../components/GraficoPizza.jsx";
 
 export default function Dashboard({
   usuario,
+  fecharMesFinanceiro,
 
   inicioMes,
   setInicioMes,
@@ -45,8 +46,8 @@ export default function Dashboard({
   const emailUsuario = usuario?.email?.toLowerCase() || "";
 
   const podeEditarMeta =
-  emailUsuario === "matymidy.mmm@gmail.com" ||
-  emailUsuario !== "emplacarmcr@gmail.com";
+    emailUsuario === "matymidy.mmm@gmail.com" ||
+    emailUsuario !== "emplacarmcr@gmail.com";
 
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
@@ -60,6 +61,20 @@ export default function Dashboard({
     if (!data) return false;
 
     return data >= inicioMes && data <= fimMes;
+  }
+
+  function confirmarFechamentoMes() {
+    const confirmar = window.confirm(
+      `Deseja fechar o mês financeiro de ${dataBR(inicioMes)} até ${dataBR(
+        fimMes
+      )}?\n\nEssa ação salvará uma foto dos indicadores atuais no histórico.`
+    );
+
+    if (!confirmar) return;
+
+    fecharMesFinanceiro();
+
+    window.alert("Mês financeiro salvo no histórico com sucesso.");
   }
 
   const hojeSistema = new Date();
@@ -155,7 +170,8 @@ export default function Dashboard({
 
   const despesasOperacionais = indicadores.saidasTotal || 0;
 
-  const resultadoOperacional = receitaOperacional - despesasOperacionais;
+  const resultadoOperacional =
+    receitaOperacional - despesasOperacionais;
 
   const margemOperacional =
     receitaOperacional > 0
@@ -163,15 +179,21 @@ export default function Dashboard({
       : 0;
 
   const percentualMeta =
-    metaMensal > 0 ? (receitaOperacional / metaMensal) * 100 : 0;
+    metaMensal > 0
+      ? (receitaOperacional / metaMensal) * 100
+      : 0;
 
   const faltaMeta = metaMensal - receitaOperacional;
 
   const mediaNecessaria =
-    faltaMeta > 0 ? faltaMeta / Math.max(ultimoDiaMes - diaAtual, 1) : 0;
+    faltaMeta > 0
+      ? faltaMeta / Math.max(ultimoDiaMes - diaAtual, 1)
+      : 0;
 
   const projecaoMes =
-    diaAtual > 0 ? (receitaOperacional / diaAtual) * ultimoDiaMes : 0;
+    diaAtual > 0
+      ? (receitaOperacional / diaAtual) * ultimoDiaMes
+      : 0;
 
   const despesasPorCategoria = (() => {
     const mapa = {};
@@ -181,7 +203,9 @@ export default function Dashboard({
 
       const categoria = saida.categoria || "Outros";
 
-      mapa[categoria] = (mapa[categoria] || 0) + Number(saida.valor || 0);
+      mapa[categoria] =
+        (mapa[categoria] || 0) +
+        Number(saida.valor || 0);
     });
 
     return Object.entries(mapa)
@@ -194,9 +218,10 @@ export default function Dashboard({
 
   const clientesTop = (rankingClientes || []).slice(0, 8);
 
-  const contasPendentes = (dadosPeriodo?.contas || []).filter(
-    (conta) => statusConta(conta) !== "Pago"
-  );
+  const contasPendentes =
+    (dadosPeriodo?.contas || []).filter(
+      (conta) => statusConta(conta) !== "Pago"
+    );
 
   const totalClientesTop = clientesTop.reduce(
     (soma, cliente) => soma + cliente.valor,
@@ -205,51 +230,141 @@ export default function Dashboard({
 
   const diferencaFaturamentoCaixa =
     receitaOperacional -
-    (indicadores.caixaRecebidoTotal || indicadores.recebidoTotal || 0);
+    (indicadores.caixaRecebidoTotal ||
+      indicadores.recebidoTotal ||
+      0);
 
   function exportarPDF() {
     const doc = new jsPDF();
 
     doc.setFontSize(18);
     doc.text("Relatório Financeiro", 14, 20);
+
     doc.save("relatorio-financeiro.pdf");
   }
 
   const kpisSimples = [
     ["Faturamento", receitaOperacional],
-    ["Caixa Real", indicadores.entradaLiquida || 0],
+
+    [
+      "Entradas à Vista",
+      indicadores.entradasVistaTotal || 0,
+    ],
+
+    [
+      "Caixa Real",
+      indicadores.entradaLiquida || 0,
+    ],
+
     ["Saídas", indicadores.saidasTotal || 0],
-    ["Faturado em Aberto", indicadores.faturadoEmAberto || 0],
+
+    [
+      "Faturado em Aberto",
+      indicadores.faturadoEmAberto || 0,
+    ],
+
     ["Banco", indicadores.tenhoNoBanco || 0],
-    ["Caixa Físico", indicadores.tenhoNoCaixa || 0],
+
+    [
+      "Caixa Físico",
+      indicadores.tenhoNoCaixa || 0,
+    ],
   ];
+
+  const caixaOperacional =
+    (indicadores.caixaRecebidoTotal || 0) -
+    (indicadores.injecaoCapitalTotal || 0);
+
+  const saldoOperacional =
+    caixaOperacional -
+    (indicadores.saidasTotal || 0);
 
   const kpisDetalhados = [
     ["Faturamento", receitaOperacional],
-    ["Caixa Real", indicadores.entradaLiquida || 0],
+
+    [
+      "Entradas à Vista",
+      indicadores.entradasVistaTotal || 0,
+    ],
+
+    [
+      "Recebimentos Antigos",
+      indicadores.recebimentosAntigos || 0,
+    ],
+
     [
       "Caixa Recebido",
-      indicadores.caixaRecebidoTotal || indicadores.recebidoTotal || 0,
+      indicadores.caixaRecebidoTotal || 0,
     ],
-    ["Saídas", indicadores.saidasTotal || 0],
-    ["Faturado em Aberto", indicadores.faturadoEmAberto || 0],
-    ["Recebidos Antigos", indicadores.recebimentosAntigos || 0],
-    ["Injeção Caixa", indicadores.injecaoCaixaTotal || 0],
-    ["Injeção Loja", indicadores.injecaoLojaTotal || 0],
-    ["Injeção Sócios", indicadores.injecaoSociosTotal || 0],
-    ["Aporte Total", indicadores.aporteTotal || 0],
-    ["Recuperação Vale", indicadores.recuperacaoValeTotal || 0],
-    ["Banco", indicadores.tenhoNoBanco || 0],
-    ["Caixa Físico", indicadores.tenhoNoCaixa || 0],
+
+    [
+      "Caixa Operacional",
+      caixaOperacional || 0,
+    ],
+
+    [
+      "Saldo Operacional",
+      saldoOperacional || 0,
+    ],
+
+    [
+      "Faturado em Aberto",
+      indicadores.faturadoEmAberto || 0,
+    ],
+
+    [
+      "Saídas",
+      indicadores.saidasTotal || 0,
+    ],
+
+    [
+      "Injeção Sócios",
+      indicadores.injecaoSociosTotal || 0,
+    ],
+
+    [
+      "Injeção Loja",
+      indicadores.injecaoLojaTotal || 0,
+    ],
+
+    [
+      "Injeção Caixa",
+      indicadores.injecaoCaixaTotal || 0,
+    ],
+
+    [
+      "Aporte Total",
+      indicadores.aporteTotal || 0,
+    ],
+
+    [
+      "Banco Real",
+      indicadores.tenhoNoBanco || 0,
+    ],
+
+    [
+      "Caixa Físico",
+      indicadores.tenhoNoCaixa || 0,
+    ],
+
+    [
+      "Recuperação Vale",
+      indicadores.recuperacaoValeTotal || 0,
+    ],
   ];
 
-  const kpis = modoDetalhado ? kpisDetalhados : kpisSimples;
+  const kpis =
+    modoDetalhado
+      ? kpisDetalhados
+      : kpisSimples;
 
   return (
     <>
       <div style={styles.dashboardTopo}>
         <div>
-          <h1 style={styles.dashboardTitulo}>Dashboard Financeiro</h1>
+          <h1 style={styles.dashboardTitulo}>
+            Dashboard Financeiro
+          </h1>
 
           <p style={styles.dashboardSubtitulo}>
             Visão geral operacional e financeira
@@ -287,8 +402,22 @@ export default function Dashboard({
             Detalhado
           </button>
 
-          <button style={styles.botaoDashboard} onClick={exportarPDF}>
+          <button
+            style={styles.botaoDashboard}
+            onClick={exportarPDF}
+          >
             Exportar PDF
+          </button>
+
+          <button
+            style={{
+              ...styles.botaoDashboard,
+              background:
+                "linear-gradient(135deg,#16a34a 0%,#15803d 100%)",
+            }}
+            onClick={confirmarFechamentoMes}
+          >
+            Fechar Mês Financeiro
           </button>
         </div>
       </div>
@@ -297,20 +426,26 @@ export default function Dashboard({
         <div style={styles.formGrid}>
           <label style={styles.label}>
             Começa em
+
             <input
               type="date"
               value={inicioMes}
-              onChange={(e) => setInicioMes(e.target.value)}
+              onChange={(e) =>
+                setInicioMes(e.target.value)
+              }
               style={styles.input}
             />
           </label>
 
           <label style={styles.label}>
             Fecha em
+
             <input
               type="date"
               value={fimMes}
-              onChange={(e) => setFimMes(e.target.value)}
+              onChange={(e) =>
+                setFimMes(e.target.value)
+              }
               style={styles.input}
             />
           </label>
@@ -319,7 +454,11 @@ export default function Dashboard({
 
       <div style={styles.kpisModernos}>
         {kpis.map(([titulo, valor]) => (
-          <Kpi key={titulo} titulo={titulo} valor={moeda.format(valor)} />
+          <Kpi
+            key={titulo}
+            titulo={titulo}
+            valor={moeda.format(valor)}
+          />
         ))}
       </div>
 
@@ -351,22 +490,30 @@ export default function Dashboard({
         <div style={styles.kpisModernos}>
           <Kpi
             titulo="Receita Operacional"
-            valor={moeda.format(receitaOperacional)}
+            valor={moeda.format(
+              receitaOperacional
+            )}
           />
 
           <Kpi
             titulo="Despesas Operacionais"
-            valor={moeda.format(despesasOperacionais)}
+            valor={moeda.format(
+              despesasOperacionais
+            )}
           />
 
           <Kpi
             titulo="Resultado Operacional"
-            valor={moeda.format(resultadoOperacional)}
+            valor={moeda.format(
+              resultadoOperacional
+            )}
           />
 
           <Kpi
             titulo="Margem Operacional"
-            valor={`${margemOperacional.toFixed(1)}%`}
+            valor={`${margemOperacional.toFixed(
+              1
+            )}%`}
           />
         </div>
       </Card>
@@ -408,7 +555,11 @@ export default function Dashboard({
             <input
               type="number"
               value={metaMensal}
-              onChange={(e) => setMetaMensal(Number(e.target.value))}
+              onChange={(e) =>
+                setMetaMensal(
+                  Number(e.target.value)
+                )
+              }
               placeholder="Nova meta"
               style={{
                 background: "#0f172a",
@@ -424,184 +575,35 @@ export default function Dashboard({
         </div>
 
         <div style={styles.kpisModernos}>
-          <Kpi titulo="% Meta" valor={`${percentualMeta.toFixed(1)}%`} />
+          <Kpi
+            titulo="% Meta"
+            valor={`${percentualMeta.toFixed(
+              1
+            )}%`}
+          />
 
           <Kpi
             titulo="Falta para meta"
-            valor={moeda.format(Math.max(faltaMeta, 0))}
+            valor={moeda.format(
+              Math.max(faltaMeta, 0)
+            )}
           />
 
           <Kpi
             titulo="Meta diária necessária"
-            valor={moeda.format(mediaNecessaria)}
+            valor={moeda.format(
+              mediaNecessaria
+            )}
           />
 
-          <Kpi titulo="Projeção mês" valor={moeda.format(projecaoMes)} />
+          <Kpi
+            titulo="Projeção mês"
+            valor={moeda.format(
+              projecaoMes
+            )}
+          />
         </div>
       </Card>
-
-      <div style={styles.dashboardGridNova}>
-        <Card titulo="Faturamento por dia">
-          <GraficoLinha dados={vendasPorDia || []} moeda={moeda} />
-        </Card>
-
-        <Card titulo="Serviços por dia">
-          <GraficoBarras
-            dados={servicosPorDia || []}
-            dataKey="quantidade"
-            xKey="data"
-            nome="Serviços"
-          />
-        </Card>
-      </div>
-
-      {modoDetalhado && (
-        <>
-          <Card titulo="Leitura executiva do caixa">
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-                gap: 14,
-              }}
-            >
-              <div>
-                <p
-                  style={{
-                    color: "#94a3b8",
-                    margin: 0,
-                    fontSize: 13,
-                  }}
-                >
-                  Diferença faturamento x caixa
-                </p>
-
-                <strong
-                  style={{
-                    color:
-                      diferencaFaturamentoCaixa > 0 ? "#f59e0b" : "#22c55e",
-                    fontSize: 22,
-                  }}
-                >
-                  {moeda.format(diferencaFaturamentoCaixa)}
-                </strong>
-              </div>
-            </div>
-          </Card>
-
-          <div style={styles.dashboardGridNova}>
-            <Card titulo="Contas a pagar">
-              <GraficoBarras
-                dados={contasPorNome || []}
-                moeda={moeda}
-                horizontal
-                dataKey="valor"
-                xKey="conta"
-                nome="Contas"
-              />
-            </Card>
-
-            <Card titulo="Status financeiro">
-              <GraficoPizza dados={statusContasPizza || []} moeda={moeda} />
-            </Card>
-
-            <Card titulo="Despesas por centro de custo">
-              <GraficoBarras
-                dados={despesasPorCategoria}
-                moeda={moeda}
-                horizontal
-                dataKey="valor"
-                xKey="categoria"
-                nome="Despesas"
-              />
-            </Card>
-
-            <Card titulo="Top clientes">
-              {clientesTop.length === 0 ? (
-                <p style={styles.vazio}>Nenhum cliente no período.</p>
-              ) : (
-                clientesTop.map((cliente) => {
-                  const percentual =
-                    totalClientesTop > 0
-                      ? (cliente.valor / totalClientesTop) * 100
-                      : 0;
-
-                  return (
-                    <div
-                      key={cliente.cliente}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 130px 90px",
-                        gap: 10,
-                        padding: "9px 0",
-                        borderBottom: "1px solid rgba(148,163,184,0.12)",
-                        alignItems: "center",
-                        fontSize: 13,
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: "#f8fafc",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {cliente.cliente}
-                      </span>
-
-                      <strong
-                        style={{
-                          color: "#38bdf8",
-                          textAlign: "right",
-                        }}
-                      >
-                        {moeda.format(cliente.valor)}
-                      </strong>
-
-                      <span
-                        style={{
-                          color: "#94a3b8",
-                          textAlign: "right",
-                        }}
-                      >
-                        {percentual.toFixed(1)}%
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-            </Card>
-
-            <Card titulo="Contas pendentes">
-              {contasPendentes.length === 0 ? (
-                <p style={styles.vazio}>Nenhuma conta pendente.</p>
-              ) : (
-                contasPendentes.slice(0, 8).map((conta) => (
-                  <div
-                    key={conta.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "10px 0",
-                      borderBottom: "1px solid rgba(148,163,184,0.12)",
-                      gap: 12,
-                    }}
-                  >
-                    <span>
-                      {dataBR(conta.vencimento)} - {conta.conta}
-                    </span>
-
-                    <strong style={{ color: "#f59e0b" }}>
-                      {moeda.format(conta.valor)}
-                    </strong>
-                  </div>
-                ))
-              )}
-            </Card>
-          </div>
-        </>
-      )}
     </>
   );
 }

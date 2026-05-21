@@ -6,6 +6,7 @@ import { auth, db } from "./services/firebase.js";
 import styles from "./styles/styles.js";
 
 import Sidebar from "./components/Sidebar.jsx";
+import HistoricoFinanceiro from "./pages/HistoricoFinanceiro.jsx";
 
 import Dashboard from "./pages/Dashboard.jsx";
 import Entradas from "./pages/Entradas.jsx";
@@ -704,161 +705,173 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   };
 }, [entradas, saidas, contas, inicioMes, fimMes]);
 
-  const indicadores = useMemo(() => {
-    const entradasCompetencia = entradas.filter(
-      (x) => dentroDoPeriodo(x.data) && ehVendaReal(x)
-    );
+ const indicadores = useMemo(() => {
+  const entradasCompetencia = entradas.filter(
+    (x) => dentroDoPeriodo(x.data) && ehVendaReal(x)
+  );
 
-    const entradasRecebidasPeriodo = entradas.filter((x) => {
-      const dataRecebimento = dataRecebimentoEntrada(x);
+  const vendasRecebidasPeriodo =
+    dadosPeriodo.entradasRecebidas.filter(ehVendaReal);
 
-      return (
-        dataRecebimento &&
-        dentroDoPeriodo(dataRecebimento) &&
-        x.status === "Pago"
-      );
-    });
+  const entradasVistaTotal = entradasCompetencia
+  .filter((x) => {
+    if (x.status !== "Pago") return false;
 
-    const vendasRecebidasPeriodo =
-  dadosPeriodo.entradasRecebidas.filter(ehVendaReal);
+    if (
+      destinoDinheiro(x.formaPagamento) ===
+      "Faturado"
+    )
+      return false;
 
-    const injecaoCaixaPeriodo =
-  dadosPeriodo.entradasRecebidas.filter(ehInjecaoCaixa);
-    const injecaoLojaPeriodo =
-  dadosPeriodo.entradasRecebidas.filter(ehInjecaoLoja);
-    const injecaoSociosPeriodo =
-  dadosPeriodo.entradasRecebidas.filter(ehInjecaoSocios);
-    const injecoesPeriodo =
-  dadosPeriodo.entradasRecebidas.filter(ehInjecaoCapital);
+    return true;
+  })
+  .reduce(
+    (soma, x) =>
+      soma + Number(x.valor || 0),
+    0
+  );
+    
 
-    const recuperacaoValesPeriodo =
-  dadosPeriodo.entradasRecebidas.filter(ehRecuperacaoVale);
+  const injecaoCaixaPeriodo =
+    dadosPeriodo.entradasRecebidas.filter(ehInjecaoCaixa);
 
-    const recebimentosAntigos = vendasRecebidasPeriodo.filter((x) => {
-      const dataRecebimento = dataRecebimentoEntrada(x);
-      return x.data < inicioMes && dataRecebimento >= inicioMes;
-    });
+  const injecaoLojaPeriodo =
+    dadosPeriodo.entradasRecebidas.filter(ehInjecaoLoja);
 
-    const entradaBruta = entradasCompetencia.reduce((s, x) => s + x.valor, 0);
+  const injecaoSociosPeriodo =
+    dadosPeriodo.entradasRecebidas.filter(ehInjecaoSocios);
 
-    const caixaRecebidoVendas = vendasRecebidasPeriodo.reduce(
-      (s, x) => s + x.valor,
-      0
-    );
+  const injecoesPeriodo =
+    dadosPeriodo.entradasRecebidas.filter(ehInjecaoCapital);
 
-    const injecaoCaixaTotal = injecaoCaixaPeriodo.reduce(
-      (s, x) => s + x.valor,
-      0
-    );
+  const recuperacaoValesPeriodo =
+    dadosPeriodo.entradasRecebidas.filter(ehRecuperacaoVale);
 
-    const injecaoLojaTotal = injecaoLojaPeriodo.reduce(
-      (s, x) => s + x.valor,
-      0
-    );
+  const recebimentosAntigos = vendasRecebidasPeriodo.filter((x) => {
+    const dataRecebimento = dataRecebimentoEntrada(x);
+    return x.data < inicioMes && dataRecebimento >= inicioMes;
+  });
 
-    const injecaoSociosTotal = injecaoSociosPeriodo.reduce(
-      (s, x) => s + x.valor,
-      0
-    );
+  const entradaBruta = entradasCompetencia.reduce((s, x) => s + x.valor, 0);
 
-    const injecaoCapitalTotal = injecoesPeriodo.reduce(
-      (s, x) => s + x.valor,
-      0
-    );
+  const caixaRecebidoVendas = vendasRecebidasPeriodo.reduce(
+    (s, x) => s + x.valor,
+    0
+  );
 
-    const recuperacaoValeTotal = recuperacaoValesPeriodo.reduce(
-      (s, x) => s + x.valor,
-      0
-    );
+  const injecaoCaixaTotal = injecaoCaixaPeriodo.reduce(
+    (s, x) => s + x.valor,
+    0
+  );
+
+  const injecaoLojaTotal = injecaoLojaPeriodo.reduce(
+    (s, x) => s + x.valor,
+    0
+  );
+
+  const injecaoSociosTotal = injecaoSociosPeriodo.reduce(
+    (s, x) => s + x.valor,
+    0
+  );
+
+  const injecaoCapitalTotal = injecoesPeriodo.reduce(
+    (s, x) => s + x.valor,
+    0
+  );
+
+  const recuperacaoValeTotal = recuperacaoValesPeriodo.reduce(
+    (s, x) => s + x.valor,
+    0
+  );
 
   const recebidoBanco = dadosPeriodo.entradasRecebidas
-      .filter((x) => {
-        if (ehInjecaoCaixa(x)) return false;
-        if (destinoDinheiro(x.formaPagamento) === "Caixa") return false;
-        return true;
-      })
-      .reduce((s, x) => s + x.valor, 0);
+    .filter((x) => {
+      if (ehInjecaoCaixa(x)) return false;
+      if (destinoDinheiro(x.formaPagamento) === "Caixa") return false;
+      return true;
+    })
+    .reduce((s, x) => s + x.valor, 0);
 
-    const recebidoCaixa = dadosPeriodo.entradasRecebidas
-      .filter((x) => {
-        if (ehInjecaoCaixa(x)) return true;
-        return destinoDinheiro(x.formaPagamento) === "Caixa";
-      })
-      .reduce((s, x) => s + x.valor, 0);
+  const recebidoCaixa = dadosPeriodo.entradasRecebidas
+    .filter((x) => {
+      if (ehInjecaoCaixa(x)) return true;
+      return destinoDinheiro(x.formaPagamento) === "Caixa";
+    })
+    .reduce((s, x) => s + x.valor, 0);
 
-    const notasPendentes = entradas
-      .filter(
-        (x) =>
-          dentroDoPeriodo(x.data) &&
-          ehVendaReal(x) &&
-          x.formaPagamento === "Nota / Faturado" &&
-          !x.diaPago
-      )
-      .reduce((s, x) => s + x.valor, 0);
+  const notasPendentes = entradas
+    .filter(
+      (x) =>
+        dentroDoPeriodo(x.data) &&
+        ehVendaReal(x) &&
+        x.formaPagamento === "Nota / Faturado" &&
+        !x.diaPago
+    )
+    .reduce((s, x) => s + x.valor, 0);
 
-    const saidasTotal = dadosPeriodo.saidas.reduce((s, x) => s + x.valor, 0);
+  const saidasTotal = dadosPeriodo.saidas.reduce((s, x) => s + x.valor, 0);
 
-    const valesColaboradores = dadosPeriodo.saidas
-      .filter(ehValeColaborador)
-      .reduce((s, x) => s + x.valor, 0);
+  const valesColaboradores = dadosPeriodo.saidas
+    .filter(ehValeColaborador)
+    .reduce((s, x) => s + x.valor, 0);
 
-    const contasPagas = dadosPeriodo.contas
-      .filter((x) => statusConta(x) === "Pago")
-      .reduce((s, x) => s + x.valor, 0);
+  const contasPagas = dadosPeriodo.contas
+    .filter((x) => statusConta(x) === "Pago")
+    .reduce((s, x) => s + x.valor, 0);
 
-    const saidasBanco = dadosPeriodo.saidas
-      .filter((x) => destinoDinheiro(x.formaPagamento) === "Banco")
-      .reduce((s, x) => s + x.valor, 0);
+  const saidasBanco = dadosPeriodo.saidas
+    .filter((x) => destinoDinheiro(x.formaPagamento) === "Banco")
+    .reduce((s, x) => s + x.valor, 0);
 
-    const saidasCaixa = dadosPeriodo.saidas
-      .filter((x) => destinoDinheiro(x.formaPagamento) === "Caixa")
-      .reduce((s, x) => s + x.valor, 0);
+  const saidasCaixa = dadosPeriodo.saidas
+    .filter((x) => destinoDinheiro(x.formaPagamento) === "Caixa")
+    .reduce((s, x) => s + x.valor, 0);
 
-    const caixaRecebidoTotal =
-      caixaRecebidoVendas + injecaoCapitalTotal + recuperacaoValeTotal;
+  const caixaRecebidoTotal =
+    caixaRecebidoVendas + injecaoCapitalTotal + recuperacaoValeTotal;
 
-    const pagos = saidasTotal + contasPagas;
-    const entradaLiquida = caixaRecebidoTotal - pagos;
+  const pagos = saidasTotal + contasPagas;
+  const entradaLiquida = caixaRecebidoTotal - pagos;
 
-    const tenhoNoBanco = recebidoBanco - saidasBanco - contasPagas;
-    const tenhoNoCaixa = recebidoCaixa - saidasCaixa;
+  const tenhoNoBanco = recebidoBanco - saidasBanco - contasPagas;
+  const tenhoNoCaixa = recebidoCaixa - saidasCaixa;
 
-    const dias =
-      new Set([
-        ...entradasCompetencia.map((x) => x.data),
-        ...dadosPeriodo.saidas.map((x) => x.data),
-        ...dadosPeriodo.contas.map((x) => x.vencimento),
-      ]).size || 1;
+  const dias =
+    new Set([
+      ...entradasCompetencia.map((x) => x.data),
+      ...dadosPeriodo.saidas.map((x) => x.data),
+      ...dadosPeriodo.contas.map((x) => x.vencimento),
+    ]).size || 1;
 
-    return {
-      entradaBruta,
-      faturamentoCompetencia: entradaBruta,
-      caixaRecebidoVendas,
-      caixaRecebidoTotal,
-      entradaLiquida,
-      saidasTotal,
-      contasPagas,
-      pagos,
-      faturadoEmAberto: notasPendentes,
-      notasPendentes,
-      recebidoBanco,
-      recebidoCaixa,
-      recebidoFaturado: caixaRecebidoVendas,
-      recebidoTotal: caixaRecebidoTotal,
-      recebimentosAntigos: recebimentosAntigos.reduce((s, x) => s + x.valor, 0),
-      injecaoCaixaTotal,
-      injecaoLojaTotal,
-      injecaoSociosTotal,
-      injecaoCapitalTotal,
-      aporteTotal: injecaoCapitalTotal,
-      recuperacaoValeTotal,
-      valesColaboradores,
-      mediaPorDia: entradaBruta / dias,
-      tenhoNoBanco,
-      tenhoNoCaixa,
-    };
-  }, [entradas, dadosPeriodo, inicioMes, fimMes]);
-
+  return {
+    entradaBruta,
+    entradasVistaTotal,
+    faturamentoCompetencia: entradaBruta,
+    caixaRecebidoVendas,
+    caixaRecebidoTotal,
+    entradaLiquida,
+    saidasTotal,
+    contasPagas,
+    pagos,
+    faturadoEmAberto: notasPendentes,
+    notasPendentes,
+    recebidoBanco,
+    recebidoCaixa,
+    recebidoFaturado: caixaRecebidoVendas,
+    recebidoTotal: caixaRecebidoTotal,
+    recebimentosAntigos: recebimentosAntigos.reduce((s, x) => s + x.valor, 0),
+    injecaoCaixaTotal,
+    injecaoLojaTotal,
+    injecaoSociosTotal,
+    injecaoCapitalTotal,
+    aporteTotal: injecaoCapitalTotal,
+    recuperacaoValeTotal,
+    valesColaboradores,
+    mediaPorDia: entradaBruta / dias,
+    tenhoNoBanco,
+    tenhoNoCaixa,
+  };
+}, [entradas, dadosPeriodo, inicioMes, fimMes]);
   const vendasPorDia = useMemo(() => {
     const mapa = {};
 
@@ -925,10 +938,56 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
       .map(([cliente, valor]) => ({ cliente, valor }))
       .sort((a, b) => b.valor - a.valor);
   }, [dadosPeriodo]);
+function fecharMesFinanceiro() {
+  const fechamento = {
+    id: Date.now(),
 
+    inicio: inicioMes,
+    fim: fimMes,
+
+    dataFechamento: hoje,
+
+    faturamento:
+      indicadores.faturamentoCompetencia || 0,
+
+    recebido:
+      indicadores.caixaRecebidoTotal || 0,
+
+    recebidoBanco:
+      indicadores.tenhoNoBanco || 0,
+
+    recebidoCaixa:
+      indicadores.tenhoNoCaixa || 0,
+
+    faturadoEmAberto:
+      indicadores.faturadoEmAberto || 0,
+
+    saidas:
+      indicadores.saidasTotal || 0,
+
+    lucro:
+      indicadores.entradaLiquida || 0,
+
+    quantidadeEntradas:
+      dadosPeriodo.entradas.length || 0,
+
+    quantidadeSaidas:
+      dadosPeriodo.saidas.length || 0,
+
+    metaMensal,
+
+    diaInicioMesFinanceiro,
+  };
+
+  setHistoricoFechamentos((old) => [
+    fechamento,
+    ...old,
+  ]);
+}
   const propsGlobais = {
     hoje,
     usuario,
+    fecharMesFinanceiro,
     diaInicioMesFinanceiro,
 setDiaInicioMesFinanceiro,
     aba,
@@ -1071,6 +1130,9 @@ setHistoricoFechamentos,
         }}
       >
         {aba === "Dashboard" && <Dashboard {...propsGlobais} />}
+        {aba === "Histórico Financeiro" && (
+  <HistoricoFinanceiro {...propsGlobais} />
+)}
         {aba === "Entradas" && <Entradas {...propsGlobais} />}
         {aba === "Saídas" && <Saidas {...propsGlobais} />}
         {aba === "Contas a Pagar" && <Contas {...propsGlobais} />}
