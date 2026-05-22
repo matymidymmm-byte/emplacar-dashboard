@@ -1,10 +1,15 @@
+import { useMemo } from "react";
+
 import Card from "../components/Card.jsx";
+import GraficoLinha from "../components/GraficoLinha.jsx";
+import GraficoBarras from "../components/GraficoBarras.jsx";
 import styles from "../styles/styles.js";
 
 export default function HistoricoFinanceiro({
   historicoFechamentos,
   moeda,
   setHistoricoFechamentos,
+  setAba,
 }) {
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
@@ -26,6 +31,37 @@ export default function HistoricoFinanceiro({
     );
   }
 
+  const dadosGraficos = useMemo(() => {
+    return [...historicoFechamentos]
+      .reverse()
+      .map((item) => ({
+        data: (() => {
+  const data = new Date(item.inicio + "T00:00:00");
+
+  return data.toLocaleDateString("pt-BR", {
+    month: "short",
+  });
+})(),
+
+        faturamento: Number(item.faturamento || 0),
+
+        recebido: Number(item.recebido || 0),
+
+        lucro: Number(item.lucro || 0),
+
+        saidas: Number(item.saidas || 0),
+
+        banco: Number(item.recebidoBanco || 0),
+
+        caixa: Number(item.recebidoCaixa || 0),
+
+        aberto: Number(item.faturadoEmAberto || 0),
+
+        meta: Number(item.metaMensal || 0),
+    
+      }));
+  }, [historicoFechamentos]);
+
   return (
     <>
       <div style={styles.dashboardTopo}>
@@ -35,9 +71,121 @@ export default function HistoricoFinanceiro({
           </h1>
 
           <p style={styles.dashboardSubtitulo}>
-            Histórico dos fechamentos financeiros salvos
+            Evolução financeira dos fechamentos mensais
           </p>
         </div>
+
+        <button
+          style={styles.botaoDashboard}
+          onClick={() => setAba("Dashboard")}
+        >
+          Voltar ao Dashboard
+        </button>
+      </div>
+
+      <div style={styles.dashboardGrid}>
+        <Card titulo="Evolução financeira">
+          <GraficoLinha
+            dados={dadosGraficos}
+            moeda={moeda}
+            linhas={[
+              {
+                dataKey: "faturamento",
+                name: "Faturamento",
+                stroke: "#38bdf8",
+              },
+              {
+                dataKey: "recebido",
+                name: "Recebido",
+                stroke: "#22c55e",
+              },
+              {
+                dataKey: "lucro",
+                name: "Lucro",
+                stroke: "#f59e0b",
+              },
+            ]}
+          />
+        </Card>
+<Card titulo="Faturamento total por mês">
+  <GraficoBarras
+    dados={dadosGraficos.map((x) => ({
+      data: x.data,
+      valor: x.faturamento,
+    }))}
+    moeda={moeda}
+    xKey="data"
+    dataKey="valor"
+    nome="Faturamento"
+  />
+</Card>
+
+
+        <Card titulo="Banco x Caixa">
+          <GraficoBarras
+            dados={dadosGraficos.map((x) => ({
+              data: x.data,
+              valor: x.banco + x.caixa,
+              banco: x.banco,
+              caixa: x.caixa,
+            }))}
+            moeda={moeda}
+            xKey="data"
+            dataKey="valor"
+            nome="Total"
+          />
+        </Card>
+
+        <Card titulo="Meta x Realizado">
+          <GraficoLinha
+            dados={dadosGraficos}
+            moeda={moeda}
+            linhas={[
+              {
+                dataKey: "meta",
+                name: "Meta",
+                stroke: "#ef4444",
+              },
+              {
+                dataKey: "faturamento",
+                name: "Realizado",
+                stroke: "#22c55e",
+              },
+            ]}
+          />
+        </Card>
+
+        <Card titulo="Entradas x Saídas">
+          <GraficoLinha
+            dados={dadosGraficos}
+            moeda={moeda}
+            linhas={[
+              {
+                dataKey: "recebido",
+                name: "Entradas",
+                stroke: "#38bdf8",
+              },
+              {
+                dataKey: "saidas",
+                name: "Saídas",
+                stroke: "#ef4444",
+              },
+            ]}
+          />
+        </Card>
+
+        <Card titulo="Valores em aberto">
+          <GraficoBarras
+            dados={dadosGraficos.map((x) => ({
+              data: x.data,
+              valor: x.aberto,
+            }))}
+            moeda={moeda}
+            xKey="data"
+            dataKey="valor"
+            nome="Em aberto"
+          />
+        </Card>
       </div>
 
       <Card titulo="Fechamentos financeiros">

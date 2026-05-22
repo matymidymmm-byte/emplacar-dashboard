@@ -12,6 +12,7 @@ import GraficoPizza from "../components/GraficoPizza.jsx";
 export default function Dashboard({
   usuario,
   fecharMesFinanceiro,
+  setAba,
 
   inicioMes,
   setInicioMes,
@@ -418,7 +419,18 @@ export default function Dashboard({
             onClick={confirmarFechamentoMes}
           >
             Fechar Mês Financeiro
+            
           </button>
+          <button
+  style={{
+    ...styles.botaoDashboard,
+    background:
+      "linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%)",
+  }}
+  onClick={() => setAba("Histórico Financeiro")}
+>
+  Análise Financeira
+</button>
         </div>
       </div>
 
