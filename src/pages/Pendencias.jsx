@@ -13,12 +13,14 @@ export default function Pendencias({
   setClientePendenciaSelecionado,
   salvarRelacaoPaga,
   historicoRelacoes,
+  desfazerUltimaRelacaoPaga,
   excluirRelacaoHistorico,
 }) {
   const [diaPagamento, setDiaPagamento] = useState(
     new Date().toISOString().slice(0, 10)
   );
 
+  const [formaPagamento, setFormaPagamento] = useState("Pix");
   const [selecionados, setSelecionados] = useState([]);
 
   const dadosEmpresa = {
@@ -29,6 +31,15 @@ export default function Pendencias({
     whatsapp: "45 2031-1407",
     endereco: "Rua Rio de Janeiro, 1766 - Centro - Marechal Cândido Rondon/PR",
   };
+
+  const formasPagamento = [
+    "Pix",
+    "Débito",
+    "Crédito",
+    "Depósito",
+    "Cheque",
+    "Dinheiro",
+  ];
 
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
@@ -115,7 +126,20 @@ export default function Pendencias({
         ),
         itens: itensSelecionados,
       },
-      diaPagamento
+      diaPagamento,
+      formaPagamento
+    );
+
+    setSelecionados([]);
+  }
+
+  function salvarRelacaoInteira() {
+    if (!detalhePendencia) return;
+
+    salvarRelacaoPaga(
+      detalhePendencia,
+      diaPagamento,
+      formaPagamento
     );
 
     setSelecionados([]);
@@ -371,6 +395,21 @@ Após o pagamento, nos envie o comprovante, por favor.`;
                 />
               </label>
 
+              <label style={styles.label}>
+                Forma de pagamento
+                <select
+                  value={formaPagamento}
+                  onChange={(e) => setFormaPagamento(e.target.value)}
+                  style={styles.input}
+                >
+                  {formasPagamento.map((forma) => (
+                    <option key={forma} value={forma}>
+                      {forma}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               <button style={styles.botaoCinza} onClick={selecionarTodos}>
                 Selecionar tudo
               </button>
@@ -385,7 +424,7 @@ Após o pagamento, nos envie o comprovante, por favor.`;
 
               <button
                 style={styles.botao}
-                onClick={() => salvarRelacaoPaga(detalhePendencia, diaPagamento)}
+                onClick={salvarRelacaoInteira}
               >
                 Salvar relação inteira como paga
               </button>
@@ -467,18 +506,32 @@ Após o pagamento, nos envie o comprovante, por favor.`;
           <p style={styles.vazio}>Nenhuma relação salva ainda.</p>
         ) : (
           <Tabela
-            colunas={["Cliente", "Dia pago", "Qtd", "Total", "Ações"]}
+            colunas={["Cliente", "Dia pago", "Forma", "Qtd", "Total", "Ações"]}
             dados={historicoRelacoes.map((relacao) => [
               relacao.cliente,
               dataBR(relacao.diaPago),
+              relacao.formaPagamento || "-",
               relacao.quantidade,
               moeda.format(relacao.total),
-              <button
-                style={styles.excluir}
-                onClick={() => excluirRelacaoHistorico(relacao.id)}
-              >
-                Excluir do histórico
-              </button>,
+              <div style={styles.acoes}>
+  <button
+    style={styles.botao}
+    onClick={() =>
+      desfazerUltimaRelacaoPaga(relacao.id)
+    }
+  >
+    Desfazer pagamento
+  </button>
+
+  <button
+    style={styles.excluir}
+    onClick={() =>
+      excluirRelacaoHistorico(relacao.id)
+    }
+  >
+    Excluir histórico
+  </button>
+</div>
             ])}
           />
         )}

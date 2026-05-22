@@ -95,6 +95,7 @@ export default function Sidebar({
     "Relatório Diário",
     "Histórico Financeiro",
     "Atualizações",
+    "Histórico de Alterações",
     "Importar Entradas",
     "Importar Saídas",
     "Importar Contas",

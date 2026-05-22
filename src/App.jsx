@@ -20,6 +20,7 @@ import RelatorioDiario from "./pages/RelatorioDiario.jsx";
 import Login from "./pages/Login.jsx";
 import Acessos from "./pages/Acessos.jsx";
 import Atualizacoes from "./pages/Atualizacoes.jsx";
+import HistoricoAlteracoes from "./pages/HistoricoAlteracoes.jsx";
 
 export default function App() {
   const [usuario, setUsuario] = useState(null);
@@ -72,12 +73,31 @@ function Sistema({ usuario }) {
   const [aba, setAba] = useState("Dashboard");
   const [diaInicioMesFinanceiro, setDiaInicioMesFinanceiro] = useState(1);
 
-function calcularInicioMesFinanceiro() {
-  const hojeData = new Date();
+  
 
+  function calcularInicioMesFinanceiro() {
+  if (historicoFechamentos.length > 0) {
+    const ultimoFechamento = [...historicoFechamentos].sort(
+      (a, b) =>
+        String(b.fim || b.dataFechamento || "").localeCompare(
+          String(a.fim || a.dataFechamento || "")
+        )
+    )[0];
+
+    const dataFinal =
+      ultimoFechamento?.fim ||
+      ultimoFechamento?.dataFechamento;
+
+    if (dataFinal) {
+      const data = new Date(dataFinal + "T00:00:00");
+      data.setDate(data.getDate() + 1);
+      return data.toISOString().slice(0, 10);
+    }
+  }
+
+  const hojeData = new Date();
   const ano = hojeData.getFullYear();
   const mes = hojeData.getMonth();
-
   const diaAtual = hojeData.getDate();
 
   const inicio =
@@ -88,7 +108,7 @@ function calcularInicioMesFinanceiro() {
   return inicio.toISOString().slice(0, 10);
 }
 
-const [inicioMes, setInicioMes] = useState(calcularInicioMesFinanceiro());
+const [inicioMes, setInicioMes] = useState(hoje);
 function calcularFimMesFinanceiro() {
   const inicio = new Date(calcularInicioMesFinanceiro() + "T00:00:00");
 
@@ -101,9 +121,10 @@ function calcularFimMesFinanceiro() {
   return fim.toISOString().slice(0, 10);
 }
 
-const [fimMes, setFimMes] = useState(calcularFimMesFinanceiro());
+const [fimMes, setFimMes] = useState(hoje);
 
 const [metaMensal, setMetaMensal] = useState(80000);
+const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
 
   const [textoImportacao, setTextoImportacao] = useState("");
   const [resultadoImportacao, setResultadoImportacao] = useState("");
@@ -120,6 +141,7 @@ const [metaMensal, setMetaMensal] = useState(80000);
   const [estoquePerdas, setEstoquePerdas] = useState([]);
   const [historicoRelacoes, setHistoricoRelacoes] = useState([]);
   const [historicoFechamentos, setHistoricoFechamentos] = useState([]);
+  const [historicoAlteracoes, setHistoricoAlteracoes] = useState([]);
 
   useEffect(() => {
     function ajustarTela() {
@@ -149,6 +171,13 @@ const [metaMensal, setMetaMensal] = useState(80000);
         setDiaInicioMesFinanceiro(
   Number(dados.diaInicioMesFinanceiro || 1)
 );
+setMetaMensal(
+  Number(dados.metaMensal || 80000)
+);
+
+setInicioPeriodoSalvo(
+  dados.inicioPeriodoSalvo || ""
+);
         setSaidas(Array.isArray(dados.saidas) ? dados.saidas : []);
         setContas(Array.isArray(dados.contas) ? dados.contas : []);
         setClientes(Array.isArray(dados.clientes) ? dados.clientes : []);
@@ -166,6 +195,11 @@ const [metaMensal, setMetaMensal] = useState(80000);
     ? dados.historicoFechamentos
     : []
 );
+setHistoricoAlteracoes(
+  Array.isArray(dados.historicoAlteracoes)
+    ? dados.historicoAlteracoes
+    : []
+);
       } else {
         await setDoc(docSistema, {
           entradas: [],
@@ -177,6 +211,9 @@ const [metaMensal, setMetaMensal] = useState(80000);
           estoquePerdas: [],
           historicoRelacoes: [],
           historicoFechamentos: [],
+          historicoAlteracoes: [],
+          metaMensal: 80000,
+inicioPeriodoSalvo: "",
         });
       }
 
@@ -207,17 +244,11 @@ const [metaMensal, setMetaMensal] = useState(80000);
   useEffect(() => {
     salvarNaNuvem("entradas", entradas);
   }, [entradas]);
-  useEffect(() => {
-  salvarNaNuvem(
-    "diaInicioMesFinanceiro",
-    diaInicioMesFinanceiro
-  );
-}, [diaInicioMesFinanceiro]);
+ 
 useEffect(() => {
   setInicioMes(calcularInicioMesFinanceiro());
-  setFimMes(calcularFimMesFinanceiro());
-}, [diaInicioMesFinanceiro]);
-
+  setFimMes(hoje);
+}, [historicoFechamentos, hoje]);
   useEffect(() => {
     salvarNaNuvem("saidas", saidas);
   }, [saidas]);
@@ -247,6 +278,20 @@ useEffect(() => {
     historicoFechamentos
   );
 }, [historicoFechamentos]);
+useEffect(() => {
+  salvarNaNuvem(
+    "historicoAlteracoes",
+    historicoAlteracoes
+  );
+}, [historicoAlteracoes]);
+useEffect(() => {
+  salvarNaNuvem(
+    "metaMensal",
+    metaMensal
+  );
+}, [metaMensal]);
+
+
 
   const chavePix = "63.488.249/0001-08";
 
@@ -342,7 +387,50 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     tipo: null,
     id: null,
   });
+  function compararAlteracoes(antigo, novo, campos) {
+  if (!antigo || !novo) return [];
 
+  return campos
+    .filter((campo) => String(antigo[campo] ?? "") !== String(novo[campo] ?? ""))
+    .map((campo) => ({
+      campo,
+      valorAntigo: antigo[campo] ?? "",
+      valorNovo: novo[campo] ?? "",
+    }));
+}
+function registrarAlteracao({
+  tipo = "",
+  modulo = "",
+  descricao = "",
+  valorAntigo = "",
+  valorNovo = "",
+  itemId = "",
+  detalhes = [],
+}) {
+  const novoRegistro = {
+    id: Date.now(),
+    usuario: usuario?.email || "Usuário não identificado",
+    tipo,
+    modulo,
+    descricao,
+    valorAntigo:
+      typeof valorAntigo === "object"
+        ? JSON.stringify(valorAntigo)
+        : String(valorAntigo || ""),
+    valorNovo:
+      typeof valorNovo === "object"
+        ? JSON.stringify(valorNovo)
+        : String(valorNovo || ""),
+    itemId,
+    detalhes: Array.isArray(detalhes) ? detalhes : [],
+    dataHora: new Date().toISOString(),
+  };
+
+  setHistoricoAlteracoes((old) => [
+    novoRegistro,
+    ...old,
+  ]);
+}
   function numero(valor) {
     return (
       Number(
@@ -522,22 +610,59 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
   }
 
   function salvarEntrada() {
-    const nova = {
-      ...entradaForm,
-      valor: numero(entradaForm.valor),
-      diaPago: entradaForm.diaPago || "",
-      relacaoPagaId: entradaForm.relacaoPagaId || "",
-      id: editando.tipo === "entrada" ? editando.id : Date.now(),
-    };
+  const antiga =
+    editando.tipo === "entrada"
+      ? entradas.find((x) => x.id === editando.id)
+      : null;
 
-    if (editando.tipo === "entrada") {
-      setEntradas((old) => old.map((x) => (x.id === editando.id ? nova : x)));
-    } else {
-      setEntradas((old) => [nova, ...old]);
+  const nova = {
+    ...entradaForm,
+    valor: numero(entradaForm.valor),
+    diaPago: entradaForm.diaPago || "",
+    relacaoPagaId: entradaForm.relacaoPagaId || "",
+    id: editando.tipo === "entrada" ? editando.id : Date.now(),
+  };
+
+  if (editando.tipo === "entrada") {
+    const detalhes = compararAlteracoes(antiga, nova, [
+      "data",
+      "tipo",
+      "cliente",
+      "produto",
+      "placa",
+      "renavan",
+      "formaPagamento",
+      "valor",
+      "status",
+      "processo",
+      "diaPago",
+    ]);
+
+    setEntradas((old) => old.map((x) => (x.id === editando.id ? nova : x)));
+
+    if (detalhes.length > 0) {
+      registrarAlteracao({
+        tipo: "Alteração",
+        modulo: "Entradas",
+        descricao: `${usuario?.email || "Usuário"} alterou entrada ${nova.placa || nova.cliente || nova.tipo || nova.id}`,
+        itemId: nova.id,
+        detalhes,
+      });
     }
+  } else {
+    setEntradas((old) => [nova, ...old]);
 
-    cancelarEdicao();
+    registrarAlteracao({
+      tipo: "Adição",
+      modulo: "Entradas",
+      descricao: `${usuario?.email || "Usuário"} adicionou entrada ${nova.placa || nova.cliente || nova.tipo || nova.id}`,
+      valorNovo: nova,
+      itemId: nova.id,
+    });
   }
+
+  cancelarEdicao();
+}
 
   function salvarSaida() {
     const nova = {
@@ -587,57 +712,106 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     cancelarEdicao();
   }
 
-  function salvarRelacaoPaga(pendencia, diaPago) {
-    if (!pendencia || !diaPago) return;
+  function salvarRelacaoPaga(pendencia, diaPago, formaPagamento = "Pix") {
+  if (!pendencia || !diaPago) return;
 
-    const idRelacao = Date.now();
-    const idsEntradas = pendencia.itens.map((item) => item.id);
+  const idRelacao = Date.now();
+  const idsEntradas = pendencia.itens.map((item) => item.id);
 
-    const novaRelacao = {
-      id: idRelacao,
-      cliente: pendencia.cliente,
-      diaPago,
-      dataSalvamento: hoje,
-      quantidade: pendencia.quantidade,
-      total: pendencia.total,
-      itens: pendencia.itens.map((item) => ({
-        idEntrada: item.id,
-        data: item.data,
-        tipo: item.tipo,
-        cliente: item.cliente,
-        produto: item.produto,
-        placa: item.placa,
-        renavan: item.renavan,
-        processo: item.processo,
-        formaPagamento: item.formaPagamento,
-        valor: item.valor,
-        statusAnterior: item.status,
-      })),
-    };
+  const novaRelacao = {
+    id: idRelacao,
+    cliente: pendencia.cliente,
+    diaPago,
+    formaPagamento,
+    dataSalvamento: hoje,
+    quantidade: pendencia.quantidade,
+    total: pendencia.total,
+    itens: pendencia.itens.map((item) => ({
+      idEntrada: item.id,
+      data: item.data,
+      tipo: item.tipo,
+      cliente: item.cliente,
+      produto: item.produto,
+      placa: item.placa,
+      renavan: item.renavan,
+      processo: item.processo,
+      formaPagamentoAnterior: item.formaPagamento,
+      formaPagamento,
+      valor: item.valor,
+      statusAnterior: item.status,
+    })),
+  };
 
-    setHistoricoRelacoes((old) => [novaRelacao, ...old]);
+  setHistoricoRelacoes((old) => [novaRelacao, ...old]);
 
-    setEntradas((old) =>
-      old.map((entrada) =>
-        idsEntradas.includes(entrada.id)
-          ? {
-              ...entrada,
-              status: "Pago",
-              diaPago,
-              relacaoPagaId: idRelacao,
-            }
-          : entrada
-      )
-    );
+  setEntradas((old) =>
+    old.map((entrada) =>
+      idsEntradas.includes(entrada.id)
+        ? {
+            ...entrada,
+            status: "Pago",
+            formaPagamento,
+            diaPago,
+            relacaoPagaId: idRelacao,
+          }
+        : entrada
+    )
+  );
 
-    setClientePendenciaSelecionado(null);
+  registrarAlteracao({
+    tipo: "Pagamento",
+    modulo: "Pendências",
+    descricao: `${usuario?.email || "Usuário"} marcou relação de ${pendencia.cliente} como paga via ${formaPagamento}`,
+    valorNovo: `${pendencia.quantidade} serviços - ${formaPagamento} - ${diaPago}`,
+    itemId: idRelacao,
+  });
+
+  setClientePendenciaSelecionado(null);
+}
+
+  function desfazerUltimaRelacaoPaga(idRelacao) {
+  const relacao = historicoRelacoes.find(
+    (x) => String(x.id) === String(idRelacao)
+  );
+
+  if (!relacao) {
+    alert("Relação não encontrada.");
+    return;
   }
 
-  function excluirRelacaoHistorico(idRelacao) {
-    setHistoricoRelacoes((old) =>
-      old.filter((relacao) => relacao.id !== idRelacao)
-    );
-  }
+  setEntradas((old) =>
+    old.map((entrada) => {
+      const itemOriginal = relacao.itens.find(
+        (x) => String(x.idEntrada) === String(entrada.id)
+      );
+
+      if (!itemOriginal) return entrada;
+
+      return {
+        ...entrada,
+        status: itemOriginal.statusAnterior || "Pago",
+        formaPagamento:
+          itemOriginal.formaPagamentoAnterior || "Nota / Faturado",
+        diaPago: "",
+        relacaoPagaId: "",
+      };
+    })
+  );
+
+  setHistoricoRelacoes((old) =>
+    old.filter((x) => String(x.id) !== String(idRelacao))
+  );
+
+  registrarAlteracao({
+    tipo: "Desfazer pagamento",
+    modulo: "Pendências",
+    descricao: `${usuario?.email || "Usuário"} desfez pagamento da relação ${relacao.cliente}`,
+    valorNovo: relacao.cliente,
+    itemId: idRelacao,
+  });
+
+  alert("Pagamento desfeito com sucesso.");
+}
 
   function editar(tipo, item) {
     setEditando({ tipo, id: item.id });
@@ -943,7 +1117,7 @@ function fecharMesFinanceiro() {
     id: Date.now(),
 
     inicio: inicioMes,
-    fim: fimMes,
+    fim: hoje,
 
     dataFechamento: hoje,
 
@@ -983,6 +1157,17 @@ function fecharMesFinanceiro() {
     fechamento,
     ...old,
   ]);
+
+ 
+
+  registrarAlteracao({
+    tipo: "Fechamento",
+    modulo: "Histórico Financeiro",
+    descricao: `${usuario?.email || "Usuário"} fechou o período financeiro de ${inicioMes} até ${hoje}`,
+    valorAntigo: inicioMes,
+    valorNovo: hoje,
+    itemId: fechamento.id,
+  });
 }
   const propsGlobais = {
     hoje,
@@ -997,7 +1182,7 @@ setDiaInicioMesFinanceiro,
     salvarConta,
     salvarCliente,
     salvarRelacaoPaga,
-    excluirRelacaoHistorico,
+    desfazerUltimaRelacaoPaga,
     editar,
     remover,
     cancelarEdicao,
@@ -1060,6 +1245,9 @@ setDiaInicioMesFinanceiro,
     setHistoricoRelacoes,
     historicoFechamentos,
 setHistoricoFechamentos,
+historicoAlteracoes,
+setHistoricoAlteracoes,
+registrarAlteracao,
     numero,
     texto,
     normalizar,
@@ -1143,6 +1331,9 @@ setHistoricoFechamentos,
         {aba === "Gerenciar Acessos" && <Acessos {...propsGlobais} />}
         {aba.startsWith("Importar") && <Importacao {...propsGlobais} />}
         {aba === "Atualizações" && <Atualizacoes {...propsGlobais} />}
+        {aba === "Histórico de Alterações" && (
+  <HistoricoAlteracoes {...propsGlobais} />
+)}
       </main>
     </div>
   );
