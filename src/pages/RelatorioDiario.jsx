@@ -6,6 +6,7 @@ import styles from "../styles/styles.js";
 import Card from "../components/Card.jsx";
 import Campo from "../components/Campo.jsx";
 import Kpi from "../components/Kpi.jsx";
+import html2canvas from "html2canvas";
 
 export default function RelatorioDiario({
   hoje,
@@ -164,118 +165,79 @@ export default function RelatorioDiario({
       )
       .slice(0, 5);
 
-  function exportarPDF() {
-    const doc = new jsPDF();
+  async function exportarPDF() {
+  const elemento = document.querySelector("main");
 
-    let y = 16;
-
-    doc.setFontSize(18);
-
-    doc.text(
-      "Relatório Executivo Diário",
-      14,
-      y
-    );
-
-    y += 10;
-
-    doc.setFontSize(11);
-
-    doc.text(
-      `Data analisada: ${dataSelecionada}`,
-      14,
-      y
-    );
-
-    y += 14;
-
-    const linhas = [
-      [
-        "Faturamento",
-        moeda.format(
-          faturamentoDia
-        ),
-      ],
-
-      [
-        "Caixa recebido",
-        moeda.format(
-          caixaRecebidoDia
-        ),
-      ],
-
-      [
-        "Saídas",
-        moeda.format(
-          totalSaidasDia
-        ),
-      ],
-
-      [
-        "Saldo do dia",
-        moeda.format(saldoDia),
-      ],
-
-      [
-        "Recebimentos antigos",
-        moeda.format(
-          recebimentosAntigos
-        ),
-      ],
-
-      [
-        "Injeções sócios",
-        moeda.format(
-          injecoesDia
-        ),
-      ],
-
-      [
-        "Recuperação vale",
-        moeda.format(
-          recuperacaoValeDia
-        ),
-      ],
-
-      [
-        "Vales concedidos",
-        moeda.format(
-          valesDia
-        ),
-      ],
-
-      [
-        "Faturado aberto",
-        moeda.format(
-          faturadoAberto
-        ),
-      ],
-
-      [
-        "Contas vencidas",
-        moeda.format(
-          totalContasVencidas
-        ),
-      ],
-    ];
-
-    linhas.forEach(
-      ([titulo, valor]) => {
-        doc.text(
-          `${titulo}: ${valor}`,
-          18,
-          y
-        );
-
-        y += 7;
-      }
-    );
-
-    doc.save(
-      `relatorio-diario-${dataSelecionada}.pdf`
-    );
+  if (!elemento) {
+    alert("Relatório não encontrado.");
+    return;
   }
 
+  const canvas = await html2canvas(elemento, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#020617",
+    windowWidth: elemento.scrollWidth,
+    windowHeight: elemento.scrollHeight,
+  });
+
+  const imagem = canvas.toDataURL("image/png");
+  const doc = new jsPDF("p", "mm", "a4");
+
+  const larguraPDF = 210;
+  const alturaPagina = 297;
+  const alturaImagem = (canvas.height * larguraPDF) / canvas.width;
+
+  let alturaRestante = alturaImagem;
+  let posicao = 0;
+
+  doc.addImage(imagem, "PNG", 0, posicao, larguraPDF, alturaImagem);
+  alturaRestante -= alturaPagina;
+
+  while (alturaRestante > 0) {
+    posicao -= alturaPagina;
+    doc.addPage();
+    doc.addImage(imagem, "PNG", 0, posicao, larguraPDF, alturaImagem);
+    alturaRestante -= alturaPagina;
+  }
+
+  doc.save(`relatorio-diario-${dataSelecionada}.pdf`);
+}
+function copiarWhatsApp() {
+  const texto = `
+📊 RELATÓRIO DIÁRIO
+
+📅 Data: ${dataSelecionada}
+
+💰 Faturamento:
+${moeda.format(faturamentoDia)}
+
+💵 Caixa recebido:
+${moeda.format(caixaRecebidoDia)}
+
+📉 Saídas:
+${moeda.format(totalSaidasDia)}
+
+📈 Saldo do dia:
+${moeda.format(saldoDia)}
+
+🧾 Ticket médio:
+${moeda.format(ticketMedio)}
+
+🚗 Serviços realizados:
+${vendasDia.length}
+
+📌 Faturado em aberto:
+${moeda.format(faturadoAberto)}
+
+⚠️ Contas vencidas:
+${moeda.format(totalContasVencidas)}
+`;
+
+  navigator.clipboard.writeText(texto);
+
+  alert("Resumo copiado para WhatsApp.");
+}
   return (
     <>
       <div style={styles.dashboardTopo}>
@@ -297,14 +259,32 @@ export default function RelatorioDiario({
           </p>
         </div>
 
-        <button
-          style={
-            styles.botaoDashboard
-          }
-          onClick={exportarPDF}
-        >
-          Exportar PDF
-        </button>
+        <div
+  style={{
+    display: "flex",
+    gap: 16,
+    flexWrap: "wrap",
+    alignItems: "center",
+  }}
+>
+  <button
+    style={styles.botaoDashboard}
+    onClick={exportarPDF}
+  >
+    Exportar PDF
+  </button>
+
+  <button
+    style={{
+      ...styles.botaoDashboard,
+      background:
+        "linear-gradient(135deg,#16a34a 0%,#15803d 100%)",
+    }}
+    onClick={copiarWhatsApp}
+  >
+    Copiar WhatsApp
+  </button>
+</div>
       </div>
 
       <Card titulo="Data analisada">

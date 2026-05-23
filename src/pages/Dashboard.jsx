@@ -239,30 +239,39 @@ export default function Dashboard({
   async function exportarPDF() {
   const elemento = document.querySelector("main");
 
+  if (!elemento) {
+    alert("Dashboard não encontrado.");
+    return;
+  }
+
   const canvas = await html2canvas(elemento, {
-  scale: 2,
-  useCORS: true,
-  backgroundColor: "#020617",
-  windowWidth: elemento.scrollWidth,
-  windowHeight: elemento.scrollHeight,
-});
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#020617",
+    windowWidth: elemento.scrollWidth,
+    windowHeight: elemento.scrollHeight,
+  });
 
   const imagem = canvas.toDataURL("image/png");
 
   const doc = new jsPDF("p", "mm", "a4");
 
   const larguraPDF = 210;
-  const alturaPDF =
-    (canvas.height * larguraPDF) / canvas.width;
+  const alturaPagina = 297;
+  const alturaImagem = (canvas.height * larguraPDF) / canvas.width;
 
-  doc.addImage(
-    imagem,
-    "PNG",
-    0,
-    0,
-    larguraPDF,
-    alturaPDF
-  );
+  let alturaRestante = alturaImagem;
+  let posicao = 0;
+
+  doc.addImage(imagem, "PNG", 0, posicao, larguraPDF, alturaImagem);
+  alturaRestante -= alturaPagina;
+
+  while (alturaRestante > 0) {
+    posicao -= alturaPagina;
+    doc.addPage();
+    doc.addImage(imagem, "PNG", 0, posicao, larguraPDF, alturaImagem);
+    alturaRestante -= alturaPagina;
+  }
 
   doc.save("dashboard-financeiro.pdf");
 }
