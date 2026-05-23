@@ -474,30 +474,38 @@ export default function Dashboard({
         ))}
       </div>
 
-      <Card titulo="Fluxo de caixa acumulado">
-        <GraficoLinha
-          dados={fluxoCaixaDiario}
-          moeda={moeda}
-          linhas={[
-            {
-              dataKey: "saldoBanco",
-              name: "Banco",
-              stroke: "#38bdf8",
-            },
-            {
-              dataKey: "saldoCaixa",
-              name: "Caixa físico",
-              stroke: "#22c55e",
-            },
-            {
-              dataKey: "saldoTotal",
-              name: "Saldo total",
-              stroke: "#a855f7",
-            },
-          ]}
-        />
-      </Card>
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 16,
+    alignItems: "stretch",
+  }}
+>
+  <Card titulo="Vendas por dia">
+    <GraficoLinha
+      dados={vendasPorDia}
+      moeda={moeda}
+      linhas={[
+        {
+          dataKey: "valor",
+          name: "Vendas",
+          stroke: "#38bdf8",
+        },
+      ]}
+    />
+  </Card>
 
+  <Card titulo="Quantidade de serviços por dia">
+    <GraficoBarras
+      dados={servicosPorDia}
+      moeda={null}
+      xKey="data"
+      dataKey="quantidade"
+      nome="Serviços"
+    />
+  </Card>
+</div>
       <Card titulo="DRE gerencial simples">
         <div style={styles.kpisModernos}>
           <Kpi

@@ -36,13 +36,14 @@ export default function GraficoLinha({
     const dataObj = new Date(Number(ano), Number(mes) - 1, Number(dia));
 
     const diasSemana = [
-      "Domingo",
-      "Segunda-feira",
-      "Terça-feira",
-      "Quinta-feira",
-      "Sexta-feira",
-      "Sábado",
-    ];
+  "Domingo",
+  "Segunda-feira",
+  "Terça-feira",
+  "Quarta-feira",
+  "Quinta-feira",
+  "Sexta-feira",
+  "Sábado",
+];
 
     return `${diasSemana[dataObj.getDay()] || ""} - ${dia}/${mes}/${ano}`;
   }
@@ -126,11 +127,20 @@ export default function GraficoLinha({
                 strokeWidth: 2,
               }}
               activeDot={{
-                r: 7,
-                fill: linha.stroke,
-                stroke: "#f8fafc",
-                strokeWidth: 2,
-              }}
+  r: 7,
+  fill: linha.stroke,
+  stroke: "#f8fafc",
+  strokeWidth: 2,
+}}
+label={{
+  position: "top",
+  fontSize: 10,
+  fill: "#94a3b8",
+  formatter: (valor) =>
+    valor >= 1000
+      ? `R$ ${(valor / 1000).toFixed(1)}k`
+      : `R$ ${valor}`,
+}}
             />
           ))}
         </LineChart>
