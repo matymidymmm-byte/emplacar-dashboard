@@ -8,6 +8,7 @@ import Kpi from "../components/Kpi.jsx";
 import GraficoLinha from "../components/GraficoLinha.jsx";
 import GraficoBarras from "../components/GraficoBarras.jsx";
 import GraficoPizza from "../components/GraficoPizza.jsx";
+import html2canvas from "html2canvas";
 
 export default function Dashboard({
   usuario,
@@ -235,14 +236,36 @@ export default function Dashboard({
       indicadores.recebidoTotal ||
       0);
 
-  function exportarPDF() {
-    const doc = new jsPDF();
+  async function exportarPDF() {
+  const elemento = document.querySelector("main");
 
-    doc.setFontSize(18);
-    doc.text("Relatório Financeiro", 14, 20);
+  const canvas = await html2canvas(elemento, {
+  scale: 2,
+  useCORS: true,
+  backgroundColor: "#020617",
+  windowWidth: elemento.scrollWidth,
+  windowHeight: elemento.scrollHeight,
+});
 
-    doc.save("relatorio-financeiro.pdf");
-  }
+  const imagem = canvas.toDataURL("image/png");
+
+  const doc = new jsPDF("p", "mm", "a4");
+
+  const larguraPDF = 210;
+  const alturaPDF =
+    (canvas.height * larguraPDF) / canvas.width;
+
+  doc.addImage(
+    imagem,
+    "PNG",
+    0,
+    0,
+    larguraPDF,
+    alturaPDF
+  );
+
+  doc.save("dashboard-financeiro.pdf");
+}
 
   const kpisSimples = [
     ["Faturamento", receitaOperacional],
@@ -482,6 +505,7 @@ export default function Dashboard({
     alignItems: "stretch",
   }}
 >
+  <div style={{ minWidth: 0 }}>
   <Card titulo="Vendas por dia">
     <GraficoLinha
       dados={vendasPorDia}
@@ -494,8 +518,10 @@ export default function Dashboard({
         },
       ]}
     />
-  </Card>
+    </Card>
+</div>
 
+  <div style={{ minWidth: 0 }}>
   <Card titulo="Quantidade de serviços por dia">
     <GraficoBarras
       dados={servicosPorDia}
@@ -505,6 +531,7 @@ export default function Dashboard({
       nome="Serviços"
     />
   </Card>
+</div>
 </div>
       <Card titulo="DRE gerencial simples">
         <div style={styles.kpisModernos}>
