@@ -152,7 +152,17 @@ export default function Contas({
               })
             }
           />
-
+<Select
+  label="Forma de pagamento"
+  valor={contaForm.formaPagamento || "Pix"}
+  mudar={(v) =>
+    setContaForm({
+      ...contaForm,
+      formaPagamento: v,
+    })
+  }
+  opcoes={["Pix", "Débito", "Crédito", "Depósito", "Cheque", "Dinheiro"]}
+/>
           <Select
             label="Status"
             valor={contaForm.status}
@@ -200,7 +210,7 @@ export default function Contas({
             textoVencimento(conta),
 
             <button style={styles.status} onClick={() => alternarConta(conta.id)}>
-              {statusConta(conta)}
+              {statusConta(conta) === "Pago" ? "Pago ✓" : "Pagar"}
             </button>,
 
             <Acoes

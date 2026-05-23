@@ -351,6 +351,9 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     conta: "",
     vencimento: hoje,
     valor: "",
+    formaPagamento: "Pix",
+dataPagamento: "",
+saidaGeradaId: "",
     status: "Pendente",
   };
 
@@ -682,20 +685,25 @@ function registrarAlteracao({
   }
 
   function salvarConta() {
-    const nova = {
-      ...contaForm,
-      valor: numero(contaForm.valor),
-      id: editando.tipo === "conta" ? editando.id : Date.now(),
-    };
+  const nova = {
+    ...contaForm,
+    valor: numero(contaForm.valor),
+    formaPagamento: contaForm.formaPagamento || "Pix",
+    dataPagamento: contaForm.dataPagamento || "",
+    saidaGeradaId: contaForm.saidaGeradaId || "",
+    id: editando.tipo === "conta" ? editando.id : Date.now(),
+  };
 
-    if (editando.tipo === "conta") {
-      setContas((old) => old.map((x) => (x.id === editando.id ? nova : x)));
-    } else {
-      setContas((old) => [nova, ...old]);
-    }
-
-    cancelarEdicao();
+  if (editando.tipo === "conta") {
+    setContas((old) =>
+      old.map((x) => (x.id === editando.id ? nova : x))
+    );
+  } else {
+    setContas((old) => [nova, ...old]);
   }
+
+  cancelarEdicao();
+}
 
   function salvarCliente() {
     const novo = {
@@ -847,14 +855,57 @@ function registrarAlteracao({
   }
 
   function alternarConta(id) {
-    setContas((old) =>
-      old.map((x) =>
-        x.id === id
-          ? { ...x, status: x.status === "Pago" ? "Pendente" : "Pago" }
-          : x
-      )
-    );
+  const conta = contas.find((x) => String(x.id) === String(id));
+
+  if (!conta) return;
+
+  const novoStatus =
+    conta.status === "Pago" ? "Pendente" : "Pago";
+
+  let saidaGeradaId = conta.saidaGeradaId || "";
+
+  if (novoStatus === "Pago" && !saidaGeradaId) {
+    const novaSaidaId = Date.now();
+
+    const novaSaida = {
+      id: novaSaidaId,
+      data: hoje,
+      formaPagamento: conta.formaPagamento || "Pix",
+      categoria: "Conta paga",
+      tipoSaida: "Conta a pagar",
+      conta: conta.conta,
+      valor: Number(conta.valor || 0),
+      status: "Pago",
+      origemContaId: conta.id,
+      vencimentoConta: conta.vencimento,
+    };
+
+    setSaidas((old) => [novaSaida, ...old]);
+
+    saidaGeradaId = novaSaidaId;
   }
+
+  if (novoStatus === "Pendente" && saidaGeradaId) {
+    setSaidas((old) =>
+      old.filter((x) => String(x.id) !== String(saidaGeradaId))
+    );
+
+    saidaGeradaId = "";
+  }
+
+  setContas((old) =>
+    old.map((x) =>
+      String(x.id) === String(id)
+        ? {
+            ...x,
+            status: novoStatus,
+            dataPagamento: novoStatus === "Pago" ? hoje : "",
+            saidaGeradaId,
+          }
+        : x
+    )
+  );
+}
 
  const dadosPeriodo = useMemo(() => {
   const entradasCompetencia = entradas.filter((x) =>

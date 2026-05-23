@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Card from "../components/Card.jsx";
 import Campo from "../components/Campo.jsx";
@@ -20,9 +20,13 @@ export default function Saidas({
   destinoDinheiro,
   editar,
   remover,
+  inicioMes,
+  fimMes,
 }) {
   const formRef = useRef(null);
   const scrollAnteriorRef = useRef(0);
+  const [modoVisualizacao, setModoVisualizacao] = useState("periodo");
+  const [dadosFiltrados, setDadosFiltrados] = useState([]);
 
   const categoriasSaida = [
     "Placas / Matéria-prima",
@@ -38,6 +42,7 @@ export default function Saidas({
     "Combustível",
     "Sistema / Software",
     "Material de escritório",
+    "Conta paga",
     "Outros",
   ];
 
@@ -80,38 +85,117 @@ export default function Saidas({
     if (!data || !data.includes("-")) return data || "";
 
     const [ano, mes, dia] = data.split("-");
-
     return `${dia}/${mes}/${ano}`;
   }
 
-  const total = saidas.reduce(
+  function dataUltimos30Dias() {
+    const data = new Date();
+    data.setDate(data.getDate() - 30);
+    return data.toISOString().slice(0, 10);
+  }
+
+  const saidasVisiveis = saidas.filter((saida) => {
+    if (!saida.data) return false;
+
+    if (modoVisualizacao === "todos") return true;
+
+    if (modoVisualizacao === "ultimos30") {
+      return saida.data >= dataUltimos30Dias();
+    }
+
+    return saida.data >= inicioMes && saida.data <= fimMes;
+  });
+
+  const total = saidasVisiveis.reduce(
     (soma, saida) => soma + Number(saida.valor || 0),
     0
   );
 
-  const media = saidas.length > 0 ? total / saidas.length : 0;
+  const media =
+    saidasVisiveis.length > 0 ? total / saidasVisiveis.length : 0;
 
-  const saidasOrdenadas = [...saidas].sort((a, b) => {
+  const saidasOrdenadas = [...saidasVisiveis].sort((a, b) => {
     if (!a.data) return 1;
     if (!b.data) return -1;
 
     return new Date(b.data) - new Date(a.data);
   });
+  const dadosParaResumo =
+  dadosFiltrados.length > 0 ? dadosFiltrados : saidasOrdenadas;
+
+const totalFiltrado = dadosParaResumo.reduce((soma, linha) => {
+  if (!Array.isArray(linha)) return soma;
+
+  const valorTexto = String(linha?.[5] || "")
+    .replace("R$", "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+
+  return soma + (Number(valorTexto) || 0);
+}, 0);
+
+const mediaFiltrada =
+  dadosParaResumo.length > 0 ? totalFiltrado / dadosParaResumo.length : 0;
 
   return (
     <>
       <div style={styles.resumoFiltro}>
         <span>
-          <strong>Saídas:</strong> {saidas.length}
+          <strong>Visualização:</strong>{" "}
+          {modoVisualizacao === "periodo"
+            ? `Período atual: ${dataBR(inicioMes)} até ${dataBR(fimMes)}`
+            : modoVisualizacao === "ultimos30"
+            ? "Últimos 30 dias"
+            : "Todas as saídas"}
         </span>
 
         <span>
-          <strong>Total:</strong> {moeda.format(total)}
+          <strong>Saídas:</strong> {dadosParaResumo.length}
         </span>
 
         <span>
-          <strong>Média:</strong> {moeda.format(media)}
+          <strong>Total:</strong> {moeda.format(totalFiltrado)}
         </span>
+
+        <span>
+          <strong>Média:</strong> {moeda.format(mediaFiltrada)}
+        </span>
+      </div>
+
+      <div style={styles.acoes}>
+        <button
+          style={
+            modoVisualizacao === "periodo"
+              ? styles.botao
+              : styles.botaoCinza
+          }
+          onClick={() => setModoVisualizacao("periodo")}
+        >
+          Período atual
+        </button>
+
+        <button
+          style={
+            modoVisualizacao === "ultimos30"
+              ? styles.botao
+              : styles.botaoCinza
+          }
+          onClick={() => setModoVisualizacao("ultimos30")}
+        >
+          Últimos 30 dias
+        </button>
+
+        <button
+          style={
+            modoVisualizacao === "todos"
+              ? styles.botao
+              : styles.botaoCinza
+          }
+          onClick={() => setModoVisualizacao("todos")}
+        >
+          Ver tudo
+        </button>
       </div>
 
       <div ref={formRef}>
@@ -205,6 +289,7 @@ export default function Saidas({
           </div>
 
           <Tabela
+          aoFiltrar={setDadosFiltrados}
             colunas={[
               "Dia saída",
               "Pagamento",

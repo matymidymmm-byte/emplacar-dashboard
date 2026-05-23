@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import styles from "../styles/styles.js";
 
-export default function Tabela({ colunas, dados }) {
+export default function Tabela({ colunas, dados, aoFiltrar }) {
   const [filtros, setFiltros] = useState({});
 
   const dadosFiltrados = useMemo(() => {
+    
     return dados.filter((linha) =>
       linha.every((celula, index) => {
         const filtro = filtros[index] || "";
@@ -20,7 +21,11 @@ export default function Tabela({ colunas, dados }) {
       })
     );
   }, [dados, filtros]);
-
+useEffect(() => {
+  if (aoFiltrar) {
+    aoFiltrar(dadosFiltrados);
+  }
+}, [dadosFiltrados]);
   return (
     <div style={styles.tabelaContainer}>
       <div

@@ -1,6 +1,7 @@
 import {
   useEffect,
   useRef,
+  useState,
 } from "react";
 
 import Card from "../components/Card.jsx";
@@ -28,12 +29,30 @@ export default function Entradas({
   destinoDinheiro,
 
   editar,
-  remover,
+remover,
+inicioMes,
+fimMes,
 }) {
   const formRef = useRef(null);
 
   const scrollAnteriorRef =
     useRef(0);
+    const [modoVisualizacao, setModoVisualizacao] =
+  useState("periodo");
+  const entradasVisiveis = entradas.filter(
+  (entrada) => {
+    if (!entrada.data) return false;
+
+    if (modoVisualizacao === "todos") {
+      return true;
+    }
+
+    return (
+      entrada.data >= inicioMes &&
+      entrada.data <= fimMes
+    );
+  }
+);
 
   useEffect(() => {
     if (
@@ -75,19 +94,19 @@ export default function Entradas({
     }, 220);
   }
 
-  const total = entradas.reduce(
+  const total = entradasVisiveis.reduce(
     (soma, entrada) =>
       soma + entrada.valor,
     0
   );
 
   const media =
-    entradas.length > 0
+    entradasVisiveis.length > 0
       ? total / entradas.length
       : 0;
 
   const recebidas =
-    entradas.filter(
+  entradasVisiveis.filter(
       (entrada) =>
         entrada.diaPago
     ).length;
@@ -97,7 +116,7 @@ export default function Entradas({
       <div style={styles.resumoFiltro}>
         <span>
           <strong>Entradas:</strong>{" "}
-          {entradas.length}
+          {entradasVisiveis.length}
         </span>
 
         <span>
@@ -115,6 +134,29 @@ export default function Entradas({
           {recebidas}
         </span>
       </div>
+      <div style={styles.acoes}>
+  <button
+    style={
+      modoVisualizacao === "periodo"
+        ? styles.botao
+        : styles.botaoCinza
+    }
+    onClick={() => setModoVisualizacao("periodo")}
+  >
+    Período atual
+  </button>
+
+  <button
+    style={
+      modoVisualizacao === "todos"
+        ? styles.botao
+        : styles.botaoCinza
+    }
+    onClick={() => setModoVisualizacao("todos")}
+  >
+    Ver tudo
+  </button>
+</div>
 
       <div ref={formRef}>
         <Card
@@ -320,7 +362,7 @@ export default function Entradas({
           </div>
 
           <TabelaEntradas
-  entradas={entradas}
+  entradas={entradasVisiveis}
   setEntradas={setEntradas}
   moeda={moeda}
   destinoDinheiro={destinoDinheiro}
