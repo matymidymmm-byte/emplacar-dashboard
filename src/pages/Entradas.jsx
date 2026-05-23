@@ -101,9 +101,9 @@ fimMes,
   );
 
   const media =
-    entradasVisiveis.length > 0
-      ? total / entradas.length
-      : 0;
+  entradasVisiveis.length > 0
+    ? total / entradasVisiveis.length
+    : 0;
 
   const recebidas =
   entradasVisiveis.filter(

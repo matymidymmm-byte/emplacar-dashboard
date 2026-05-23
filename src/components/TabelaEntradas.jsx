@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import styles from "../styles/styles.js";
 
 export default function TabelaEntradas({
@@ -134,7 +135,33 @@ export default function TabelaEntradas({
   function limparSelecao() {
     setSelecionados([]);
   }
+function exportarEntradasFiltradas() {
+  if (entradasFiltradas.length === 0) {
+    alert("Nenhuma entrada filtrada para exportar.");
+    return;
+  }
 
+  const dadosExportar = entradasFiltradas.map((item) => ({
+    DATA: formatarData(item.data),
+    TIPO: item.tipo || "",
+    CLIENTE: item.cliente || "",
+    PRODUTO: item.produto || item.servico || "",
+    PLACA: item.placa || "",
+    RENAVAN: item.renavan || "",
+    "FORMA DE PAGAMENTO": item.formaPagamento || "",
+    VALOR: Number(item.valor || 0),
+    STATUS: item.status || "",
+    PROCESSO: item.processo || "",
+    "DIA PAGO": formatarData(item.diaPago),
+  }));
+
+  const planilha = XLSX.utils.json_to_sheet(dadosExportar);
+  const arquivo = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(arquivo, planilha, "Entradas");
+
+  XLSX.writeFile(arquivo, "entradas-filtradas.xlsx");
+}
   function baixarSelecionados() {
     if (
       selecionados.length === 0
@@ -426,15 +453,18 @@ PROCESSO: ${item.processo || ""}`,
         </label>
 
         <button
-          style={
-            styles.botao
-          }
-          onClick={
-            baixarSelecionados
-          }
-        >
-          Baixar selecionados
-        </button>
+  style={styles.botao}
+  onClick={baixarSelecionados}
+>
+  Baixar selecionados
+</button>
+
+<button
+  style={styles.botaoCinza}
+  onClick={exportarEntradasFiltradas}
+>
+  Exportar Excel filtrado
+</button>
       </div>
 
       <div
