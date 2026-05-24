@@ -453,9 +453,9 @@ useEffect(() => {
       return;
     }
 
-    if (hora < 23) {
-      return;
-    }
+    if (hora < 0) {
+  return;
+}
 
     const backup = {
       criadoEm:
