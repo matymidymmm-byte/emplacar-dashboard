@@ -332,6 +332,17 @@ fimMes,
               }
             />
 
+            <Campo
+  label="Celular"
+  valor={entradaForm.celular || ""}
+  mudar={(v) =>
+    setEntradaForm({
+      ...entradaForm,
+      celular: v,
+    })
+  }
+/>
+
             <button
               style={
                 styles.botao

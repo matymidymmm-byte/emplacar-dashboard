@@ -418,6 +418,7 @@ CIDADE: MARECHAL CÂNDIDO RONDON`;
     status: "Pago",
     processo: "",
     diaPago: "",
+    celular: "",
     relacaoPagaId: "",
   };
 
@@ -706,6 +707,7 @@ function registrarAlteracao({
     ...entradaForm,
     valor: numero(entradaForm.valor),
     diaPago: entradaForm.diaPago || "",
+    celular: entradaForm.celular || "",
     relacaoPagaId: entradaForm.relacaoPagaId || "",
     id: editando.tipo === "entrada" ? editando.id : Date.now(),
   };
@@ -723,6 +725,7 @@ function registrarAlteracao({
       "status",
       "processo",
       "diaPago",
+      "celular",
     ]);
 
     setEntradas((old) => old.map((x) => (x.id === editando.id ? nova : x)));

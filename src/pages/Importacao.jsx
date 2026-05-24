@@ -22,9 +22,9 @@ export default function Importacao(props) {
     "Importar Entradas": {
       titulo: "Importar entradas",
       ajuda:
-        "Cole do Excel nesta ordem: DATA, TIPO, CLIENTE, PRODUTO/SERVIÇO, PLACA, RENAVAN, FORMA DE PAGAMENTO, VALOR, STATUS, PROCESSO, PAGO DIA.",
+        "Cole do Excel nesta ordem: DATA, TIPO, CLIENTE, PRODUTO/SERVIÇO, PLACA, RENAVAN, FORMA DE PAGAMENTO, VALOR, STATUS, PROCESSO, PAGO DIA, CELULAR.",
       exemplo:
-        "DATA\tTIPO\tCLIENTE\tSERVIÇO\tPLACA\tRENAVAN\tFORMA DE PAGAMENTO\tVALOR\tSTATUS\tPROCESSO\tPAGO DIA\n15/05/2026\tPARTICULAR\tJOÃO\tREBOQUE\tABC1D23\t123456789\tPIX\t80,00\tPAGO\t192304316159\t16/05/2026",
+        "DATA\tTIPO\tCLIENTE\tSERVIÇO\tPLACA\tRENAVAN\tFORMA DE PAGAMENTO\tVALOR\tSTATUS\tPROCESSO\tPAGO DIA\tCELULAR\n15/05/2026\tPARTICULAR\tJOÃO\tREBOQUE\tABC1D23\t123456789\tPIX\t80,00\tPAGO\t192304316159\t16/05/2026\t45999999999",
     },
 
     "Importar Saídas": {
@@ -165,6 +165,13 @@ export default function Importacao(props) {
     linhas.forEach((row, index) => {
       if (aba === "Importar Entradas") {
         const cliente = pegar(row, ["CLIENTE"]);
+        const celular = pegar(row, [
+          "CELULAR",
+          "TELEFONE",
+          "WHATSAPP",
+          "WHATS",
+          "FONE",
+        ]);
 
         const entrada = {
           id: Date.now() + index,
@@ -178,7 +185,10 @@ export default function Importacao(props) {
           valor: numero(pegar(row, ["VALOR"])),
           status: statusPadrao(pegar(row, ["STATUS"]) || "Pago"),
           processo: pegar(row, ["PROCESSO"]),
-          diaPago: formatarData(pegar(row, ["PAGO DIA", "DIA PAGO", "DATA PAGAMENTO"])) || "",
+          diaPago:
+            formatarData(pegar(row, ["PAGO DIA", "DIA PAGO", "DATA PAGAMENTO"])) ||
+            "",
+          celular,
           relacaoPagaId: "",
         };
 
@@ -194,7 +204,7 @@ export default function Importacao(props) {
           novosClientes.push({
             id: Date.now() + index + 100000,
             nome: cliente,
-            telefone: "",
+            telefone: celular || "",
             email: "",
             observacao: "Importado pelas entradas",
           });
@@ -272,7 +282,9 @@ export default function Importacao(props) {
         Importar
       </button>
 
-      {resultadoImportacao && <p style={styles.resultado}>{resultadoImportacao}</p>}
+      {resultadoImportacao && (
+        <p style={styles.resultado}>{resultadoImportacao}</p>
+      )}
     </Card>
   );
 }

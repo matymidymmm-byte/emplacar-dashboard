@@ -1003,7 +1003,29 @@ PROCESSO: ${item.processo || ""}`,
                                     />
                                   </div>
                                 </div>
+                              <div
+  style={
+    styles.detalheItem
+  }
+>
+  <span
+    style={
+      styles.detalheLabel
+    }
+  >
+    Celular
+  </span>
 
+  {x.celular || "-"}
+
+  {x.celular && (
+    <BotaoCopiar
+      item={x}
+      campo="celular"
+      label="celular"
+    />
+  )}
+</div>
                                 <div
                                   style={{
                                     display:
