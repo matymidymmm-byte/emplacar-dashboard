@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  setDoc,
+  deleteDoc,
+} from "firebase/firestore";
 
 import { db } from "../services/firebase.js";
 import styles from "../styles/styles.js";
@@ -10,34 +16,23 @@ import Select from "../components/Select.jsx";
 import Tabela from "../components/Tabela.jsx";
 import Acoes from "../components/Acoes.jsx";
 
-export default function Acessos({ moeda }) {
+export default function Acessos() {
   const [acessos, setAcessos] = useState([]);
   const [email, setEmail] = useState("");
   const [nivel, setNivel] = useState("socio");
+  const [status, setStatus] = useState("aprovado");
   const [editandoEmail, setEditandoEmail] = useState("");
 
-  const docAcessos = doc(db, "sistema", "acessos");
-
   useEffect(() => {
-    const cancelar = onSnapshot(docAcessos, async (snapshot) => {
-      if (snapshot.exists()) {
-        const dados = snapshot.data();
+    const cancelar = onSnapshot(collection(db, "acessos"), (snapshot) => {
+      const lista = snapshot.docs
+        .map((docItem) => ({
+          id: docItem.id,
+          ...docItem.data(),
+        }))
+        .sort((a, b) => String(a.email || a.id).localeCompare(String(b.email || b.id)));
 
-        setAcessos(Array.isArray(dados.usuarios) ? dados.usuarios : []);
-      } else {
-        await setDoc(docAcessos, {
-          usuarios: [
-            {
-              email: "matymidy.mmm@gmail.com",
-              nivel: "admin",
-            },
-            {
-              email: "emplacarmcr@gmail.com",
-              nivel: "lojista",
-            },
-          ],
-        });
-      }
+      setAcessos(lista);
     });
 
     return () => cancelar();
@@ -46,6 +41,7 @@ export default function Acessos({ moeda }) {
   function limparFormulario() {
     setEmail("");
     setNivel("socio");
+    setStatus("aprovado");
     setEditandoEmail("");
   }
 
@@ -57,42 +53,54 @@ export default function Acessos({ moeda }) {
       return;
     }
 
-    const novoAcesso = {
-      email: emailLimpo,
-      nivel,
-    };
-
-    let novaLista = [];
-
-    if (editandoEmail) {
-      novaLista = acessos.map((item) =>
-        item.email === editandoEmail ? novoAcesso : item
-      );
-    } else {
-      const jaExiste = acessos.some((item) => item.email === emailLimpo);
-
-      if (jaExiste) {
-        alert("Esse e-mail já está cadastrado.");
-        return;
-      }
-
-      novaLista = [novoAcesso, ...acessos];
-    }
-
-    await setDoc(docAcessos, {
-      usuarios: novaLista,
-    });
+    await setDoc(
+      doc(db, "acessos", emailLimpo),
+      {
+        email: emailLimpo,
+        nivel,
+        status,
+        atualizadoEm: new Date().toISOString(),
+      },
+      { merge: true }
+    );
 
     limparFormulario();
   }
 
-  function editarAcesso(item) {
-    setEditandoEmail(item.email);
-    setEmail(item.email);
-    setNivel(item.nivel);
+  async function aprovarAcesso(item) {
+    await setDoc(
+      doc(db, "acessos", item.id || item.email),
+      {
+        ...item,
+        status: "aprovado",
+        aprovadoEm: new Date().toISOString(),
+      },
+      { merge: true }
+    );
   }
 
-  async function excluirAcesso(emailExcluir) {
+  async function bloquearAcesso(item) {
+    await setDoc(
+      doc(db, "acessos", item.id || item.email),
+      {
+        ...item,
+        status: "pendente",
+        bloqueadoEm: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  }
+
+  function editarAcesso(item) {
+    setEditandoEmail(item.email || item.id);
+    setEmail(item.email || item.id);
+    setNivel(item.nivel || "socio");
+    setStatus(item.status || "pendente");
+  }
+
+  async function excluirAcesso(item) {
+    const emailExcluir = item.email || item.id;
+
     if (emailExcluir === "matymidy.mmm@gmail.com") {
       alert("O administrador principal não pode ser removido.");
       return;
@@ -102,11 +110,7 @@ export default function Acessos({ moeda }) {
 
     if (!confirmar) return;
 
-    const novaLista = acessos.filter((item) => item.email !== emailExcluir);
-
-    await setDoc(docAcessos, {
-      usuarios: novaLista,
-    });
+    await deleteDoc(doc(db, "acessos", emailExcluir));
   }
 
   return (
@@ -116,24 +120,27 @@ export default function Acessos({ moeda }) {
           <h1 style={styles.titulo}>Gerenciar Acessos</h1>
 
           <p style={styles.subtitulo}>
-            Controle quem pode acessar e o nível de permissão.
+            Aprove usuários, bloqueie acessos e defina o nível de permissão.
           </p>
         </div>
       </div>
 
       <Card titulo={editandoEmail ? "Editando acesso" : "Novo acesso"}>
         <div style={styles.formGrid}>
-          <Campo
-            label="E-mail"
-            valor={email}
-            mudar={(v) => setEmail(v)}
-          />
+          <Campo label="E-mail" valor={email} mudar={(v) => setEmail(v)} />
 
           <Select
             label="Nível"
             valor={nivel}
             mudar={(v) => setNivel(v)}
             opcoes={["admin", "lojista", "socio"]}
+          />
+
+          <Select
+            label="Status"
+            valor={status}
+            mudar={(v) => setStatus(v)}
+            opcoes={["aprovado", "pendente"]}
           />
 
           <button style={styles.botao} onClick={salvarAcesso}>
@@ -148,13 +155,23 @@ export default function Acessos({ moeda }) {
         </div>
 
         <Tabela
-          colunas={["E-mail", "Nível", "Ações"]}
+          colunas={["E-mail", "Nível", "Status", "Aprovação", "Ações"]}
           dados={acessos.map((item) => [
-            item.email,
-            item.nivel,
+            item.email || item.id,
+            item.nivel || "socio",
+            item.status || "pendente",
+            item.status === "aprovado" ? (
+              <button style={styles.botaoCinza} onClick={() => bloquearAcesso(item)}>
+                Bloquear
+              </button>
+            ) : (
+              <button style={styles.botao} onClick={() => aprovarAcesso(item)}>
+                Aprovar
+              </button>
+            ),
             <Acoes
               editar={() => editarAcesso(item)}
-              excluir={() => excluirAcesso(item.email)}
+              excluir={() => excluirAcesso(item)}
             />,
           ])}
         />

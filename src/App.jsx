@@ -30,6 +30,8 @@ import HistoricoAlteracoes from "./pages/HistoricoAlteracoes.jsx";
 export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [carregandoAuth, setCarregandoAuth] = useState(true);
+  const [acesso, setAcesso] = useState(null);
+const [carregandoAcesso, setCarregandoAcesso] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -39,6 +41,27 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+  useEffect(() => {
+  if (!usuario?.email) {
+    setCarregandoAcesso(false);
+    return;
+  }
+
+  const cancelar = onSnapshot(
+    doc(db, "acessos", usuario.email.toLowerCase()),
+    (snapshot) => {
+      if (snapshot.exists()) {
+        setAcesso(snapshot.data());
+      } else {
+        setAcesso(null);
+      }
+
+      setCarregandoAcesso(false);
+    }
+  );
+
+  return () => cancelar();
+}, [usuario]);
 
   if (carregandoAuth) {
     return (
@@ -60,11 +83,59 @@ export default function App() {
   if (!usuario) {
     return <Login />;
   }
+  
 
-  return <Sistema usuario={usuario} />;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (carregandoAcesso) {
+  return <div style={{ minHeight: "100vh", background: "#050816", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>Carregando acesso...</div>;
 }
 
-function Sistema({ usuario }) {
+if (!acesso || acesso.status !== "aprovado") {
+  return <div style={{ minHeight: "100vh", background: "#050816", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, textAlign: "center" }}><h1>Conta pendente</h1>
+
+<p>Aguarde aprovação do administrador.</p>
+
+<button
+  onClick={async () => {
+    await auth.signOut();
+  }}
+  style={{
+    padding: 12,
+    borderRadius: 10,
+    border: "none",
+    background: "#5b5cff",
+    color: "#fff",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Sair
+</button></div>;
+}
+
+return (
+  <Sistema
+    usuario={usuario}
+    acesso={acesso}
+  />
+);
+}
+
+function Sistema({ usuario, acesso }) {
   const hoje = new Date().toISOString().slice(0, 10);
   const docSistema = doc(db, "sistema", "emplacar");
   const docBackup = (id) =>
@@ -1448,6 +1519,7 @@ function fecharMesFinanceiro() {
 }
   const propsGlobais = {
     hoje,
+    acesso,
     usuario,
     fecharMesFinanceiro,
     diaInicioMesFinanceiro,

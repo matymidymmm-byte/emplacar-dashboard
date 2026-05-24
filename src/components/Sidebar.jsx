@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { doc, setDoc } from "firebase/firestore";
-import { signOut } from "firebase/auth";
+import {
+  signOut,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
+} from "firebase/auth";
 
 import styles from "../styles/styles.js";
 import { db, auth } from "../services/firebase.js";
@@ -8,6 +13,7 @@ import { db, auth } from "../services/firebase.js";
 export default function Sidebar({
   aba,
   setAba,
+  acesso,
   setTextoImportacao,
   setResultadoImportacao,
 
@@ -58,6 +64,10 @@ export default function Sidebar({
 
   const [importandoBackup, setImportandoBackup] =
     useState(false);
+    const [mostrarPerfil, setMostrarPerfil] = useState(false);
+const [senhaAtual, setSenhaAtual] = useState("");
+const [novaSenha, setNovaSenha] = useState("");
+const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
 
   const docSistema =
     doc(db, "sistema", "emplacar");
@@ -65,24 +75,11 @@ export default function Sidebar({
   const email =
     usuario?.email?.toLowerCase() || "";
 
-  let nivel = "socio";
+  const nivel =
+  acesso?.nivel || "socio";
 
-  if (
-    email ===
-    "matymidy.mmm@gmail.com"
-  ) {
-    nivel = "admin";
-  }
-
-  if (
-    email ===
-    "emplacarmcr@gmail.com"
-  ) {
-    nivel = "lojista";
-  }
-
-  const admin =
-    nivel === "admin";
+const admin =
+  nivel === "admin";
 
   const menusBase = [
     "Dashboard",
@@ -95,22 +92,22 @@ export default function Sidebar({
     "Relatório Diário",
     "Histórico Financeiro",
     "Atualizações",
-    "Histórico de Alterações",
     "Importar Entradas",
     "Importar Saídas",
     "Importar Contas",
-    "Backups",
+    
   ];
 
 
   const menus =
-    admin
-      ? [
-          ...menusBase,
-          "Gerenciar Acessos",
-        ]
-      : menusBase;
-
+  admin
+    ? [
+        ...menusBase,
+        "Histórico de Alterações",
+        "Backups",
+        "Gerenciar Acessos",
+      ]
+    : menusBase;
   const botaoFerramenta = {
     width: "100%",
     padding: "12px 14px",
@@ -155,6 +152,48 @@ export default function Sidebar({
   async function sair() {
     await signOut(auth);
   }
+  async function trocarSenha() {
+  if (!senhaAtual || !novaSenha || !confirmarNovaSenha) {
+    alert("Preencha todos os campos.");
+    return;
+  }
+
+  if (novaSenha !== confirmarNovaSenha) {
+    alert("A nova senha e a confirmação não conferem.");
+    return;
+  }
+
+  if (novaSenha.length < 6) {
+    alert("A nova senha precisa ter pelo menos 6 caracteres.");
+    return;
+  }
+
+  try {
+    const credencial = EmailAuthProvider.credential(
+      usuario.email,
+      senhaAtual
+    );
+
+    await reauthenticateWithCredential(
+      auth.currentUser,
+      credencial
+    );
+
+    await updatePassword(
+      auth.currentUser,
+      novaSenha
+    );
+
+    setSenhaAtual("");
+    setNovaSenha("");
+    setConfirmarNovaSenha("");
+
+    alert("Senha alterada com sucesso.");
+  } catch (erro) {
+    console.error(erro);
+    alert("Erro ao trocar senha. Confira a senha atual.");
+  }
+}
 
   function exportarBackup() {
     if (!admin) return;
@@ -411,7 +450,13 @@ export default function Sidebar({
           : "none",
       }}
     >
-      <div style={styles.logoBox}>
+      <div
+  style={{
+    ...styles.logoBox,
+    cursor: "pointer",
+  }}
+  onClick={() => setMostrarPerfil(!mostrarPerfil)}
+>
         <img
           src="/logo-emplacar.png"
           alt="Logo Emplacar"
@@ -432,9 +477,80 @@ export default function Sidebar({
           >
             {nivel.toUpperCase()}
           </p>
-        </div>
+                </div>
       </div>
 
+      {mostrarPerfil && (
+  <div
+    style={{
+      background: "#020617",
+      border: "1px solid #334155",
+      borderRadius: 16,
+      padding: 12,
+      marginBottom: 14,
+      color: "#fff",
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+    }}
+  >
+    <strong>Conta logada</strong>
+
+    <div style={{ fontSize: 13, color: "#cbd5e1" }}>
+      {usuario?.email}
+    </div>
+
+    <div style={{ fontSize: 13, color: "#94a3b8" }}>
+      Nível: {nivel.toUpperCase()}
+    </div>
+
+    <input
+      type="password"
+      placeholder="Senha atual"
+      value={senhaAtual}
+      onChange={(e) => setSenhaAtual(e.target.value)}
+      style={{
+        padding: 10,
+        borderRadius: 10,
+        border: "1px solid #334155",
+        background: "#0f172a",
+        color: "#fff",
+      }}
+    />
+
+    <input
+      type="password"
+      placeholder="Nova senha"
+      value={novaSenha}
+      onChange={(e) => setNovaSenha(e.target.value)}
+      style={{
+        padding: 10,
+        borderRadius: 10,
+        border: "1px solid #334155",
+        background: "#0f172a",
+        color: "#fff",
+      }}
+    />
+
+    <input
+      type="password"
+      placeholder="Confirmar nova senha"
+      value={confirmarNovaSenha}
+      onChange={(e) => setConfirmarNovaSenha(e.target.value)}
+      style={{
+        padding: 10,
+        borderRadius: 10,
+        border: "1px solid #334155",
+        background: "#0f172a",
+        color: "#fff",
+      }}
+    />
+
+    <button style={botaoFerramenta} onClick={trocarSenha}>
+      Trocar senha
+    </button>
+  </div>
+)}
       <div style={styles.menuLista}>
         {menus.map((item) => (
           <button
