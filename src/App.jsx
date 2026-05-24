@@ -453,7 +453,7 @@ useEffect(() => {
       return;
     }
 
-    if (hora < 0) {
+    if (hora < 23) {
   return;
 }
 
