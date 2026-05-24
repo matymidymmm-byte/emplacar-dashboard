@@ -506,14 +506,7 @@ export default function Dashboard({
         ))}
       </div>
 
-      <div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 16,
-    alignItems: "stretch",
-  }}
->
+      <div className="dashboard-graficos-executivos">
   <div style={{ minWidth: 0 }}>
   <Card titulo="Vendas por dia">
     <GraficoLinha

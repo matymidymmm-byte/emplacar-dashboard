@@ -15,3 +15,15 @@ body {
 * {
   box-sizing: border-box;
 }
+.dashboard-graficos-executivos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 768px) {
+  .dashboard-graficos-executivos {
+    grid-template-columns: 1fr;
+  }
+}
