@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  setDoc,
+} from "firebase/firestore";
 
 import { auth, db } from "./services/firebase.js";
 import styles from "./styles/styles.js";
@@ -144,6 +149,7 @@ const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
   const [historicoRelacoes, setHistoricoRelacoes] = useState([]);
   const [historicoFechamentos, setHistoricoFechamentos] = useState([]);
   const [historicoAlteracoes, setHistoricoAlteracoes] = useState([]);
+  const [backupsAutomaticos, setBackupsAutomaticos] = useState([]);
 
   useEffect(() => {
     function ajustarTela() {
@@ -229,6 +235,27 @@ inicioPeriodoSalvo: "",
 
     return () => cancelar();
   }, []);
+  useEffect(() => {
+  const cancelar = onSnapshot(
+    collection(db, "backupsAutomaticos"),
+    (snapshot) => {
+      const lista = snapshot.docs
+        .map((docItem) => ({
+          id: docItem.id,
+          ...docItem.data(),
+        }))
+        .sort((a, b) =>
+          String(b.criadoEm || b.id).localeCompare(
+            String(a.criadoEm || a.id)
+          )
+        );
+
+      setBackupsAutomaticos(lista);
+    }
+  );
+
+  return () => cancelar();
+}, []);
 
   async function salvarNaNuvem(campo, valor) {
     if (!nuvemCarregadaRef.current) return;
@@ -242,6 +269,118 @@ inicioPeriodoSalvo: "",
       { merge: true }
     );
   }
+  async function restaurarBackup(
+  backup
+) {
+  if (!backup) return;
+
+  const confirmar = prompt(
+    'Digite RESTAURAR para continuar'
+  );
+
+  if (
+    confirmar !== "RESTAURAR"
+  ) {
+    alert(
+      "Restauração cancelada."
+    );
+    return;
+  }
+
+  try {
+    const backupSegurancaId =
+      `ANTES-RESTAURAR-${Date.now()}`;
+
+    await setDoc(
+      docBackup(
+        backupSegurancaId
+      ),
+      {
+        criadoEm:
+          new Date().toISOString(),
+        tipo:
+          "backup-seguranca-restauracao",
+
+        entradas,
+        saidas,
+        contas,
+        clientes,
+
+        estoqueCompras,
+        estoquePerdas,
+
+        historicoRelacoes,
+        historicoFechamentos,
+        historicoAlteracoes,
+
+        metaMensal,
+        inicioMes,
+        fimMes,
+      }
+    );
+
+    await setDoc(
+      docSistema,
+      {
+        entradas:
+          backup.entradas || [],
+        saidas:
+          backup.saidas || [],
+        contas:
+          backup.contas || [],
+        clientes:
+          backup.clientes || [],
+
+        estoqueCompras:
+          backup.estoqueCompras ||
+          [],
+
+        estoquePerdas:
+          backup.estoquePerdas ||
+          [],
+
+        historicoRelacoes:
+          backup.historicoRelacoes ||
+          [],
+
+        historicoFechamentos:
+          backup.historicoFechamentos ||
+          [],
+
+        historicoAlteracoes:
+          backup.historicoAlteracoes ||
+          [],
+
+        metaMensal:
+          backup.metaMensal ||
+          80000,
+
+        inicioPeriodoSalvo:
+          backup.inicioPeriodoSalvo ||
+          "",
+      },
+      { merge: true }
+    );
+
+    registrarAlteracao({
+      tipo: "Restauração",
+      modulo: "Backups",
+      descricao: `${usuario?.email || "Usuário"} restaurou backup`,
+      valorNovo:
+        backup?.criadoEm || "",
+    });
+
+    alert(
+      "Backup restaurado com sucesso."
+    );
+  } catch (erro) {
+    console.error(erro);
+
+    alert(
+      "Erro ao restaurar backup."
+    );
+  }
+}
 
   useEffect(() => {
     salvarNaNuvem("entradas", entradas);
@@ -1469,6 +1608,87 @@ registrarAlteracao,
         {aba === "Gerenciar Acessos" && <Acessos {...propsGlobais} />}
         {aba.startsWith("Importar") && <Importacao {...propsGlobais} />}
         {aba === "Atualizações" && <Atualizacoes {...propsGlobais} />}
+        {aba === "Backups" && (
+  <div style={styles.card}>
+    <h2 style={styles.titulo}>
+      Backups automáticos
+    </h2>
+
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+    >
+      {backupsAutomaticos.map(
+        (backup) => (
+          <div
+            key={backup.id}
+            style={{
+              background:
+                "#0f172a",
+              border:
+                "1px solid #334155",
+              borderRadius: 12,
+              padding: 14,
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 700,
+                marginBottom: 8,
+              }}
+            >
+              {backup.id}
+            </div>
+
+            <div>
+              Entradas:{" "}
+              {
+                backup
+                  ?.entradas
+                  ?.length
+              }
+            </div>
+
+            <div>
+              Saídas:{" "}
+              {
+                backup
+                  ?.saidas
+                  ?.length
+              }
+            </div>
+
+            <div>
+              Contas:{" "}
+              {
+                backup
+                  ?.contas
+                  ?.length
+              }
+            </div>
+
+            <button
+              style={{
+                ...styles.botao,
+                marginTop: 12,
+              }}
+              onClick={() =>
+                restaurarBackup(
+                  backup
+                )
+              }
+            >
+              Restaurar backup
+            </button>
+          </div>
+        )
+      )}
+    </div>
+  </div>
+)}
         {aba === "Histórico de Alterações" && (
   <HistoricoAlteracoes {...propsGlobais} />
 )}

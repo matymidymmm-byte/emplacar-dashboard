@@ -99,7 +99,9 @@ export default function Sidebar({
     "Importar Entradas",
     "Importar Saídas",
     "Importar Contas",
+    "Backups",
   ];
+
 
   const menus =
     admin
