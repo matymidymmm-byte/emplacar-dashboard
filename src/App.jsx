@@ -62,6 +62,8 @@ export default function App() {
 function Sistema({ usuario }) {
   const hoje = new Date().toISOString().slice(0, 10);
   const docSistema = doc(db, "sistema", "emplacar");
+  const docBackup = (id) =>
+  doc(db, "backupsAutomaticos", id);
 
   const nuvemCarregadaRef = useRef(false);
   const podeSalvarRef = useRef(false);
@@ -290,6 +292,88 @@ useEffect(() => {
     metaMensal
   );
 }, [metaMensal]);
+  useEffect(() => {
+  if (!nuvemCarregada) return;
+
+  async function gerarBackupAutomatico() {
+    const agora = new Date();
+
+    const dataBackup =
+      agora.toISOString().slice(0, 10);
+
+    const hora = agora.getHours();
+
+    const backupJaFeitoHoje =
+      localStorage.getItem(
+        "backupAutomaticoDia"
+      );
+
+    if (
+      backupJaFeitoHoje === dataBackup
+    ) {
+      return;
+    }
+
+    if (hora < 23) {
+      return;
+    }
+
+    const backup = {
+      criadoEm:
+        agora.toISOString(),
+
+      entradas,
+      saidas,
+      contas,
+      clientes,
+
+      estoqueCompras,
+      estoquePerdas,
+
+      historicoRelacoes,
+      historicoFechamentos,
+      historicoAlteracoes,
+
+      metaMensal,
+      inicioMes,
+      fimMes,
+    };
+
+    await setDoc(
+      docBackup(dataBackup),
+      backup
+    );
+
+    localStorage.setItem(
+      "backupAutomaticoDia",
+      dataBackup
+    );
+
+    console.log(
+      "✅ Backup automático criado"
+    );
+  }
+
+  gerarBackupAutomatico();
+}, [
+  nuvemCarregada,
+
+  entradas,
+  saidas,
+  contas,
+  clientes,
+
+  estoqueCompras,
+  estoquePerdas,
+
+  historicoRelacoes,
+  historicoFechamentos,
+  historicoAlteracoes,
+
+  metaMensal,
+  inicioMes,
+  fimMes,
+]);
 
 
 
