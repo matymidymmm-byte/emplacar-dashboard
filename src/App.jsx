@@ -137,7 +137,14 @@ return (
 
 function Sistema({ usuario, acesso }) {
   const hoje = new Date().toISOString().slice(0, 10);
-  const docSistema = doc(db, "sistema", "emplacar");
+  const empresaId =
+  acesso?.empresaId || "emplacar-mcr";
+
+const docSistema = doc(
+  db,
+  "empresas",
+  empresaId
+);
   const docBackup = (id) =>
   doc(db, "backupsAutomaticos", id);
 
@@ -1517,6 +1524,8 @@ function fecharMesFinanceiro() {
     itemId: fechamento.id,
   });
 }
+
+ 
   const propsGlobais = {
     hoje,
     acesso,
@@ -1667,6 +1676,7 @@ registrarAlteracao,
         }}
       >
         {aba === "Dashboard" && <Dashboard {...propsGlobais} />}
+        
         {aba === "Histórico Financeiro" && (
   <HistoricoFinanceiro {...propsGlobais} />
 )}
