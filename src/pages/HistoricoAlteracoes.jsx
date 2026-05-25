@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 export default function HistoricoAlteracoes({
   historicoAlteracoes = [],
@@ -6,12 +6,12 @@ export default function HistoricoAlteracoes({
   registrarAlteracao,
   usuario,
   admin,
-  moeda,
 }) {
   const [busca, setBusca] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("Todos");
   const [filtroModulo, setFiltroModulo] = useState("Todos");
   const [limite, setLimite] = useState(100);
+  const [registroExpandido, setRegistroExpandido] = useState(null);
 
   const email = usuario?.email?.toLowerCase() || "";
   const ehAdmin = admin || email === "matymidy.mmm@gmail.com";
@@ -20,11 +20,7 @@ export default function HistoricoAlteracoes({
     return [
       "Todos",
       ...Array.from(
-        new Set(
-          historicoAlteracoes
-            .map((item) => item.tipo)
-            .filter(Boolean)
-        )
+        new Set(historicoAlteracoes.map((item) => item.tipo).filter(Boolean))
       ),
     ];
   }, [historicoAlteracoes]);
@@ -33,11 +29,7 @@ export default function HistoricoAlteracoes({
     return [
       "Todos",
       ...Array.from(
-        new Set(
-          historicoAlteracoes
-            .map((item) => item.modulo)
-            .filter(Boolean)
-        )
+        new Set(historicoAlteracoes.map((item) => item.modulo).filter(Boolean))
       ),
     ];
   }, [historicoAlteracoes]);
@@ -47,9 +39,7 @@ export default function HistoricoAlteracoes({
 
     return historicoAlteracoes
       .filter((item) => {
-        const passaTipo =
-          filtroTipo === "Todos" || item.tipo === filtroTipo;
-
+        const passaTipo = filtroTipo === "Todos" || item.tipo === filtroTipo;
         const passaModulo =
           filtroModulo === "Todos" || item.modulo === filtroModulo;
 
@@ -60,7 +50,8 @@ export default function HistoricoAlteracoes({
           item.descricao,
           item.valorAntigo,
           item.valorNovo,
-          item.dataHora,
+          item.itemId,
+          item.dataHora ? new Date(item.dataHora).toLocaleString("pt-BR") : "",
           ...(item.detalhes || []).map(
             (detalhe) =>
               `${detalhe.campo} ${detalhe.valorAntigo} ${detalhe.valorNovo}`
@@ -69,19 +60,12 @@ export default function HistoricoAlteracoes({
           .join(" ")
           .toLowerCase();
 
-        const passaBusca =
-          !termo || textoBusca.includes(termo);
+        const passaBusca = !termo || textoBusca.includes(termo);
 
         return passaTipo && passaModulo && passaBusca;
       })
       .slice(0, limite);
-  }, [
-    historicoAlteracoes,
-    busca,
-    filtroTipo,
-    filtroModulo,
-    limite,
-  ]);
+  }, [historicoAlteracoes, busca, filtroTipo, filtroModulo, limite]);
 
   function formatarData(dataHora) {
     if (!dataHora) return "-";
@@ -138,9 +122,7 @@ export default function HistoricoAlteracoes({
           2
         ),
       ],
-      {
-        type: "application/json",
-      }
+      { type: "application/json" }
     );
 
     const url = URL.createObjectURL(blob);
@@ -152,7 +134,6 @@ export default function HistoricoAlteracoes({
       .slice(0, 10)}.json`;
 
     a.click();
-
     URL.revokeObjectURL(url);
 
     registrarAlteracao?.({
@@ -173,16 +154,24 @@ export default function HistoricoAlteracoes({
       valor: historicoFiltrado.length,
     },
     {
+      titulo: "Logins",
+      valor: historicoAlteracoes.filter((item) => item.tipo === "Login")
+        .length,
+    },
+    {
       titulo: "Alterações",
-      valor: historicoAlteracoes.filter(
-        (item) => item.tipo === "Alteração"
-      ).length,
+      valor: historicoAlteracoes.filter((item) => item.tipo === "Alteração")
+        .length,
     },
     {
       titulo: "Exclusões",
-      valor: historicoAlteracoes.filter(
-        (item) => item.tipo === "Exclusão"
-      ).length,
+      valor: historicoAlteracoes.filter((item) => item.tipo === "Exclusão")
+        .length,
+    },
+    {
+      titulo: "Pagamentos",
+      valor: historicoAlteracoes.filter((item) => item.tipo === "Pagamento")
+        .length,
     },
   ];
 
@@ -192,16 +181,46 @@ export default function HistoricoAlteracoes({
     Exclusão: "#dc2626",
     Exportação: "#7c3aed",
     Importação: "#f97316",
+    Login: "#06b6d4",
+    Logout: "#64748b",
+    Pagamento: "#22c55e",
+    Restauração: "#eab308",
+    Fechamento: "#9333ea",
+    Backup: "#0ea5e9",
+    "Desfazer pagamento": "#ef4444",
   };
+
+  function corLinha(tipo) {
+    if (tipo === "Exclusão") return "rgba(220,38,38,0.08)";
+    if (tipo === "Alteração") return "rgba(37,99,235,0.08)";
+    if (tipo === "Adição") return "rgba(22,163,74,0.08)";
+    if (tipo === "Login") return "rgba(6,182,212,0.08)";
+    if (tipo === "Pagamento") return "rgba(34,197,94,0.08)";
+    if (tipo === "Restauração") return "rgba(234,179,8,0.08)";
+    if (tipo === "Fechamento") return "rgba(147,51,234,0.08)";
+    return "transparent";
+  }
+
+  function valorTexto(valor) {
+    if (valor === null || valor === undefined || valor === "") return "-";
+
+    if (typeof valor === "object") {
+      try {
+        return JSON.stringify(valor, null, 2);
+      } catch {
+        return String(valor);
+      }
+    }
+
+    return String(valor);
+  }
 
   if (!ehAdmin) {
     return (
       <div style={container}>
         <div style={cardBloqueado}>
           <h1 style={titulo}>Acesso bloqueado</h1>
-          <p style={textoSuave}>
-            Esta página é exclusiva do administrador.
-          </p>
+          <p style={textoSuave}>Esta página é exclusiva do administrador.</p>
         </div>
       </div>
     );
@@ -213,22 +232,17 @@ export default function HistoricoAlteracoes({
         <div>
           <h1 style={titulo}>Histórico de Alterações</h1>
           <p style={textoSuave}>
-            Auditoria completa de adições, edições, exclusões, backups e mudanças importantes.
+            Auditoria completa de adições, edições, exclusões, backups e
+            mudanças importantes.
           </p>
         </div>
 
         <div style={acoesTopo}>
-          <button
-            style={botaoPrimario}
-            onClick={exportarHistorico}
-          >
+          <button style={botaoPrimario} onClick={exportarHistorico}>
             Exportar histórico
           </button>
 
-          <button
-            style={botaoPerigo}
-            onClick={limparHistorico}
-          >
+          <button style={botaoPerigo} onClick={limparHistorico}>
             Limpar histórico
           </button>
         </div>
@@ -236,10 +250,7 @@ export default function HistoricoAlteracoes({
 
       <div style={gridCards}>
         {cards.map((card) => (
-          <div
-            key={card.titulo}
-            style={cardResumo}
-          >
+          <div key={card.titulo} style={cardResumo}>
             <span style={labelCard}>{card.titulo}</span>
             <strong style={valorCard}>{card.valor}</strong>
           </div>
@@ -305,100 +316,184 @@ export default function HistoricoAlteracoes({
           <tbody>
             {historicoFiltrado.length === 0 && (
               <tr>
-                <td
-                  colSpan={8}
-                  style={vazio}
-                >
+                <td colSpan={8} style={vazio}>
                   Nenhum registro encontrado.
                 </td>
               </tr>
             )}
 
             {historicoFiltrado.map((item) => (
-              <tr key={item.id}>
-                <td style={tdData}>
-                  {formatarData(item.dataHora)}
-                </td>
+              <Fragment key={item.id}>
+                <tr
+                  onClick={() =>
+                    setRegistroExpandido(
+                      registroExpandido === item.id ? null : item.id
+                    )
+                  }
+                  style={{
+                    cursor: "pointer",
+                    background: corLinha(item.tipo),
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "scale(1.001)";
+                    e.currentTarget.style.boxShadow =
+                      "0 0 0 1px rgba(255,255,255,0.04)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "scale(1)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                >
+                  <td style={tdData}>{formatarData(item.dataHora)}</td>
 
-                <td style={td}>
-                  {item.usuario || "-"}
-                </td>
+                  <td style={td}>{item.usuario || "-"}</td>
 
-                <td style={td}>
-                  <span
-                    style={{
-                      ...badge,
-                      background:
-                        corTipo[item.tipo] || "#475569",
-                    }}
-                  >
-                    {item.tipo || "-"}
-                  </span>
-                </td>
+                  <td style={td}>
+                    <span
+                      style={{
+                        ...badge,
+                        background: corTipo[item.tipo] || "#475569",
+                      }}
+                    >
+                      {item.tipo || "-"}
+                    </span>
+                  </td>
 
-                <td style={td}>
-                  {item.modulo || "-"}
-                </td>
+                  <td style={td}>{item.modulo || "-"}</td>
 
-                <td style={tdDescricao}>
-                  {item.descricao || "-"}
-                </td>
+                  <td style={tdDescricao}>{item.descricao || "-"}</td>
 
-               <td style={td}>
-  {Array.isArray(item.detalhes) &&
-  item.detalhes.length > 0 ? (
-    <div style={listaDetalhes}>
-      {item.detalhes.map((detalhe, index) => (
-        <div
-          key={`${item.id}-${detalhe.campo}-${index}`}
-          style={linhaDetalhe}
-        >
-          {detalhe.campo}
-        </div>
-      ))}
-    </div>
-  ) : (
-    "-"
-  )}
-</td>
+                  <td style={td}>
+                    {Array.isArray(item.detalhes) &&
+                    item.detalhes.length > 0 ? (
+                      <div style={listaDetalhes}>
+                        {item.detalhes.map((detalhe, index) => (
+                          <div
+                            key={`${item.id}-${detalhe.campo}-${index}`}
+                            style={linhaDetalhe}
+                          >
+                            {detalhe.campo}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
 
-<td style={tdValor}>
-  {Array.isArray(item.detalhes) &&
-  item.detalhes.length > 0 ? (
-    <div style={listaDetalhes}>
-      {item.detalhes.map((detalhe, index) => (
-        <div
-          key={`${item.id}-antes-${index}`}
-          style={linhaDetalhe}
-        >
-          {String(detalhe.valorAntigo || "-")}
-        </div>
-      ))}
-    </div>
-  ) : (
-    "-"
-  )}
-</td>
+                  <td style={tdValor}>
+                    {Array.isArray(item.detalhes) &&
+                    item.detalhes.length > 0 ? (
+                      <div style={listaDetalhes}>
+                        {item.detalhes.map((detalhe, index) => (
+                          <div
+                            key={`${item.id}-antes-${index}`}
+                            style={linhaDetalhe}
+                          >
+                            {valorTexto(detalhe.valorAntigo)}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
 
-<td style={tdValor}>
-  {Array.isArray(item.detalhes) &&
-  item.detalhes.length > 0 ? (
-    <div style={listaDetalhes}>
-      {item.detalhes.map((detalhe, index) => (
-        <div
-          key={`${item.id}-depois-${index}`}
-          style={linhaDetalhe}
-        >
-          {String(detalhe.valorNovo || "-")}
-        </div>
-      ))}
-    </div>
-  ) : (
-    "-"
-  )}
-</td>
-                  
-              </tr>
+                  <td style={tdValor}>
+                    {Array.isArray(item.detalhes) &&
+                    item.detalhes.length > 0 ? (
+                      <div style={listaDetalhes}>
+                        {item.detalhes.map((detalhe, index) => (
+                          <div
+                            key={`${item.id}-depois-${index}`}
+                            style={linhaDetalhe}
+                          >
+                            {valorTexto(detalhe.valorNovo)}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                </tr>
+
+                {registroExpandido === item.id && (
+                  <tr>
+                    <td colSpan={8} style={tdExpandido}>
+                      <div style={boxExpandido}>
+                        <strong style={tituloExpandido}>
+                          Detalhes completos
+                        </strong>
+
+                        <div style={gridExpandido}>
+                          <div>
+                            <b>Usuário:</b> {item.usuario || "-"}
+                          </div>
+
+                          <div>
+                            <b>Tipo:</b> {item.tipo || "-"}
+                          </div>
+
+                          <div>
+                            <b>Módulo:</b> {item.modulo || "-"}
+                          </div>
+
+                          <div>
+                            <b>Item ID:</b> {item.itemId || "-"}
+                          </div>
+
+                          <div>
+                            <b>Data/Hora:</b> {formatarData(item.dataHora)}
+                          </div>
+                        </div>
+
+                        <div style={descricaoExpandida}>
+                          <b>Descrição:</b> {item.descricao || "-"}
+                        </div>
+
+                        {Array.isArray(item.detalhes) &&
+                          item.detalhes.length > 0 && (
+                            <div style={alteracoesExpandida}>
+                              <strong>Alterações detectadas</strong>
+
+                              {item.detalhes.map((detalhe, index) => (
+                                <div
+                                  key={`${item.id}-expandido-${index}`}
+                                  style={alteracaoLinhaExpandida}
+                                >
+                                  <div style={campoExpandido}>
+                                    {detalhe.campo}
+                                  </div>
+
+                                  <div style={antesDepoisGrid}>
+                                    <div style={valorAntes}>
+                                      <span style={labelAntesDepois}>
+                                        Antes
+                                      </span>
+                                      <pre style={preValor}>
+                                        {valorTexto(detalhe.valorAntigo)}
+                                      </pre>
+                                    </div>
+
+                                    <div style={valorDepois}>
+                                      <span style={labelAntesDepois}>
+                                        Depois
+                                      </span>
+                                      <pre style={preValor}>
+                                        {valorTexto(detalhe.valorNovo)}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -522,10 +617,12 @@ const select = {
 };
 
 const tabelaBox = {
+  maxHeight: "72vh",
   background: "rgba(15,23,42,0.72)",
   border: "1px solid rgba(148,163,184,0.12)",
   borderRadius: 22,
-  overflow: "auto",
+  overflowX: "auto",
+  overflowY: "auto",
   backdropFilter: "blur(14px)",
   boxShadow: "0 10px 30px rgba(0,0,0,0.30)",
 };
@@ -547,6 +644,7 @@ const th = {
 };
 
 const td = {
+  transition: "all 0.18s ease",
   padding: "12px",
   borderBottom: "1px solid rgba(148,163,184,0.08)",
   fontSize: 13,
@@ -575,13 +673,11 @@ const tdValor = {
   wordBreak: "break-word",
 };
 
-const tdDetalhes = {
-  ...td,
-  minWidth: 240,
-  maxWidth: 360,
-};
-
 const badge = {
+  boxShadow: "0 0 18px rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  letterSpacing: 0.4,
+  textTransform: "uppercase",
   display: "inline-block",
   color: "#fff",
   borderRadius: 999,
@@ -618,4 +714,97 @@ const cardBloqueado = {
   borderRadius: 20,
   padding: 24,
   backdropFilter: "blur(14px)",
+};
+
+const tdExpandido = {
+  padding: 0,
+  background: "rgba(2,6,23,0.92)",
+};
+
+const boxExpandido = {
+  padding: 20,
+  display: "flex",
+  flexDirection: "column",
+  gap: 16,
+  borderTop: "1px solid rgba(148,163,184,0.12)",
+};
+
+const tituloExpandido = {
+  color: "#f8fafc",
+  fontSize: 16,
+};
+
+const gridExpandido = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px,1fr))",
+  gap: 12,
+  color: "#cbd5e1",
+  fontSize: 13,
+};
+
+const descricaoExpandida = {
+  background: "rgba(15,23,42,0.72)",
+  border: "1px solid rgba(148,163,184,0.10)",
+  borderRadius: 14,
+  padding: 14,
+  color: "#e2e8f0",
+  lineHeight: 1.5,
+};
+
+const alteracoesExpandida = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  color: "#f8fafc",
+};
+
+const alteracaoLinhaExpandida = {
+  background: "rgba(15,23,42,0.72)",
+  border: "1px solid rgba(148,163,184,0.10)",
+  borderRadius: 14,
+  padding: 14,
+};
+
+const campoExpandido = {
+  fontWeight: 800,
+  color: "#f8fafc",
+  marginBottom: 10,
+};
+
+const antesDepoisGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px,1fr))",
+  gap: 12,
+};
+
+const valorAntes = {
+  background: "rgba(220,38,38,0.10)",
+  border: "1px solid rgba(220,38,38,0.18)",
+  borderRadius: 12,
+  padding: 12,
+};
+
+const valorDepois = {
+  background: "rgba(22,163,74,0.10)",
+  border: "1px solid rgba(22,163,74,0.18)",
+  borderRadius: 12,
+  padding: 12,
+};
+
+const labelAntesDepois = {
+  display: "block",
+  color: "#94a3b8",
+  fontSize: 12,
+  fontWeight: 700,
+  marginBottom: 8,
+};
+
+const preValor = {
+  margin: 0,
+  color: "#e2e8f0",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+  fontFamily:
+    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+  fontSize: 12,
 };

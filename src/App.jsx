@@ -5,6 +5,7 @@ import {
   doc,
   onSnapshot,
   setDoc,
+addDoc,
 } from "firebase/firestore";
 import DadosEmpresa from "./pages/DadosEmpresa.jsx";
 
@@ -37,6 +38,7 @@ const [carregandoAcesso, setCarregandoAcesso] = useState(true);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUsuario(user);
+    
       setCarregandoAuth(false);
     });
 
@@ -259,6 +261,7 @@ const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
   const [historicoRelacoes, setHistoricoRelacoes] = useState([]);
   const [historicoFechamentos, setHistoricoFechamentos] = useState([]);
   const [historicoAlteracoes, setHistoricoAlteracoes] = useState([]);
+  const loginRegistradoRef = useRef(false);
   const [backupsAutomaticos, setBackupsAutomaticos] = useState([]);
   const [dadosEmpresa, setDadosEmpresa] = useState({
   logo: "",
@@ -327,11 +330,7 @@ setInicioPeriodoSalvo(
     ? dados.historicoFechamentos
     : []
 );
-setHistoricoAlteracoes(
-  Array.isArray(dados.historicoAlteracoes)
-    ? dados.historicoAlteracoes
-    : []
-);
+
 setDadosEmpresa({
   logo: dados.logo || "",
   nome: dados.nome || "",
@@ -357,7 +356,7 @@ setDadosEmpresa({
           estoquePerdas: [],
           historicoRelacoes: [],
           historicoFechamentos: [],
-          historicoAlteracoes: [],
+          
           metaMensal: 80000,
 inicioPeriodoSalvo: "",
         });
@@ -375,13 +374,13 @@ inicioPeriodoSalvo: "",
   }, []);
   useEffect(() => {
   const cancelar = onSnapshot(
-collection(
-  db,
-  "empresas",
-  empresaId,
-  "backupsAutomaticos"
-),
-(snapshot) => {
+    collection(
+      db,
+      "empresas",
+      empresaId,
+      "backupsAutomaticos"
+    ),
+    (snapshot) => {
       const lista = snapshot.docs
         .map((docItem) => ({
           id: docItem.id,
@@ -398,7 +397,34 @@ collection(
   );
 
   return () => cancelar();
-}, []);
+}, [empresaId]);
+
+useEffect(() => {
+  const cancelar = onSnapshot(
+    collection(
+      db,
+      "empresas",
+      empresaId,
+      "historicoAlteracoes"
+    ),
+    (snapshot) => {
+      const lista = snapshot.docs
+        .map((docItem) => ({
+          id: docItem.id,
+          ...docItem.data(),
+        }))
+        .sort(
+          (a, b) =>
+            new Date(b.dataHora) -
+            new Date(a.dataHora)
+        );
+
+      setHistoricoAlteracoes(lista);
+    }
+  );
+
+  return () => cancelar();
+}, [empresaId]);
 
   async function salvarNaNuvem(campo, valor) {
     if (!nuvemCarregadaRef.current) return;
@@ -626,12 +652,7 @@ useEffect(() => {
     historicoFechamentos
   );
 }, [historicoFechamentos]);
-useEffect(() => {
-  salvarNaNuvem(
-    "historicoAlteracoes",
-    historicoAlteracoes
-  );
-}, [historicoAlteracoes]);
+
 useEffect(() => {
   salvarNaNuvem(
     "metaMensal",
@@ -843,6 +864,12 @@ function registrarAlteracao({
   itemId = "",
   detalhes = [],
 }) {
+  if (
+  usuario?.email ===
+  "matymidy.mmm@gmail.com"
+) {
+  return;
+}
   const novoRegistro = {
     id: Date.now(),
     usuario: usuario?.email || "Usuário não identificado",
@@ -862,11 +889,35 @@ function registrarAlteracao({
     dataHora: new Date().toISOString(),
   };
 
-  setHistoricoAlteracoes((old) => [
-    novoRegistro,
-    ...old,
-  ]);
+  addDoc(
+  collection(
+    db,
+    "empresas",
+    empresaId,
+    "historicoAlteracoes"
+  ),
+  novoRegistro
+);
 }
+useEffect(() => {
+  if (!usuario?.email) {
+    loginRegistradoRef.current = false;
+    return;
+  }
+
+  if (loginRegistradoRef.current) {
+    return;
+  }
+
+  loginRegistradoRef.current = true;
+
+  registrarAlteracao({
+    tipo: "Login",
+    modulo: "Autenticação",
+    descricao: `${usuario.email} entrou no sistema`,
+    itemId: usuario.uid,
+  });
+}, [usuario]);
   function numero(valor) {
     return (
       Number(
@@ -1282,12 +1333,69 @@ function registrarAlteracao({
     if (tipo === "cliente") setClienteForm(item);
   }
 
-  function remover(tipo, id) {
-    if (tipo === "entrada") setEntradas((old) => old.filter((x) => x.id !== id));
-    if (tipo === "saida") setSaidas((old) => old.filter((x) => x.id !== id));
-    if (tipo === "conta") setContas((old) => old.filter((x) => x.id !== id));
-    if (tipo === "cliente") setClientes((old) => old.filter((x) => x.id !== id));
+ function remover(tipo, id) {
+  let itemRemovido = null;
+
+  if (tipo === "entrada") {
+    itemRemovido = entradas.find(
+      (x) => x.id === id
+    );
+
+    setEntradas((old) =>
+      old.filter((x) => x.id !== id)
+    );
   }
+
+  if (tipo === "saida") {
+    itemRemovido = saidas.find(
+      (x) => x.id === id
+    );
+
+    setSaidas((old) =>
+      old.filter((x) => x.id !== id)
+    );
+  }
+
+  if (tipo === "conta") {
+    itemRemovido = contas.find(
+      (x) => x.id === id
+    );
+
+    setContas((old) =>
+      old.filter((x) => x.id !== id)
+    );
+  }
+
+  if (tipo === "cliente") {
+    itemRemovido = clientes.find(
+      (x) => x.id === id
+    );
+
+    setClientes((old) =>
+      old.filter((x) => x.id !== id)
+    );
+  }
+
+  registrarAlteracao({
+    tipo: "Exclusão",
+    modulo: tipo,
+    descricao: `${
+  usuario?.email || "Usuário"
+} removeu ${
+  itemRemovido?.placa ||
+  itemRemovido?.cliente ||
+  itemRemovido?.conta ||
+  itemRemovido?.tipoSaida ||
+  itemRemovido?.produto ||
+  itemRemovido?.tipo ||
+  itemRemovido?.nome ||
+  JSON.stringify(itemRemovido).slice(0, 60)
+}`,
+    valorAntigo: itemRemovido || {},
+    valorNovo: "Item removido",
+    itemId: id,
+  });
+}
 
   function alternarConta(id) {
   const conta = contas.find((x) => String(x.id) === String(id));
@@ -1664,6 +1772,8 @@ salvarDadosEmpresa,
     hoje,
     acesso,
     usuario,
+    admin:
+  acesso?.nivel === "admin",
     fecharMesFinanceiro,
     diaInicioMesFinanceiro,
 setDiaInicioMesFinanceiro,
