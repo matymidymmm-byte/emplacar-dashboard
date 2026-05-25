@@ -50,26 +50,70 @@ const [carregandoAcesso, setCarregandoAcesso] = useState(true);
     return;
   }
 
-  const cancelar = onSnapshot(
-    doc(db, "acessos", usuario.email.toLowerCase()),
-    (snapshot) => {
-      if (snapshot.exists()) {
-  const dadosAcesso = snapshot.data();
+  const email = usuario.email.toLowerCase();
 
-  setAcesso(dadosAcesso);
+  let cancelarAcessoEmpresa = null;
 
-  if (dadosAcesso?.bloqueado === true) {
-    auth.signOut();
-  }
-} else {
+  const cancelarAcessoGlobal = onSnapshot(
+    doc(db, "acessos", email),
+    (snapshotGlobal) => {
+      if (!snapshotGlobal.exists()) {
         setAcesso(null);
+        setCarregandoAcesso(false);
+        return;
       }
 
-      setCarregandoAcesso(false);
+      const acessoGlobal = snapshotGlobal.data();
+      const empresaIdUsuario = acessoGlobal?.empresaId;
+
+      if (!empresaIdUsuario) {
+        setAcesso(acessoGlobal);
+        setCarregandoAcesso(false);
+        return;
+      }
+
+      if (cancelarAcessoEmpresa) {
+        cancelarAcessoEmpresa();
+      }
+
+      cancelarAcessoEmpresa = onSnapshot(
+        doc(
+          db,
+          "empresas",
+          empresaIdUsuario,
+          "acessos",
+          email
+        ),
+        (snapshotEmpresa) => {
+          const acessoEmpresa = snapshotEmpresa.exists()
+            ? snapshotEmpresa.data()
+            : acessoGlobal;
+
+          const acessoFinal = {
+            ...acessoGlobal,
+            ...acessoEmpresa,
+            empresaId: empresaIdUsuario,
+          };
+
+          setAcesso(acessoFinal);
+
+          if (acessoFinal?.bloqueado === true) {
+            auth.signOut();
+          }
+
+          setCarregandoAcesso(false);
+        }
+      );
     }
   );
 
-  return () => cancelar();
+  return () => {
+    cancelarAcessoGlobal();
+
+    if (cancelarAcessoEmpresa) {
+      cancelarAcessoEmpresa();
+    }
+  };
 }, [usuario]);
 
   if (carregandoAuth) {
@@ -189,7 +233,9 @@ function Sistema({ usuario, acesso }) {
 const docSistema = doc(
   db,
   "empresas",
-  empresaId
+  empresaId,
+  "sistema",
+  "dados"
 );
   const docBackup = (id) =>
   doc(
@@ -446,7 +492,12 @@ useEffect(() => {
 }, [empresaId]);
 useEffect(() => {
   const cancelar = onSnapshot(
-    collection(db, "usuariosOnline"),
+    collection(
+  db,
+  "empresas",
+  empresaId,
+  "usuariosOnline"
+),
     (snapshot) => {
       const lista = snapshot.docs.map(
         (docItem) => ({
@@ -1841,7 +1892,9 @@ function fecharMesFinanceiro() {
 
  
   const propsGlobais = {
+    empresaId,
     dadosEmpresa,
+    
 setDadosEmpresa,
 salvarDadosEmpresa,
     hoje,

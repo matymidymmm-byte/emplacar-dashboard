@@ -43,14 +43,36 @@ export default function Login() {
       );
 
       await setDoc(doc(db, "acessos", emailNormalizado), {
-        email: emailNormalizado,
-        uid: credencial.user.uid,
-        nivel: "socio",
-        status: "pendente",
-        criadoEm: new Date().toISOString(),
-        aprovadoEm: "",
-        aprovadoPor: "",
-      });
+  email: emailNormalizado,
+  uid: credencial.user.uid,
+  empresaId: "emplacar-mcr",
+  nivel: "socio",
+  status: "pendente",
+  bloqueado: false,
+  criadoEm: new Date().toISOString(),
+  aprovadoEm: "",
+  aprovadoPor: "",
+});
+await setDoc(
+  doc(
+    db,
+    "empresas",
+    "emplacar-mcr",
+    "acessos",
+    emailNormalizado
+  ),
+  {
+    email: emailNormalizado,
+    uid: credencial.user.uid,
+    empresaId: "emplacar-mcr",
+    nivel: "socio",
+    status: "pendente",
+    bloqueado: false,
+    criadoEm: new Date().toISOString(),
+    aprovadoEm: "",
+    aprovadoPor: "",
+  }
+);
 
       await signOut(auth);
 
