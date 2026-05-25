@@ -6,6 +6,7 @@ import {
   onSnapshot,
   setDoc,
 } from "firebase/firestore";
+import DadosEmpresa from "./pages/DadosEmpresa.jsx";
 
 import { auth, db } from "./services/firebase.js";
 import styles from "./styles/styles.js";
@@ -138,7 +139,32 @@ return (
 function Sistema({ usuario, acesso }) {
   const hoje = new Date().toISOString().slice(0, 10);
   const empresaId =
-  acesso?.empresaId || "emplacar-mcr";
+  acesso?.empresaId;
+  if (!empresaId) {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#050816",
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "column",
+        gap: 16,
+        textAlign: "center",
+      }}
+    >
+      <h1>
+        Usuário sem empresa vinculada
+      </h1>
+
+      <p>
+        Entre em contato com o administrador.
+      </p>
+    </div>
+  );
+}
 
 const docSistema = doc(
   db,
@@ -146,7 +172,13 @@ const docSistema = doc(
   empresaId
 );
   const docBackup = (id) =>
-  doc(db, "backupsAutomaticos", id);
+  doc(
+    db,
+    "empresas",
+    empresaId,
+    "backupsAutomaticos",
+    id
+  );
 
   const nuvemCarregadaRef = useRef(false);
   const podeSalvarRef = useRef(false);
@@ -228,6 +260,20 @@ const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
   const [historicoFechamentos, setHistoricoFechamentos] = useState([]);
   const [historicoAlteracoes, setHistoricoAlteracoes] = useState([]);
   const [backupsAutomaticos, setBackupsAutomaticos] = useState([]);
+  const [dadosEmpresa, setDadosEmpresa] = useState({
+  logo: "",
+  nome: "",
+  ie: "",
+  cnpj: "",
+  email: "",
+  whatsapp: "",
+  cep: "",
+  logradouro: "",
+  numero: "",
+  bairro: "",
+  cidade: "",
+  pix: "",
+});
 
   useEffect(() => {
     function ajustarTela() {
@@ -286,6 +332,20 @@ setHistoricoAlteracoes(
     ? dados.historicoAlteracoes
     : []
 );
+setDadosEmpresa({
+  logo: dados.logo || "",
+  nome: dados.nome || "",
+  ie: dados.ie || "",
+  cnpj: dados.cnpj || "",
+  email: dados.email || "",
+  whatsapp: dados.whatsapp || "",
+  cep: dados.cep || "",
+  logradouro: dados.logradouro || "",
+  numero: dados.numero || "",
+  bairro: dados.bairro || "",
+  cidade: dados.cidade || "",
+  pix: dados.pix || "",
+});
       } else {
         await setDoc(docSistema, {
           entradas: [],
@@ -315,8 +375,13 @@ inicioPeriodoSalvo: "",
   }, []);
   useEffect(() => {
   const cancelar = onSnapshot(
-    collection(db, "backupsAutomaticos"),
-    (snapshot) => {
+collection(
+  db,
+  "empresas",
+  empresaId,
+  "backupsAutomaticos"
+),
+(snapshot) => {
       const lista = snapshot.docs
         .map((docItem) => ({
           id: docItem.id,
@@ -347,6 +412,70 @@ inicioPeriodoSalvo: "",
       { merge: true }
     );
   }
+  async function salvarDadosEmpresa() {
+  try {
+    await setDoc(
+      doc(
+        db,
+        "empresas",
+        empresaId
+      ),
+      {
+        ...dadosEmpresa,
+      },
+      { merge: true }
+    );
+
+    alert(
+      "Dados da empresa salvos."
+    );
+  } catch (erro) {
+    console.error(erro);
+
+    alert(
+      "Erro ao salvar dados da empresa."
+    );
+  }
+}
+async function criarBackupManual() {
+  try {
+    const agora = new Date();
+
+    const idBackup =
+      `manual-${agora.toISOString()}`;
+
+    const backup = {
+      criadoEm: agora.toISOString(),
+      tipo: "manual",
+
+      entradas,
+      saidas,
+      contas,
+      clientes,
+
+      estoqueCompras,
+      estoquePerdas,
+
+      historicoRelacoes,
+      historicoFechamentos,
+      historicoAlteracoes,
+
+      metaMensal,
+      inicioMes,
+      fimMes,
+    };
+
+    await setDoc(
+      docBackup(idBackup),
+      backup
+    );
+
+    alert("Backup criado com sucesso.");
+  } catch (erro) {
+    console.error(erro);
+    alert("Erro ao criar backup.");
+  }
+}
   async function restaurarBackup(
   backup
 ) {
@@ -509,6 +638,7 @@ useEffect(() => {
     metaMensal
   );
 }, [metaMensal]);
+
   useEffect(() => {
   if (!nuvemCarregada) return;
 
@@ -594,17 +724,18 @@ useEffect(() => {
 
 
 
-  const chavePix = "63.488.249/0001-08";
+  const chavePix =
+  dadosEmpresa.pix || "";
 
-  const dadosEmpresaTexto = `IE: 91184662-49
-CNPJ: 63.488.249/0001-08
-E-MAIL: emplacarmcr@gmail.com
-WhatsApp: 45 20311407
-CEP: 85960-140
-LOGRADOURO: RUA RIO DE JANEIRO
-N°: 1766
-BAIRRO: CENTRO
-CIDADE: MARECHAL CÂNDIDO RONDON`;
+ const dadosEmpresaTexto = `IE: ${dadosEmpresa.ie || ""}
+CNPJ: ${dadosEmpresa.cnpj || ""}
+E-MAIL: ${dadosEmpresa.email || ""}
+WhatsApp: ${dadosEmpresa.whatsapp || ""}
+CEP: ${dadosEmpresa.cep || ""}
+LOGRADOURO: ${dadosEmpresa.logradouro || ""}
+N°: ${dadosEmpresa.numero || ""}
+BAIRRO: ${dadosEmpresa.bairro || ""}
+CIDADE: ${dadosEmpresa.cidade || ""}`;
 
   const moeda = new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -1527,6 +1658,9 @@ function fecharMesFinanceiro() {
 
  
   const propsGlobais = {
+    dadosEmpresa,
+setDadosEmpresa,
+salvarDadosEmpresa,
     hoje,
     acesso,
     usuario,
@@ -1690,11 +1824,23 @@ registrarAlteracao,
         {aba === "Gerenciar Acessos" && <Acessos {...propsGlobais} />}
         {aba.startsWith("Importar") && <Importacao {...propsGlobais} />}
         {aba === "Atualizações" && <Atualizacoes {...propsGlobais} />}
+        {aba === "Dados da Empresa" && (
+  <DadosEmpresa {...propsGlobais} />
+)}
         {aba === "Backups" && (
   <div style={styles.card}>
     <h2 style={styles.titulo}>
       Backups automáticos
     </h2>
+    <button
+  onClick={criarBackupManual}
+  style={{
+    ...styles.botao,
+    marginBottom: 20,
+  }}
+>
+  Criar Backup Agora
+</button>
 
     <div
       style={{

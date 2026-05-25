@@ -14,6 +14,7 @@ export default function Sidebar({
   aba,
   setAba,
   acesso,
+  dadosEmpresa,
   setTextoImportacao,
   setResultadoImportacao,
 
@@ -79,7 +80,11 @@ const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
   acesso?.nivel || "socio";
 
 const admin =
-  nivel === "admin";
+  nivel === "admin" ||
+  nivel === "superadmin";
+
+const superadmin =
+  nivel === "superadmin";
 
   const menusBase = [
     "Dashboard",
@@ -106,8 +111,13 @@ const admin =
         "Histórico de Alterações",
         "Backups",
         "Gerenciar Acessos",
+        "Dados da Empresa",
       ]
-    : menusBase;
+    : [
+        ...menusBase,
+        "Dados da Empresa",
+      ];
+    
   const botaoFerramenta = {
     width: "100%",
     padding: "12px 14px",
@@ -458,8 +468,11 @@ const admin =
   onClick={() => setMostrarPerfil(!mostrarPerfil)}
 >
         <img
-          src="/logo-emplacar.png"
-          alt="Logo Emplacar"
+          src={
+  dadosEmpresa?.logo ||
+  "/logo-emplacar.png"
+}
+          alt={dadosEmpresa?.nome || "Logo da Empresa"}
           style={
             styles.logoImagem
           }
@@ -467,7 +480,7 @@ const admin =
 
         <div>
           <h2 style={styles.logo}>
-            Emplacar
+            {dadosEmpresa?.nome || "Emplacar"}
           </h2>
 
           <p
