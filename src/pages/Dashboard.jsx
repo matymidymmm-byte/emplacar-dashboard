@@ -7,7 +7,6 @@ import Card from "../components/Card.jsx";
 import Kpi from "../components/Kpi.jsx";
 import GraficoLinha from "../components/GraficoLinha.jsx";
 import GraficoBarras from "../components/GraficoBarras.jsx";
-import GraficoPizza from "../components/GraficoPizza.jsx";
 import html2canvas from "html2canvas";
 
 export default function Dashboard({
@@ -24,8 +23,6 @@ export default function Dashboard({
   moeda,
 
   vendasPorDia,
-  contasPorNome,
-  statusContasPizza,
   rankingClientes,
 
   dadosPeriodo,
@@ -172,8 +169,7 @@ export default function Dashboard({
 
   const despesasOperacionais = indicadores.saidasTotal || 0;
 
-  const resultadoOperacional =
-    receitaOperacional - despesasOperacionais;
+  const resultadoOperacional = receitaOperacional - despesasOperacionais;
 
   const margemOperacional =
     receitaOperacional > 0
@@ -181,21 +177,15 @@ export default function Dashboard({
       : 0;
 
   const percentualMeta =
-    metaMensal > 0
-      ? (receitaOperacional / metaMensal) * 100
-      : 0;
+    metaMensal > 0 ? (receitaOperacional / metaMensal) * 100 : 0;
 
   const faltaMeta = metaMensal - receitaOperacional;
 
   const mediaNecessaria =
-    faltaMeta > 0
-      ? faltaMeta / Math.max(ultimoDiaMes - diaAtual, 1)
-      : 0;
+    faltaMeta > 0 ? faltaMeta / Math.max(ultimoDiaMes - diaAtual, 1) : 0;
 
   const projecaoMes =
-    diaAtual > 0
-      ? (receitaOperacional / diaAtual) * ultimoDiaMes
-      : 0;
+    diaAtual > 0 ? (receitaOperacional / diaAtual) * ultimoDiaMes : 0;
 
   const despesasPorCategoria = (() => {
     const mapa = {};
@@ -205,9 +195,7 @@ export default function Dashboard({
 
       const categoria = saida.categoria || "Outros";
 
-      mapa[categoria] =
-        (mapa[categoria] || 0) +
-        Number(saida.valor || 0);
+      mapa[categoria] = (mapa[categoria] || 0) + Number(saida.valor || 0);
     });
 
     return Object.entries(mapa)
@@ -220,10 +208,9 @@ export default function Dashboard({
 
   const clientesTop = (rankingClientes || []).slice(0, 8);
 
-  const contasPendentes =
-    (dadosPeriodo?.contas || []).filter(
-      (conta) => statusConta(conta) !== "Pago"
-    );
+  const contasPendentes = (dadosPeriodo?.contas || []).filter(
+    (conta) => statusConta(conta) !== "Pago"
+  );
 
   const totalClientesTop = clientesTop.reduce(
     (soma, cliente) => soma + cliente.valor,
@@ -232,172 +219,89 @@ export default function Dashboard({
 
   const diferencaFaturamentoCaixa =
     receitaOperacional -
-    (indicadores.caixaRecebidoTotal ||
-      indicadores.recebidoTotal ||
-      0);
+    (indicadores.caixaRecebidoTotal || indicadores.recebidoTotal || 0);
 
   async function exportarPDF() {
-  const elemento = document.querySelector("main");
+    const elemento = document.querySelector("main");
 
-  if (!elemento) {
-    alert("Dashboard não encontrado.");
-    return;
-  }
+    if (!elemento) {
+      alert("Dashboard não encontrado.");
+      return;
+    }
 
-  const canvas = await html2canvas(elemento, {
-    scale: 2,
-    useCORS: true,
-    backgroundColor: "#020617",
-    windowWidth: elemento.scrollWidth,
-    windowHeight: elemento.scrollHeight,
-  });
+    const canvas = await html2canvas(elemento, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#020617",
+      windowWidth: elemento.scrollWidth,
+      windowHeight: elemento.scrollHeight,
+    });
 
-  const imagem = canvas.toDataURL("image/png");
+    const imagem = canvas.toDataURL("image/png");
 
-  const doc = new jsPDF("p", "mm", "a4");
+    const doc = new jsPDF("p", "mm", "a4");
 
-  const larguraPDF = 210;
-  const alturaPagina = 297;
-  const alturaImagem = (canvas.height * larguraPDF) / canvas.width;
+    const larguraPDF = 210;
+    const alturaPagina = 297;
+    const alturaImagem = (canvas.height * larguraPDF) / canvas.width;
 
-  let alturaRestante = alturaImagem;
-  let posicao = 0;
+    let alturaRestante = alturaImagem;
+    let posicao = 0;
 
-  doc.addImage(imagem, "PNG", 0, posicao, larguraPDF, alturaImagem);
-  alturaRestante -= alturaPagina;
-
-  while (alturaRestante > 0) {
-    posicao -= alturaPagina;
-    doc.addPage();
     doc.addImage(imagem, "PNG", 0, posicao, larguraPDF, alturaImagem);
     alturaRestante -= alturaPagina;
-  }
 
-  doc.save("dashboard-financeiro.pdf");
-}
+    while (alturaRestante > 0) {
+      posicao -= alturaPagina;
+      doc.addPage();
+      doc.addImage(imagem, "PNG", 0, posicao, larguraPDF, alturaImagem);
+      alturaRestante -= alturaPagina;
+    }
+
+    doc.save("dashboard-financeiro.pdf");
+  }
 
   const kpisSimples = [
     ["Faturamento", receitaOperacional],
-
-    [
-      "Entradas à Vista",
-      indicadores.entradasVistaTotal || 0,
-    ],
-
-    [
-      "Caixa Real",
-      indicadores.entradaLiquida || 0,
-    ],
-
+    ["Entradas à Vista", indicadores.entradasVistaTotal || 0],
+    ["Caixa Real", indicadores.entradaLiquida || 0],
     ["Saídas", indicadores.saidasTotal || 0],
-
-    [
-      "Faturado em Aberto",
-      indicadores.faturadoEmAberto || 0,
-    ],
-
+    ["Faturado em Aberto", indicadores.faturadoEmAberto || 0],
     ["Banco", indicadores.tenhoNoBanco || 0],
-
-    [
-      "Caixa Físico",
-      indicadores.tenhoNoCaixa || 0,
-    ],
+    ["Caixa Físico", indicadores.tenhoNoCaixa || 0],
   ];
 
   const caixaOperacional =
     (indicadores.caixaRecebidoTotal || 0) -
     (indicadores.injecaoCapitalTotal || 0);
 
-  const saldoOperacional =
-    caixaOperacional -
-    (indicadores.saidasTotal || 0);
+  const saldoOperacional = caixaOperacional - (indicadores.saidasTotal || 0);
 
   const kpisDetalhados = [
     ["Faturamento", receitaOperacional],
-
-    [
-      "Entradas à Vista",
-      indicadores.entradasVistaTotal || 0,
-    ],
-
-    [
-      "Recebimentos Antigos",
-      indicadores.recebimentosAntigos || 0,
-    ],
-
-    [
-      "Caixa Recebido",
-      indicadores.caixaRecebidoTotal || 0,
-    ],
-
-    [
-      "Caixa Operacional",
-      caixaOperacional || 0,
-    ],
-
-    [
-      "Saldo Operacional",
-      saldoOperacional || 0,
-    ],
-
-    [
-      "Faturado em Aberto",
-      indicadores.faturadoEmAberto || 0,
-    ],
-
-    [
-      "Saídas",
-      indicadores.saidasTotal || 0,
-    ],
-
-    [
-      "Injeção Sócios",
-      indicadores.injecaoSociosTotal || 0,
-    ],
-
-    [
-      "Injeção Loja",
-      indicadores.injecaoLojaTotal || 0,
-    ],
-
-    [
-      "Injeção Caixa",
-      indicadores.injecaoCaixaTotal || 0,
-    ],
-
-    [
-      "Aporte Total",
-      indicadores.aporteTotal || 0,
-    ],
-
-    [
-      "Banco Real",
-      indicadores.tenhoNoBanco || 0,
-    ],
-
-    [
-      "Caixa Físico",
-      indicadores.tenhoNoCaixa || 0,
-    ],
-
-    [
-      "Recuperação Vale",
-      indicadores.recuperacaoValeTotal || 0,
-    ],
+    ["Entradas à Vista", indicadores.entradasVistaTotal || 0],
+    ["Recebimentos Antigos", indicadores.recebimentosAntigos || 0],
+    ["Caixa Recebido", indicadores.caixaRecebidoTotal || 0],
+    ["Caixa Operacional", caixaOperacional || 0],
+    ["Saldo Operacional", saldoOperacional || 0],
+    ["Faturado em Aberto", indicadores.faturadoEmAberto || 0],
+    ["Saídas", indicadores.saidasTotal || 0],
+    ["Injeção Sócios", indicadores.injecaoSociosTotal || 0],
+    ["Injeção Loja", indicadores.injecaoLojaTotal || 0],
+    ["Injeção Caixa", indicadores.injecaoCaixaTotal || 0],
+    ["Aporte Total", indicadores.aporteTotal || 0],
+    ["Banco Real", indicadores.tenhoNoBanco || 0],
+    ["Caixa Físico", indicadores.tenhoNoCaixa || 0],
+    ["Recuperação Vale", indicadores.recuperacaoValeTotal || 0],
   ];
 
-  const kpis =
-    modoDetalhado
-      ? kpisDetalhados
-      : kpisSimples;
+  const kpis = modoDetalhado ? kpisDetalhados : kpisSimples;
 
   return (
     <>
       <div style={styles.dashboardTopo}>
         <div>
-          <h1 style={styles.dashboardTitulo}>
-            Dashboard Financeiro
-          </h1>
+          <h1 style={styles.dashboardTitulo}>Dashboard Financeiro</h1>
 
           <p style={styles.dashboardSubtitulo}>
             Visão geral operacional e financeira
@@ -435,34 +339,29 @@ export default function Dashboard({
             Detalhado
           </button>
 
-          <button
-            style={styles.botaoDashboard}
-            onClick={exportarPDF}
-          >
+          <button style={styles.botaoDashboard} onClick={exportarPDF}>
             Exportar PDF
           </button>
 
           <button
             style={{
               ...styles.botaoDashboard,
-              background:
-                "linear-gradient(135deg,#16a34a 0%,#15803d 100%)",
+              background: "linear-gradient(135deg,#16a34a 0%,#15803d 100%)",
             }}
             onClick={confirmarFechamentoMes}
           >
             Fechar Mês Financeiro
-            
           </button>
+
           <button
-  style={{
-    ...styles.botaoDashboard,
-    background:
-      "linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%)",
-  }}
-  onClick={() => setAba("Histórico Financeiro")}
->
-  Análise Financeira
-</button>
+            style={{
+              ...styles.botaoDashboard,
+              background: "linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%)",
+            }}
+            onClick={() => setAba("Histórico Financeiro")}
+          >
+            Análise Financeira
+          </button>
         </div>
       </div>
 
@@ -474,9 +373,7 @@ export default function Dashboard({
             <input
               type="date"
               value={inicioMes}
-              onChange={(e) =>
-                setInicioMes(e.target.value)
-              }
+              onChange={(e) => setInicioMes(e.target.value)}
               style={styles.input}
             />
           </label>
@@ -487,9 +384,7 @@ export default function Dashboard({
             <input
               type="date"
               value={fimMes}
-              onChange={(e) =>
-                setFimMes(e.target.value)
-              }
+              onChange={(e) => setFimMes(e.target.value)}
               style={styles.input}
             />
           </label>
@@ -498,71 +393,60 @@ export default function Dashboard({
 
       <div style={styles.kpisModernos}>
         {kpis.map(([titulo, valor]) => (
-          <Kpi
-            key={titulo}
-            titulo={titulo}
-            valor={moeda.format(valor)}
-          />
+          <Kpi key={titulo} titulo={titulo} valor={moeda.format(valor)} />
         ))}
       </div>
 
       <div className="dashboard-graficos-executivos">
-  <div style={{ minWidth: 0 }}>
-  <Card titulo="Vendas por dia">
-    <GraficoLinha
-      dados={vendasPorDia}
-      moeda={moeda}
-      linhas={[
-        {
-          dataKey: "valor",
-          name: "Vendas",
-          stroke: "#38bdf8",
-        },
-      ]}
-    />
-    </Card>
-</div>
+        <div style={{ minWidth: 0 }}>
+          <Card titulo="Vendas por dia">
+            <GraficoLinha
+              dados={vendasPorDia}
+              moeda={moeda}
+              linhas={[
+                {
+                  dataKey: "valor",
+                  name: "Vendas",
+                  stroke: "#38bdf8",
+                },
+              ]}
+            />
+          </Card>
+        </div>
 
-  <div style={{ minWidth: 0 }}>
-  <Card titulo="Quantidade de serviços por dia">
-    <GraficoBarras
-      dados={servicosPorDia}
-      moeda={null}
-      xKey="data"
-      dataKey="quantidade"
-      nome="Serviços"
-    />
-  </Card>
-</div>
-</div>
+        <div style={{ minWidth: 0 }}>
+          <Card titulo="Quantidade de serviços por dia">
+            <GraficoBarras
+              dados={servicosPorDia}
+              moeda={null}
+              xKey="data"
+              dataKey="quantidade"
+              nome="Serviços"
+            />
+          </Card>
+        </div>
+      </div>
+
       <Card titulo="DRE gerencial simples">
         <div style={styles.kpisModernos}>
           <Kpi
             titulo="Receita Operacional"
-            valor={moeda.format(
-              receitaOperacional
-            )}
+            valor={moeda.format(receitaOperacional)}
           />
 
           <Kpi
             titulo="Despesas Operacionais"
-            valor={moeda.format(
-              despesasOperacionais
-            )}
+            valor={moeda.format(despesasOperacionais)}
           />
 
           <Kpi
             titulo="Resultado Operacional"
-            valor={moeda.format(
-              resultadoOperacional
-            )}
+            valor={moeda.format(resultadoOperacional)}
           />
 
           <Kpi
             titulo="Margem Operacional"
-            valor={`${margemOperacional.toFixed(
-              1
-            )}%`}
+            valor={`${margemOperacional.toFixed(1)}%`}
           />
         </div>
       </Card>
@@ -604,11 +488,7 @@ export default function Dashboard({
             <input
               type="number"
               value={metaMensal}
-              onChange={(e) =>
-                setMetaMensal(
-                  Number(e.target.value)
-                )
-              }
+              onChange={(e) => setMetaMensal(Number(e.target.value))}
               placeholder="Nova meta"
               style={{
                 background: "#0f172a",
@@ -624,33 +504,19 @@ export default function Dashboard({
         </div>
 
         <div style={styles.kpisModernos}>
-          <Kpi
-            titulo="% Meta"
-            valor={`${percentualMeta.toFixed(
-              1
-            )}%`}
-          />
+          <Kpi titulo="% Meta" valor={`${percentualMeta.toFixed(1)}%`} />
 
           <Kpi
             titulo="Falta para meta"
-            valor={moeda.format(
-              Math.max(faltaMeta, 0)
-            )}
+            valor={moeda.format(Math.max(faltaMeta, 0))}
           />
 
           <Kpi
             titulo="Meta diária necessária"
-            valor={moeda.format(
-              mediaNecessaria
-            )}
+            valor={moeda.format(mediaNecessaria)}
           />
 
-          <Kpi
-            titulo="Projeção mês"
-            valor={moeda.format(
-              projecaoMes
-            )}
-          />
+          <Kpi titulo="Projeção mês" valor={moeda.format(projecaoMes)} />
         </div>
       </Card>
     </>

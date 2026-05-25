@@ -54,8 +54,14 @@ const [carregandoAcesso, setCarregandoAcesso] = useState(true);
     doc(db, "acessos", usuario.email.toLowerCase()),
     (snapshot) => {
       if (snapshot.exists()) {
-        setAcesso(snapshot.data());
-      } else {
+  const dadosAcesso = snapshot.data();
+
+  setAcesso(dadosAcesso);
+
+  if (dadosAcesso?.bloqueado === true) {
+    auth.signOut();
+  }
+} else {
         setAcesso(null);
       }
 
@@ -107,10 +113,22 @@ if (carregandoAcesso) {
   return <div style={{ minHeight: "100vh", background: "#050816", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>Carregando acesso...</div>;
 }
 
-if (!acesso || acesso.status !== "aprovado") {
-  return <div style={{ minHeight: "100vh", background: "#050816", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, textAlign: "center" }}><h1>Conta pendente</h1>
+if (
+  !acesso ||
+  acesso.status !== "aprovado" ||
+  acesso.bloqueado === true
+) {
+  return <div style={{ minHeight: "100vh", background: "#050816", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, textAlign: "center" }}><h1>
+  {acesso?.bloqueado
+    ? "Conta bloqueada"
+    : "Conta pendente"}
+</h1>
 
-<p>Aguarde aprovação do administrador.</p>
+<p>
+  {acesso?.bloqueado
+    ? "Seu acesso foi bloqueado pelo administrador."
+    : "Aguarde aprovação do administrador."}
+</p>
 
 <button
   onClick={async () => {
@@ -263,6 +281,7 @@ const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
   const [historicoAlteracoes, setHistoricoAlteracoes] = useState([]);
   const loginRegistradoRef = useRef(false);
   const [backupsAutomaticos, setBackupsAutomaticos] = useState([]);
+  const [usuariosOnline, setUsuariosOnline] = useState([]);
   const [dadosEmpresa, setDadosEmpresa] = useState({
   logo: "",
   nome: "",
@@ -425,6 +444,23 @@ useEffect(() => {
 
   return () => cancelar();
 }, [empresaId]);
+useEffect(() => {
+  const cancelar = onSnapshot(
+    collection(db, "usuariosOnline"),
+    (snapshot) => {
+      const lista = snapshot.docs.map(
+        (docItem) => ({
+          id: docItem.id,
+          ...docItem.data(),
+        })
+      );
+
+      setUsuariosOnline(lista);
+    }
+  );
+
+  return () => cancelar();
+}, []);
 
   async function salvarNaNuvem(campo, valor) {
     if (!nuvemCarregadaRef.current) return;
@@ -855,6 +891,45 @@ saidaGeradaId: "",
       valorNovo: novo[campo] ?? "",
     }));
 }
+function calcularRiscoAlteracao({ tipo = "", modulo = "", detalhes = [] }) {
+  const tipoNormalizado = normalizar(tipo);
+  const moduloNormalizado = normalizar(modulo);
+
+  const camposCriticos = [
+    "valor",
+    "status",
+    "formaPagamento",
+    "diaPago",
+    "dataPagamento",
+    "saidaGeradaId",
+  ];
+
+  if (
+    tipoNormalizado.includes("EXCLUSAO") ||
+    tipoNormalizado.includes("RESTAURACAO") ||
+    tipoNormalizado.includes("LIMPAR")
+  ) {
+    return "ALTO";
+  }
+
+  if (
+    moduloNormalizado.includes("ENTRADAS") ||
+    moduloNormalizado.includes("SAIDAS") ||
+    moduloNormalizado.includes("CONTAS") ||
+    moduloNormalizado.includes("PENDENCIAS")
+  ) {
+    const mexeuCampoCritico = detalhes.some((item) =>
+      camposCriticos.includes(item.campo)
+    );
+
+    if (mexeuCampoCritico) return "ALTO";
+
+    return "MÉDIO";
+  }
+
+  return "NORMAL";
+}
+
 function registrarAlteracao({
   tipo = "",
   modulo = "",
@@ -864,12 +939,16 @@ function registrarAlteracao({
   itemId = "",
   detalhes = [],
 }) {
-  if (
-  usuario?.email ===
-  "matymidy.mmm@gmail.com"
-) {
-  return;
-}
+  if (usuario?.email === "matymidy.mmm@gmail.com") {
+    return;
+  }
+
+  const risco = calcularRiscoAlteracao({
+    tipo,
+    modulo,
+    detalhes,
+  });
+
   const novoRegistro = {
     id: Date.now(),
     usuario: usuario?.email || "Usuário não identificado",
@@ -886,18 +965,14 @@ function registrarAlteracao({
         : String(valorNovo || ""),
     itemId,
     detalhes: Array.isArray(detalhes) ? detalhes : [],
+    risco,
     dataHora: new Date().toISOString(),
   };
 
   addDoc(
-  collection(
-    db,
-    "empresas",
-    empresaId,
-    "historicoAlteracoes"
-  ),
-  novoRegistro
-);
+    collection(db, "empresas", empresaId, "historicoAlteracoes"),
+    novoRegistro
+  );
 }
 useEffect(() => {
   if (!usuario?.email) {
@@ -1865,6 +1940,8 @@ registrarAlteracao,
     ehValeColaborador,
     ehVendaReal,
     dataRecebimentoEntrada,
+    usuariosOnline,
+setUsuariosOnline,
     nuvemCarregada,
   };
 
@@ -2030,6 +2107,7 @@ registrarAlteracao,
         {aba === "Histórico de Alterações" && (
   <HistoricoAlteracoes {...propsGlobais} />
 )}
+
       </main>
     </div>
   );
