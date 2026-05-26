@@ -6,6 +6,7 @@ import {
   onSnapshot,
   setDoc,
 addDoc,
+getDoc,
 } from "firebase/firestore";
 import DadosEmpresa from "./pages/DadosEmpresa.jsx";
 
@@ -528,11 +529,13 @@ useEffect(() => {
   async function salvarDadosEmpresa() {
   try {
     await setDoc(
-      doc(
-        db,
-        "empresas",
-        empresaId
-      ),
+  doc(
+    db,
+    "empresas",
+    empresaId,
+    "sistema",
+    "dados"
+  ),
       {
         ...dadosEmpresa,
       },
@@ -587,6 +590,38 @@ async function criarBackupManual() {
   } catch (erro) {
     console.error(erro);
     alert("Erro ao criar backup.");
+  }
+}
+async function migrarBancoAntigo() {
+  try {
+    const snapshotAntigo = await getDoc(
+      doc(db, "sistema", "emplacar")
+    );
+
+    if (!snapshotAntigo.exists()) {
+      alert("Banco antigo não encontrado.");
+      return;
+    }
+
+    const dadosAntigos = snapshotAntigo.data();
+
+    await setDoc(
+      doc(
+        db,
+        "empresas",
+        empresaId,
+        "sistema",
+        "dados"
+      ),
+      dadosAntigos,
+      { merge: true }
+    );
+
+    alert("Migração concluída com sucesso.");
+  } catch (erro) {
+    console.error(erro);
+
+    alert("Erro ao migrar banco.");
   }
 }
   async function restaurarBackup(
@@ -1724,10 +1759,10 @@ useEffect(() => {
   const caixaRecebidoTotal =
     caixaRecebidoVendas + injecaoCapitalTotal + recuperacaoValeTotal;
 
-  const pagos = saidasTotal + contasPagas;
-  const entradaLiquida = caixaRecebidoTotal - pagos;
+  const pagos = saidasTotal;
+const entradaLiquida = caixaRecebidoTotal - saidasTotal;
 
-  const tenhoNoBanco = recebidoBanco - saidasBanco - contasPagas;
+  const tenhoNoBanco = recebidoBanco - saidasBanco;
   const tenhoNoCaixa = recebidoCaixa - saidasCaixa;
 
   const dias =
@@ -2080,6 +2115,17 @@ setUsuariosOnline,
   }}
 >
   Criar Backup Agora
+</button>
+<button
+  onClick={migrarBancoAntigo}
+  style={{
+    ...styles.botao,
+    marginBottom: 20,
+    marginLeft: 10,
+    background: "#16a34a",
+  }}
+>
+  Migrar Banco Antigo
 </button>
 
     <div
