@@ -232,10 +232,8 @@ function Sistema({ usuario, acesso }) {
 
 const docSistema = doc(
   db,
-  "empresas",
-  empresaId,
   "sistema",
-  "dados"
+  "emplacar"
 );
   const docBackup = (id) =>
   doc(
@@ -879,7 +877,16 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
     "Nota / Faturado",
   ];
 
-  const produtosEstoque = ["Placa Carro", "Placa Moto", "Suporte"];
+  const produtosEstoque = [
+  "VEICULAR PADRÃO",
+  "VEICULAR PRETA",
+  "VEICULAR MINI",
+  "VEICULAR MINI-MINI",
+  "MOTO PADRÃO",
+  "MOTO PRETA",
+  "MOTO MINI",
+  "SUPORTE",
+];
 
   const entradaVazia = {
     data: hoje,
@@ -893,6 +900,7 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
     status: "Pago",
     processo: "",
     diaPago: "",
+    categoriaPlaca: "",
     celular: "",
     relacaoPagaId: "",
   };
@@ -917,12 +925,18 @@ saidaGeradaId: "",
     status: "Pendente",
   };
 
-  const clienteVazio = {
-    nome: "",
-    telefone: "",
-    email: "",
-    observacao: "",
-  };
+ const clienteVazio = {
+  nome: "",
+  tipoCliente: "",
+  precoParVeicular: "",
+  precoMoto: "",
+  precoReboque: "",
+  precoPlacaPreta: "",
+  precoMini: "",
+  telefone: "",
+  email: "",
+  observacao: "",
+};
 
   const compraEstoqueVazia = {
     data: hoje,
@@ -1251,6 +1265,7 @@ useEffect(() => {
     ...entradaForm,
     valor: numero(entradaForm.valor),
     diaPago: entradaForm.diaPago || "",
+    categoriaPlaca: entradaForm.categoriaPlaca || "",
     celular: entradaForm.celular || "",
     relacaoPagaId: entradaForm.relacaoPagaId || "",
     id: editando.tipo === "entrada" ? editando.id : Date.now(),

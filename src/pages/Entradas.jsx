@@ -331,7 +331,24 @@ fimMes,
                 })
               }
             />
-
+<Select
+  label="Categoria"
+  valor={entradaForm.categoriaPlaca}
+  mudar={(v) =>
+    setEntradaForm({
+      ...entradaForm,
+      categoriaPlaca: v,
+    })
+  }
+  opcoes={[
+    "PARTICULAR",
+    "ALUGUEL",
+    "OFICIAL",
+    "COLEÇÃO",
+    "ESPECIAL",
+    "DIPLOMÁTICO",
+  ]}
+/>
             <Campo
   label="Celular"
   valor={entradaForm.celular || ""}

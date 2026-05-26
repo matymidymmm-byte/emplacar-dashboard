@@ -196,20 +196,58 @@ export default function Importacao(props) {
           novasEntradas.push(entrada);
         }
 
-        if (
-          cliente &&
-          !clientes.some((c) => c.nome.toUpperCase() === cliente.toUpperCase()) &&
-          !novosClientes.some((c) => c.nome.toUpperCase() === cliente.toUpperCase())
-        ) {
-          novosClientes.push({
-            id: Date.now() + index + 100000,
-            nome: cliente,
-            telefone: celular || "",
-            email: "",
-            observacao: "Importado pelas entradas",
-          });
-        }
-      }
+        const tipoCliente = pegar(row, [
+  "TIPO",
+  "TIPO CLIENTE",
+  "CATEGORIA",
+]);
+
+const clienteExistente = clientes.find(
+  (c) =>
+    normalizar(c.nome) === normalizar(cliente)
+);
+
+const clienteNovoExistente = novosClientes.find(
+  (c) =>
+    normalizar(c.nome) === normalizar(cliente)
+);
+
+if (clienteExistente) {
+  clienteExistente.tipoCliente =
+    tipoCliente || clienteExistente.tipoCliente || "";
+
+  clienteExistente.telefone =
+    celular || clienteExistente.telefone || "";
+}
+
+if (clienteNovoExistente) {
+  clienteNovoExistente.tipoCliente =
+    tipoCliente || clienteNovoExistente.tipoCliente || "";
+
+  clienteNovoExistente.telefone =
+    celular || clienteNovoExistente.telefone || "";
+}
+
+if (
+  cliente &&
+  !clienteExistente &&
+  !clienteNovoExistente
+) {
+  novosClientes.push({
+    id: Date.now() + index + 100000,
+    nome: cliente,
+    tipoCliente: tipoCliente || "",
+    precoParVeicular: "",
+    precoMoto: "",
+    precoReboque: "",
+    precoPlacaPreta: "",
+    precoMini: "",
+    telefone: celular || "",
+    email: "",
+    observacao: "Importado pelas entradas",
+  });
+}
+}
 
       if (aba === "Importar Saídas") {
         const saida = {

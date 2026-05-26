@@ -855,6 +855,7 @@ PROCESSO: ${item.processo || ""}`,
                                 x.diaPago
                               )}
                             </td>
+                            
 
                             <td
                               style={
@@ -1003,7 +1004,47 @@ PROCESSO: ${item.processo || ""}`,
                                     />
                                   </div>
                                 </div>
-                              <div
+
+<div
+  style={
+    styles.detalheItem
+  }
+>
+  <span
+    style={
+      styles.detalheLabel
+    }
+  >
+    Categoria
+  </span>
+
+  {x.categoriaPlaca || "-"}
+</div>
+
+<div
+  style={
+    styles.detalheItem
+  }
+>
+  <span
+    style={
+      styles.detalheLabel
+    }
+  >
+    Celular
+  </span>
+
+  {x.celular || "-"}
+
+  {x.celular && (
+    <BotaoCopiar
+      item={x}
+      campo="celular"
+      label="celular"
+    />
+  )}
+</div>
+<div
   style={
     styles.detalheItem
   }
