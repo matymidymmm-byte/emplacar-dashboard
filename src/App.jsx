@@ -6,7 +6,6 @@ import {
   onSnapshot,
   setDoc,
 addDoc,
-getDoc,
 } from "firebase/firestore";
 import DadosEmpresa from "./pages/DadosEmpresa.jsx";
 
@@ -342,6 +341,7 @@ const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
   bairro: "",
   cidade: "",
   pix: "",
+codigoConvite: "",
 });
 
   useEffect(() => {
@@ -410,6 +410,8 @@ setDadosEmpresa({
   bairro: dados.bairro || "",
   cidade: dados.cidade || "",
   pix: dados.pix || "",
+  codigoConvite:
+    dados.codigoConvite || "",
 });
       } else {
         await setDoc(docSistema, {
@@ -422,6 +424,19 @@ setDadosEmpresa({
           estoquePerdas: [],
           historicoRelacoes: [],
           historicoFechamentos: [],
+          logo: "",
+nome: "",
+ie: "",
+cnpj: "",
+email: "",
+whatsapp: "",
+cep: "",
+logradouro: "",
+numero: "",
+bairro: "",
+cidade: "",
+pix: "",
+codigoConvite: "",
           
           metaMensal: 80000,
 inicioPeriodoSalvo: "",
@@ -592,38 +607,7 @@ async function criarBackupManual() {
     alert("Erro ao criar backup.");
   }
 }
-async function migrarBancoAntigo() {
-  try {
-    const snapshotAntigo = await getDoc(
-      doc(db, "sistema", "emplacar")
-    );
 
-    if (!snapshotAntigo.exists()) {
-      alert("Banco antigo não encontrado.");
-      return;
-    }
-
-    const dadosAntigos = snapshotAntigo.data();
-
-    await setDoc(
-      doc(
-        db,
-        "empresas",
-        empresaId,
-        "sistema",
-        "dados"
-      ),
-      dadosAntigos,
-      { merge: true }
-    );
-
-    alert("Migração concluída com sucesso.");
-  } catch (erro) {
-    console.error(erro);
-
-    alert("Erro ao migrar banco.");
-  }
-}
   async function restaurarBackup(
   backup
 ) {
@@ -2116,17 +2100,7 @@ setUsuariosOnline,
 >
   Criar Backup Agora
 </button>
-<button
-  onClick={migrarBancoAntigo}
-  style={{
-    ...styles.botao,
-    marginBottom: 20,
-    marginLeft: 10,
-    background: "#16a34a",
-  }}
->
-  Migrar Banco Antigo
-</button>
+
 
     <div
       style={{

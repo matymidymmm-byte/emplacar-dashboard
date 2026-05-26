@@ -121,12 +121,69 @@ export default function DadosEmpresa({
           />
           <Campo
   label="Logo da empresa"
+  
   valor={dadosEmpresa.logo || ""}
   mudar={(v) =>
     atualizar("logo", v)
   }
 />
+<div
+  style={{
+    marginTop: 20,
+    padding: 15,
+    borderRadius: 12,
+    background: "#0b1220",
+    border: "1px solid #243056",
+  }}
+>
+  <p
+    style={{
+      color: "#94a3b8",
+      marginBottom: 8,
+      fontSize: 14,
+    }}
+  >
+    Código convite da empresa
+  </p>
 
+  <div
+    style={{
+      display: "flex",
+      gap: 10,
+      alignItems: "center",
+      flexWrap: "wrap",
+    }}
+  >
+    <div
+      style={{
+        background: "#050816",
+        padding: "12px 16px",
+        borderRadius: 10,
+        color: "#fff",
+        fontWeight: "bold",
+        letterSpacing: 1,
+      }}
+    >
+      {dadosEmpresa.codigoConvite ||
+        "SEM CONVITE"}
+    </div>
+
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(
+          dadosEmpresa.codigoConvite || ""
+        );
+
+        alert("Código copiado.");
+      }}
+      style={{
+        ...styles.botao,
+      }}
+    >
+      Copiar convite
+    </button>
+  </div>
+</div>
         </div>
       </Card>
 

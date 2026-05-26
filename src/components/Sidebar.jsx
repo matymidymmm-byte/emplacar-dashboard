@@ -468,11 +468,14 @@ const superadmin =
   onClick={() => setMostrarPerfil(!mostrarPerfil)}
 >
         <img
-          src={
+        src={
   dadosEmpresa?.logo ||
-  "/logo-emplacar.png"
+  "/logo-nexora.png"
 }
-          alt={dadosEmpresa?.nome || "Logo da Empresa"}
+          alt={
+  dadosEmpresa?.nome ||
+  "Logo da Empresa"
+}
           style={
             styles.logoImagem
           }
@@ -480,7 +483,7 @@ const superadmin =
 
         <div>
           <h2 style={styles.logo}>
-            {dadosEmpresa?.nome || "Emplacar"}
+            {dadosEmpresa?.nome || "Nexora"}
           </h2>
 
           <p
