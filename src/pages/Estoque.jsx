@@ -8,7 +8,7 @@ import Kpi from "../components/Kpi.jsx";
 
 import styles from "../styles/styles.js";
 
-const PRODUTOS_ESTOQUE_PROFISSIONAL = [
+const PRODUTOS_BASE = [
   "VEICULAR PADRÃO",
   "VEICULAR PRETA",
   "VEICULAR MINI",
@@ -16,14 +16,15 @@ const PRODUTOS_ESTOQUE_PROFISSIONAL = [
   "MOTO PADRÃO",
   "MOTO PRETA",
   "MOTO MINI",
+  "PLACA TESTE / PERSONALIZADA",
   "SUPORTE TRIÂNGULO MOTO",
-"SUPORTE RESINA MOTO",
-"SUPORTE RESINA CARRO",
+  "SUPORTE RESINA MOTO",
+  "SUPORTE RESINA CARRO",
   "RIBBON PRETO",
-"RIBBON VERMELHO",
-"RIBBON BRANCO",
-"RIBBON AZUL",
-"RIBBON VERDE",
+  "RIBBON VERMELHO",
+  "RIBBON BRANCO",
+  "RIBBON AZUL",
+  "RIBBON VERDE",
 ];
 
 const TIPOS_SIMULACAO = [
@@ -31,61 +32,135 @@ const TIPOS_SIMULACAO = [
   "PAR VEICULAR PRETA",
   "PAR VEICULAR MINI",
   "PAR VEICULAR MINI-MINI",
-
   "MOTO PADRÃO",
   "MOTO PRETA",
   "MOTO MINI",
-
   "REBOQUE PADRÃO",
   "REBOQUE PRETA",
   "REBOQUE MINI",
-
   "RIBBON CARRO",
   "RIBBON MOTO",
 ];
 
+function listaUnica(lista = []) {
+  return [...new Set(lista.filter(Boolean))];
+}
+
 export default function Estoque({
   entradas,
   clientes,
+
   modoRibbonPadrao,
-setModoRibbonPadrao,
+  setModoRibbonPadrao,
+
   compraEstoqueForm,
   setCompraEstoqueForm,
   perdaEstoqueForm,
   setPerdaEstoqueForm,
+
   estoqueCompras,
   setEstoqueCompras,
   estoquePerdas,
   setEstoquePerdas,
+
+  produtosEstoquePersonalizados = [],
+  setProdutosEstoquePersonalizados,
+
+  admin,
+
   numero,
   normalizar,
 }) {
+  const [novoProdutoEstoque, setNovoProdutoEstoque] = useState("");
+  const [editandoCompraId, setEditandoCompraId] = useState(null);
+  const [editandoPerdaId, setEditandoPerdaId] = useState(null);
+
   const [simulacao, setSimulacao] = useState({
-  tipoServico: "PAR VEICULAR PADRÃO",
-  cliente: "",
-  precoVenda: "",
-  usarPrecoManual: false,
-});
+    cliente: "",
+  });
+
+  const moeda = new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
+  const produtosDisponiveisEstoque = useMemo(() => {
+    return listaUnica([...PRODUTOS_BASE, ...produtosEstoquePersonalizados]);
+  }, [produtosEstoquePersonalizados]);
+
+  function ehRibbon(produto) {
+    return normalizar(produto).includes("RIBBON");
+  }
+
+  function normalizarProdutoEstoque(produto) {
+    const p = normalizar(produto || "");
+
+    if (p === "PLACA CARRO") return "VEICULAR PADRÃO";
+    if (p === "PLACA MOTO") return "MOTO PADRÃO";
+    if (p === "SUPORTE") return "SUPORTE TRIÂNGULO MOTO";
+
+    return produto;
+  }
+
+  function lerPreco(valor) {
+    return (
+      Number(
+        String(valor || "")
+          .replace("R$", "")
+          .replace(/\s/g, "")
+          .replace(/\./g, "")
+          .replace(",", ".")
+      ) || 0
+    );
+  }
+
   function calcularUsoEstoque(produto) {
     const p = normalizar(produto || "");
 
-    if (p.includes("SUPORTE")) return { item: "SUPORTE", quantidade: 1 };
+    if (p.includes("SUPORTE TRIANGULO")) {
+      return { item: "SUPORTE TRIÂNGULO MOTO", quantidade: 1 };
+    }
+
+    if (p.includes("SUPORTE RESINA") && p.includes("MOTO")) {
+      return { item: "SUPORTE RESINA MOTO", quantidade: 1 };
+    }
+
+    if (p.includes("SUPORTE RESINA")) {
+      return { item: "SUPORTE RESINA CARRO", quantidade: 1 };
+    }
+
+    if (p.includes("SUPORTE")) {
+      return { item: "SUPORTE TRIÂNGULO MOTO", quantidade: 1 };
+    }
+
+    if (p.includes("TESTE") || p.includes("PERSONALIZADA")) {
+      return { item: "PLACA TESTE / PERSONALIZADA", quantidade: 1 };
+    }
 
     const ehMoto = p.includes("MOTO");
-
     const ehPreta =
-      p.includes("PRETA") || p.includes("BLACK") || p.includes("COLECAO") || p.includes("COLEÇÃO") || p.includes("COLECIONADOR");
+      p.includes("PRETA") ||
+      p.includes("BLACK") ||
+      p.includes("COLECAO") ||
+      p.includes("COLEÇÃO") ||
+      p.includes("COLECIONADOR");
 
     const ehMiniMini =
-      p.includes("MINI MINI") || p.includes("MINI-MINI") || p.includes("MINIMINI");
+      p.includes("MINI MINI") ||
+      p.includes("MINI-MINI") ||
+      p.includes("MINIMINI");
 
     const ehMini = p.includes("MINI") && !ehMiniMini;
 
     const ehReboque =
-      p.includes("REBOQUE") || p.includes("DOLLY") || p.includes("CARRETINHA");
+      p.includes("REBOQUE") ||
+      p.includes("DOLLY") ||
+      p.includes("CARRETINHA");
 
     const ehAvulsa =
-      p.includes("AVULSA") || p.includes("DIANTEIRA") || p.includes("TRASEIRA");
+      p.includes("AVULSA") ||
+      p.includes("DIANTEIRA") ||
+      p.includes("TRASEIRA");
 
     const quantidade = ehReboque || ehAvulsa ? 1 : 2;
 
@@ -102,100 +177,189 @@ setModoRibbonPadrao,
     return { item: "VEICULAR PADRÃO", quantidade };
   }
 
-  function normalizarProdutoEstoque(produto) {
-    const p = normalizar(produto || "");
-
-    if (p === "PLACA CARRO") return "VEICULAR PADRÃO";
-    if (p === "PLACA MOTO") return "MOTO PADRÃO";
-    if (p === "SUPORTE") return "SUPORTE";
-
-    return produto;
-  }
-
   function calcularConsumoSimulacao(tipo) {
-  const t = normalizar(tipo || "");
+    const t = normalizar(tipo || "");
 
-  if (t.includes("RIBBON")) {
-    const ehMoto = t.includes("MOTO");
-    const passadas = modoRibbonPadrao === "2X" ? 2 : 1;
+    if (t.includes("RIBBON")) {
+      const ehMoto = t.includes("MOTO");
+      const passadas = modoRibbonPadrao === "2X" ? 2 : 1;
+      const tamanhoPlacaMetro = ehMoto ? 0.2 : 0.4;
 
-    const tamanhoPlacaMetro = ehMoto ? 0.20 : 0.40;
+      return {
+        item: "RIBBON PRETO",
+        consumo: tamanhoPlacaMetro * passadas,
+        unidade: "m",
+      };
+    }
+
+    if (t.includes("MOTO PRETA")) return { item: "MOTO PRETA", consumo: 1 };
+    if (t.includes("MOTO MINI")) return { item: "MOTO MINI", consumo: 1 };
+    if (t.includes("MOTO")) return { item: "MOTO PADRÃO", consumo: 1 };
+
+    if (t.includes("PRETA")) {
+      return {
+        item: "VEICULAR PRETA",
+        consumo: t.includes("REBOQUE") ? 1 : 2,
+      };
+    }
+
+    if (
+      t.includes("MINI-MINI") ||
+      t.includes("MINI MINI") ||
+      t.includes("MINIMINI")
+    ) {
+      return {
+        item: "VEICULAR MINI-MINI",
+        consumo: t.includes("REBOQUE") ? 1 : 2,
+      };
+    }
+
+    if (t.includes("MINI")) {
+      return {
+        item: "VEICULAR MINI",
+        consumo: t.includes("REBOQUE") ? 1 : 2,
+      };
+    }
 
     return {
-      item: t.includes("VERMELHO")
-        ? "RIBBON VERMELHO"
-        : t.includes("BRANCO")
-        ? "RIBBON BRANCO"
-        : t.includes("AZUL")
-        ? "RIBBON AZUL"
-        : t.includes("VERDE")
-        ? "RIBBON VERDE"
-        : "RIBBON PRETO",
-      consumo: tamanhoPlacaMetro * passadas,
-      unidade: "m",
+      item: "VEICULAR PADRÃO",
+      consumo: t.includes("REBOQUE") ? 1 : 2,
     };
   }
 
-  if (t.includes("MOTO PRETA")) return { item: "MOTO PRETA", consumo: 1 };
-  if (t.includes("MOTO MINI")) return { item: "MOTO MINI", consumo: 1 };
-  if (t.includes("MOTO")) return { item: "MOTO PADRÃO", consumo: 1 };
+  function precoClientePorServico(cliente, tipoServico) {
+    if (!cliente) return 0;
 
-  if (t.includes("PRETA")) {
-    return { item: "VEICULAR PRETA", consumo: t.includes("REBOQUE") ? 1 : 2 };
+    const tipo = normalizar(tipoServico);
+
+    if (tipo.includes("RIBBON")) {
+      if (tipo.includes("MOTO")) return lerPreco(cliente.precoMoto);
+      return lerPreco(cliente.precoParVeicular);
+    }
+
+    if (tipo.includes("MOTO")) return lerPreco(cliente.precoMoto);
+    if (tipo.includes("REBOQUE")) return lerPreco(cliente.precoReboque);
+    if (tipo.includes("PRETA")) return lerPreco(cliente.precoPlacaPreta);
+    if (tipo.includes("MINI")) return lerPreco(cliente.precoMini);
+
+    return lerPreco(cliente.precoParVeicular);
   }
 
-  if (t.includes("MINI-MINI") || t.includes("MINI MINI") || t.includes("MINIMINI")) {
-    return { item: "VEICULAR MINI-MINI", consumo: t.includes("REBOQUE") ? 1 : 2 };
-  }
+  function adicionarProdutoPersonalizado() {
+    const nome = normalizar(novoProdutoEstoque);
 
-  if (t.includes("MINI")) {
-    return { item: "VEICULAR MINI", consumo: t.includes("REBOQUE") ? 1 : 2 };
-  }
+    if (!nome) return;
 
-  return { item: "VEICULAR PADRÃO", consumo: t.includes("REBOQUE") ? 1 : 2 };
-}
+    if (produtosDisponiveisEstoque.map(normalizar).includes(nome)) {
+      alert("Produto já existe.");
+      return;
+    }
+
+    setProdutosEstoquePersonalizados((old) => [...old, nome]);
+    setNovoProdutoEstoque("");
+  }
 
   function salvarCompraEstoque() {
     if (!compraEstoqueForm.produto || !compraEstoqueForm.quantidade) return;
 
-    setEstoqueCompras((old) => [
-      {
-        id: Date.now(),
-        ...compraEstoqueForm,
-        produto: normalizarProdutoEstoque(compraEstoqueForm.produto),
-        quantidade: numero(compraEstoqueForm.quantidade),
-larguraRibbon: compraEstoqueForm.larguraRibbon || "",
-metragemRibbon: compraEstoqueForm.metragemRibbon || "",
-custoTotal: numero(compraEstoqueForm.custoTotal),
-      },
-      ...old,
-    ]);
+    const item = {
+      id: editandoCompraId || Date.now(),
+      ...compraEstoqueForm,
+      produto: normalizarProdutoEstoque(compraEstoqueForm.produto),
+      quantidade: numero(compraEstoqueForm.quantidade),
+      larguraRibbon: compraEstoqueForm.larguraRibbon || "",
+      metragemRibbon: compraEstoqueForm.metragemRibbon || "",
+      custoTotal: numero(compraEstoqueForm.custoTotal),
+    };
+
+    if (editandoCompraId) {
+      setEstoqueCompras((old) =>
+        old.map((x) => (x.id === editandoCompraId ? item : x))
+      );
+    } else {
+      setEstoqueCompras((old) => [item, ...old]);
+    }
+
+    setEditandoCompraId(null);
 
     setCompraEstoqueForm({
-  ...compraEstoqueForm,
-
-  quantidade: "",
-
-  larguraRibbon: "",
-  metragemRibbon: "",
-
-  custoTotal: "",
-  observacao: "",
-});
+      ...compraEstoqueForm,
+      quantidade: "",
+      larguraRibbon: "",
+      metragemRibbon: "",
+      custoTotal: "",
+      observacao: "",
+    });
   }
 
   function salvarPerdaEstoque() {
     if (!perdaEstoqueForm.produto || !perdaEstoqueForm.quantidade) return;
 
-    setEstoquePerdas((old) => [
-      {
-        id: Date.now(),
-        ...perdaEstoqueForm,
-        produto: normalizarProdutoEstoque(perdaEstoqueForm.produto),
-        quantidade: numero(perdaEstoqueForm.quantidade),
-      },
-      ...old,
-    ]);
+    const item = {
+      id: editandoPerdaId || Date.now(),
+      ...perdaEstoqueForm,
+      produto: normalizarProdutoEstoque(perdaEstoqueForm.produto),
+      quantidade: numero(perdaEstoqueForm.quantidade),
+    };
+
+    if (editandoPerdaId) {
+      setEstoquePerdas((old) =>
+        old.map((x) => (x.id === editandoPerdaId ? item : x))
+      );
+    } else {
+      setEstoquePerdas((old) => [item, ...old]);
+    }
+
+    setEditandoPerdaId(null);
+
+    setPerdaEstoqueForm({
+      ...perdaEstoqueForm,
+      quantidade: "",
+      motivo: "Placa errada",
+    });
+  }
+
+  function editarCompra(item) {
+    if (!admin) return;
+
+    setEditandoCompraId(item.id);
+
+    setCompraEstoqueForm({
+      data: item.data || "",
+      produto: item.produto || "",
+      quantidade: String(item.quantidade ?? ""),
+      larguraRibbon: item.larguraRibbon || "",
+      metragemRibbon: item.metragemRibbon || "",
+      custoTotal: String(item.custoTotal ?? ""),
+      observacao: item.observacao || "",
+    });
+  }
+
+  function editarPerda(item) {
+    if (!admin) return;
+
+    setEditandoPerdaId(item.id);
+
+    setPerdaEstoqueForm({
+      data: item.data || "",
+      produto: item.produto || "",
+      quantidade: String(item.quantidade ?? ""),
+      motivo: item.motivo || "",
+    });
+  }
+
+  function cancelarEdicaoEstoque() {
+    setEditandoCompraId(null);
+    setEditandoPerdaId(null);
+
+    setCompraEstoqueForm({
+      ...compraEstoqueForm,
+      quantidade: "",
+      larguraRibbon: "",
+      metragemRibbon: "",
+      custoTotal: "",
+      observacao: "",
+    });
 
     setPerdaEstoqueForm({
       ...perdaEstoqueForm,
@@ -205,6 +369,11 @@ custoTotal: numero(compraEstoqueForm.custoTotal),
   }
 
   function removerMovimentoEstoque(tipo, id) {
+    if (!admin) {
+      alert("Apenas administrador pode excluir lançamentos de estoque.");
+      return;
+    }
+
     if (tipo === "compra") {
       setEstoqueCompras((old) => old.filter((item) => item.id !== id));
     }
@@ -215,15 +384,16 @@ custoTotal: numero(compraEstoqueForm.custoTotal),
   }
 
   const estoqueResumo = useMemo(() => {
-    return PRODUTOS_ESTOQUE_PROFISSIONAL.map((produto) => {
+    return produtosDisponiveisEstoque.map((produto) => {
       const compras = estoqueCompras
         .filter((item) => normalizarProdutoEstoque(item.produto) === produto)
         .reduce((soma, item) => soma + numero(item.quantidade), 0);
-        const custoTotal = estoqueCompras
-  .filter((item) => normalizarProdutoEstoque(item.produto) === produto)
-  .reduce((soma, item) => soma + numero(item.custoTotal), 0);
 
-const custoMedio = compras > 0 ? custoTotal / compras : 0;
+      const custoTotal = estoqueCompras
+        .filter((item) => normalizarProdutoEstoque(item.produto) === produto)
+        .reduce((soma, item) => soma + numero(item.custoTotal), 0);
+
+      const custoMedio = compras > 0 ? custoTotal / compras : 0;
 
       const usadoEmServicos = entradas.reduce((soma, entrada) => {
         const uso = calcularUsoEstoque(entrada.produto);
@@ -240,15 +410,15 @@ const custoMedio = compras > 0 ? custoTotal / compras : 0;
       return {
         produto,
         compras,
+        custoTotal,
+        custoMedio,
         usadoEmServicos,
         perdas,
-        custoTotal,
-custoMedio,
         saldo,
         status: saldo <= 0 ? "CRÍTICO" : saldo <= 10 ? "BAIXO" : "OK",
       };
     });
-  }, [estoqueCompras, estoquePerdas, entradas]);
+  }, [produtosDisponiveisEstoque, estoqueCompras, estoquePerdas, entradas]);
 
   const usosEstoqueServicos = useMemo(() => {
     return entradas
@@ -268,35 +438,21 @@ custoMedio,
       .filter(Boolean);
   }, [entradas]);
 
-  const regraSimulacao = calcularConsumoSimulacao(simulacao.tipoServico);
-
-  const itemSimulado = estoqueResumo.find(
-    (item) => item.produto === regraSimulacao.item
-  );
-
-  const saldoDisponivel = itemSimulado?.saldo || 0;
-  const quantidadePossivel = Math.floor(saldoDisponivel / regraSimulacao.consumo);
-  const precoVenda = numero(simulacao.precoVenda);
-  const faturamentoProjetado = quantidadePossivel * precoVenda;
-  const custoMedioSimulado = itemSimulado?.custoMedio || 0;
-
-const custoProjetado =
-  quantidadePossivel * regraSimulacao.consumo * custoMedioSimulado;
-
-const lucroProjetado =
-  faturamentoProjetado - custoProjetado;
-
   const totalCompras = estoqueResumo.reduce((soma, item) => soma + item.compras, 0);
-  const totalUsado = estoqueResumo.reduce((soma, item) => soma + item.usadoEmServicos, 0);
+  const totalUsado = estoqueResumo.reduce(
+    (soma, item) => soma + item.usadoEmServicos,
+    0
+  );
   const totalPerdas = estoqueResumo.reduce((soma, item) => soma + item.perdas, 0);
   const saldoTotal = estoqueResumo.reduce((soma, item) => soma + item.saldo, 0);
   const itensCriticos = estoqueResumo.filter((item) => item.status === "CRÍTICO").length;
   const itensBaixos = estoqueResumo.filter((item) => item.status === "BAIXO").length;
 
-  const moeda = new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  const clienteSelecionado = clientes.find(
+    (c) =>
+      normalizar(c.nome).includes(normalizar(simulacao.cliente)) ||
+      normalizar(simulacao.cliente).includes(normalizar(c.nome))
+  );
 
   return (
     <>
@@ -308,196 +464,120 @@ const lucroProjetado =
         <Kpi titulo="Itens críticos" valor={itensCriticos} />
         <Kpi titulo="Estoque baixo" valor={itensBaixos} />
       </div>
-<Card titulo="Configuração industrial do ribbon">
-  <div
-    style={{
-      display: "flex",
-      gap: 12,
-      flexWrap: "wrap",
-      alignItems: "center",
-    }}
-  >
-    <button
-      style={{
-        ...styles.botao,
-        opacity: modoRibbonPadrao === "1X" ? 1 : 0.6,
-      }}
-      onClick={() => setModoRibbonPadrao("1X")}
-    >
-      Ribbon padrão 1X
-    </button>
 
-    <button
-      style={{
-        ...styles.botao,
-        opacity: modoRibbonPadrao === "2X" ? 1 : 0.6,
-      }}
-      onClick={() => setModoRibbonPadrao("2X")}
-    >
-      Ribbon padrão 2X
-    </button>
+      <Card titulo="Configuração industrial do ribbon">
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            style={{ ...styles.botao, opacity: modoRibbonPadrao === "1X" ? 1 : 0.6 }}
+            onClick={() => setModoRibbonPadrao("1X")}
+          >
+            Ribbon padrão 1X
+          </button>
 
-    <div
-      style={{
-        fontWeight: 700,
-        color: "#fff",
-      }}
-    >
-      Modo atual: {modoRibbonPadrao}
-    </div>
-  </div>
-</Card>
+          <button
+            style={{ ...styles.botao, opacity: modoRibbonPadrao === "2X" ? 1 : 0.6 }}
+            onClick={() => setModoRibbonPadrao("2X")}
+          >
+            Ribbon padrão 2X
+          </button>
+
+          <strong style={{ color: "#fff" }}>Modo atual: {modoRibbonPadrao}</strong>
+        </div>
+      </Card>
+
       <Card titulo="Projeção de faturamento pelo estoque disponível">
-  <div style={styles.formGrid}>
-    <Select
-      label="Cliente"
-      valor={simulacao.cliente}
-      mudar={(v) =>
-        setSimulacao({
-          ...simulacao,
-          cliente: v,
-        })
-      }
-      opcoes={clientes.map((cliente) => cliente.nome)}
-    />
-  </div>
+        <div style={styles.formGrid}>
+          <Select
+            label="Cliente"
+            valor={simulacao.cliente}
+            mudar={(v) => setSimulacao({ ...simulacao, cliente: v })}
+            opcoes={clientes.map((cliente) => cliente.nome)}
+          />
+        </div>
 
-  <Tabela
-    colunas={[
-      "Serviço",
-"Produto físico",
-"Consumo",
-"Saldo disponível",
-"Qtd possível",
-"Preço",
-"Custo projetado",
-"Lucro projetado",
-"Faturamento projetado",
-    ]}
-    dados={TIPOS_SIMULACAO.map((tipoServico) => {
-      const clienteSelecionado = clientes.find(
-  (c) =>
-    normalizar(c.nome).includes(normalizar(simulacao.cliente)) ||
-    normalizar(simulacao.cliente).includes(normalizar(c.nome))
-);
+        <Tabela
+          colunas={[
+            "Serviço",
+            "Produto físico",
+            "Consumo",
+            "Saldo disponível",
+            "Qtd possível",
+            "Preço",
+            "Custo projetado",
+            "Lucro projetado",
+            "Faturamento projetado",
+          ]}
+          dados={TIPOS_SIMULACAO.map((tipoServico) => {
+            const regra = calcularConsumoSimulacao(tipoServico);
+            const itemEstoque = estoqueResumo.find(
+              (item) => item.produto === regra.item
+            );
 
+            const saldo = itemEstoque?.saldo || 0;
+            const qtdPossivel = Math.max(
+              Math.floor(saldo / regra.consumo),
+              0
+            );
 
-      const regra = calcularConsumoSimulacao(tipoServico);
+            const preco = precoClientePorServico(clienteSelecionado, tipoServico);
+            const custoProjetado =
+              qtdPossivel * regra.consumo * (itemEstoque?.custoMedio || 0);
+            const faturamentoProjetado = qtdPossivel * preco;
+            const lucroProjetado = faturamentoProjetado - custoProjetado;
 
-      const itemEstoque = estoqueResumo.find(
-        (item) => item.produto === regra.item
-      );
-
-      const saldo = itemEstoque?.saldo || 0;
-
-      const qtdPossivel = Math.floor(
-        saldo / regra.consumo
-      );
-
-      const tipo = normalizar(tipoServico);
-
-      function lerPreco(valor) {
-  return (
-    Number(
-      String(valor || "")
-        .replace("R$", "")
-        .replace(/\s/g, "")
-        .replace(/\./g, "")
-        .replace(",", ".")
-    ) || 0
-  );
-}
-
-let preco = 0;
-
-if (clienteSelecionado) {
-
-  // RIBBONS
-  if (tipo.includes("RIBBON")) {
-
-    if (tipo.includes("RIBBON")) {
-
-  if (tipo.includes("MOTO")) {
-    preco = lerPreco(clienteSelecionado.precoMoto);
-  } else {
-    preco = lerPreco(clienteSelecionado.precoParVeicular);
-  }
-
-}
-
-  }
-
-  // MOTO
-  else if (tipo.includes("MOTO")) {
-    preco = lerPreco(clienteSelecionado.precoMoto);
-  }
-
-  // REBOQUE
-  else if (tipo.includes("REBOQUE")) {
-    preco = lerPreco(clienteSelecionado.precoReboque);
-  }
-
-  // PRETA
-  else if (tipo.includes("PRETA")) {
-    preco = lerPreco(clienteSelecionado.precoPlacaPreta);
-  }
-
-  // MINI
-  else if (tipo.includes("MINI")) {
-    preco = lerPreco(clienteSelecionado.precoMini);
-  }
-
-  // PADRÃO
-  else {
-    preco = lerPreco(clienteSelecionado.precoParVeicular);
-  }
-}
-      return [
-  tipoServico,
-  regra.item,
-  regra.consumo,
-  saldo,
-  Math.max(qtdPossivel, 0),
-  moeda.format(preco),
-  moeda.format(Math.max(qtdPossivel, 0) * regra.consumo * (itemEstoque?.custoMedio || 0)),
-  moeda.format(
-    Math.max(qtdPossivel, 0) * preco -
-      Math.max(qtdPossivel, 0) * regra.consumo * (itemEstoque?.custoMedio || 0)
-  ),
-  moeda.format(Math.max(qtdPossivel, 0) * preco),
-];
-    })}
-  />
-</Card>
+            return [
+              tipoServico,
+              regra.item,
+              regra.consumo,
+              saldo,
+              qtdPossivel,
+              moeda.format(preco),
+              moeda.format(custoProjetado),
+              moeda.format(lucroProjetado),
+              moeda.format(faturamentoProjetado),
+            ];
+          })}
+        />
+      </Card>
 
       <Card titulo="Resumo profissional do estoque">
         <Tabela
           colunas={[
-  "Produto físico",
-  "Compras",
-  "Custo total",
-  "Custo médio",
-  "Usado em serviços",
-  "Perdas/erros",
-  "Saldo atual",
-  "Status",
-]}
+            "Produto físico",
+            "Compras",
+            "Custo total",
+            "Custo médio",
+            "Usado em serviços",
+            "Perdas/erros",
+            "Saldo atual",
+            "Status",
+          ]}
           dados={estoqueResumo.map((item) => [
-  item.produto,
-  item.compras,
-  moeda.format(item.custoTotal || 0),
-  moeda.format(item.custoMedio || 0),
-  item.usadoEmServicos,
-  item.perdas,
-  item.saldo,
-  item.status,
-])}
+            item.produto,
+            item.compras,
+            moeda.format(item.custoTotal || 0),
+            moeda.format(item.custoMedio || 0),
+            item.usadoEmServicos,
+            item.perdas,
+            item.saldo,
+            item.status,
+          ])}
         />
       </Card>
 
       <div style={styles.grid2}>
-        <Card titulo="Adicionar compra de estoque">
+        <Card titulo={editandoCompraId ? "Editando compra de estoque" : "Adicionar compra de estoque"}>
           <div style={styles.formGrid}>
+            <Campo
+              label="Novo produto personalizado"
+              valor={novoProdutoEstoque}
+              mudar={setNovoProdutoEstoque}
+            />
+
+            <button style={styles.botaoSecundario || styles.botao} onClick={adicionarProdutoPersonalizado}>
+              Adicionar produto ao estoque
+            </button>
+
             <Campo
               label="Data"
               tipo="date"
@@ -509,7 +589,7 @@ if (clienteSelecionado) {
               label="Produto físico"
               valor={compraEstoqueForm.produto}
               mudar={(v) => setCompraEstoqueForm({ ...compraEstoqueForm, produto: v })}
-              opcoes={PRODUTOS_ESTOQUE_PROFISSIONAL}
+              opcoes={produtosDisponiveisEstoque}
             />
 
             <Campo
@@ -520,47 +600,43 @@ if (clienteSelecionado) {
                 setCompraEstoqueForm({ ...compraEstoqueForm, quantidade: v })
               }
             />
-{String(compraEstoqueForm.produto || "")
-  .toUpperCase()
-  .includes("RIBBON") && (
-  <>
-    <Campo
-      label="Largura do ribbon (mm)"
-      tipo="number"
-      valor={compraEstoqueForm.larguraRibbon}
-      mudar={(v) =>
-        setCompraEstoqueForm({
-          ...compraEstoqueForm,
-          larguraRibbon: v,
-        })
-      }
-    />
 
-    <Campo
-      label="Metragem do rolo (m)"
-      tipo="number"
-      valor={compraEstoqueForm.metragemRibbon}
-      mudar={(v) =>
-        setCompraEstoqueForm({
-          ...compraEstoqueForm,
-          metragemRibbon: v,
-        })
-      }
-    />
-  </>
-)}
+            {ehRibbon(compraEstoqueForm.produto) && (
+              <>
+                <Campo
+                  label="Largura do ribbon (mm)"
+                  tipo="number"
+                  valor={compraEstoqueForm.larguraRibbon}
+                  mudar={(v) =>
+                    setCompraEstoqueForm({
+                      ...compraEstoqueForm,
+                      larguraRibbon: v,
+                    })
+                  }
+                />
+
+                <Campo
+                  label="Metragem do rolo (m)"
+                  tipo="number"
+                  valor={compraEstoqueForm.metragemRibbon}
+                  mudar={(v) =>
+                    setCompraEstoqueForm({
+                      ...compraEstoqueForm,
+                      metragemRibbon: v,
+                    })
+                  }
+                />
+              </>
+            )}
 
             <Campo
-  label="Custo total da compra"
-  tipo="number"
-  valor={compraEstoqueForm.custoTotal}
-  mudar={(v) =>
-    setCompraEstoqueForm({
-      ...compraEstoqueForm,
-      custoTotal: v,
-    })
-  }
-/>
+              label="Custo total da compra"
+              tipo="number"
+              valor={compraEstoqueForm.custoTotal}
+              mudar={(v) =>
+                setCompraEstoqueForm({ ...compraEstoqueForm, custoTotal: v })
+              }
+            />
 
             <Campo
               label="Observação"
@@ -571,12 +647,18 @@ if (clienteSelecionado) {
             />
 
             <button style={styles.botao} onClick={salvarCompraEstoque}>
-              Adicionar compra
+              {editandoCompraId ? "Salvar edição" : "Adicionar compra"}
             </button>
+
+            {editandoCompraId && (
+              <button style={styles.botaoCinza} onClick={cancelarEdicaoEstoque}>
+                Cancelar edição
+              </button>
+            )}
           </div>
         </Card>
 
-        <Card titulo="Lançar perda / placa errada">
+        <Card titulo={editandoPerdaId ? "Editando perda de estoque" : "Lançar perda / placa errada"}>
           <div style={styles.formGrid}>
             <Campo
               label="Data"
@@ -589,7 +671,7 @@ if (clienteSelecionado) {
               label="Produto físico"
               valor={perdaEstoqueForm.produto}
               mudar={(v) => setPerdaEstoqueForm({ ...perdaEstoqueForm, produto: v })}
-              opcoes={PRODUTOS_ESTOQUE_PROFISSIONAL}
+              opcoes={produtosDisponiveisEstoque}
             />
 
             <Campo
@@ -600,7 +682,6 @@ if (clienteSelecionado) {
                 setPerdaEstoqueForm({ ...perdaEstoqueForm, quantidade: v })
               }
             />
-            
 
             <Campo
               label="Motivo"
@@ -609,8 +690,14 @@ if (clienteSelecionado) {
             />
 
             <button style={styles.botao} onClick={salvarPerdaEstoque}>
-              Lançar perda
+              {editandoPerdaId ? "Salvar edição" : "Lançar perda"}
             </button>
+
+            {editandoPerdaId && (
+              <button style={styles.botaoCinza} onClick={cancelarEdicaoEstoque}>
+                Cancelar edição
+              </button>
+            )}
           </div>
         </Card>
       </div>
@@ -619,47 +706,44 @@ if (clienteSelecionado) {
         <Card titulo="Histórico de compras">
           <Tabela
             colunas={[
-  "Data",
-  "Produto",
-  "Qtd",
-  "Largura",
-  "Metragem",
-  "Custo total",
-  "Custo médio",
-  "Observação",
-  "Ações",
-]}
+              "Data",
+              "Produto",
+              "Qtd",
+              "Largura",
+              "Metragem",
+              "Custo total",
+              "Custo médio",
+              "Observação",
+              "Ações",
+            ]}
             dados={estoqueCompras.map((item) => [
-  item.data,
+              item.data,
+              normalizarProdutoEstoque(item.produto),
+              item.quantidade,
+              item.larguraRibbon ? `${item.larguraRibbon} mm` : "-",
+              item.metragemRibbon ? `${item.metragemRibbon} m` : "-",
+              moeda.format(item.custoTotal || 0),
+              moeda.format(
+                (item.custoTotal || 0) /
+                  ((item.quantidade || 1) === 0 ? 1 : item.quantidade || 1)
+              ),
+              item.observacao || "-",
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {admin && (
+                  <button style={styles.detalhes} onClick={() => editarCompra(item)}>
+                    Editar
+                  </button>
+                )}
 
-normalizarProdutoEstoque(item.produto),
-
-item.quantidade,
-
-item.larguraRibbon
-  ? `${item.larguraRibbon} mm`
-  : "-",
-
-item.metragemRibbon
-  ? `${item.metragemRibbon} m`
-  : "-",
-
-moeda.format(item.custoTotal || 0),
-
-  moeda.format(
-    (item.custoTotal || 0) /
-      ((item.quantidade || 1) === 0
-        ? 1
-        : item.quantidade || 1)
-  ),
-
-  item.observacao,
-              <button
-                style={styles.excluir}
-                onClick={() => removerMovimentoEstoque("compra", item.id)}
-              >
-                Excluir
-              </button>,
+                {admin && (
+                  <button
+                    style={styles.excluir}
+                    onClick={() => removerMovimentoEstoque("compra", item.id)}
+                  >
+                    Excluir
+                  </button>
+                )}
+              </div>,
             ])}
           />
         </Card>
@@ -671,13 +755,23 @@ moeda.format(item.custoTotal || 0),
               item.data,
               normalizarProdutoEstoque(item.produto),
               item.quantidade,
-              item.motivo,
-              <button
-                style={styles.excluir}
-                onClick={() => removerMovimentoEstoque("perda", item.id)}
-              >
-                Excluir
-              </button>,
+              item.motivo || "-",
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {admin && (
+                  <button style={styles.detalhes} onClick={() => editarPerda(item)}>
+                    Editar
+                  </button>
+                )}
+
+                {admin && (
+                  <button
+                    style={styles.excluir}
+                    onClick={() => removerMovimentoEstoque("perda", item.id)}
+                  >
+                    Excluir
+                  </button>
+                )}
+              </div>,
             ])}
           />
         </Card>

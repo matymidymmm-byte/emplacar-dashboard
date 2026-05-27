@@ -321,6 +321,7 @@ const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
   const [clientes, setClientes] = useState([]);
   const [estoqueCompras, setEstoqueCompras] = useState([]);
   const [estoquePerdas, setEstoquePerdas] = useState([]);
+  const [produtosEstoquePersonalizados, setProdutosEstoquePersonalizados] = useState([]);
   const [historicoRelacoes, setHistoricoRelacoes] = useState([]);
   const [historicoFechamentos, setHistoricoFechamentos] = useState([]);
   const [historicoAlteracoes, setHistoricoAlteracoes] = useState([]);
@@ -390,6 +391,11 @@ setInicioPeriodoSalvo(
         setEstoquePerdas(
           Array.isArray(dados.estoquePerdas) ? dados.estoquePerdas : []
         );
+        setProdutosEstoquePersonalizados(
+  Array.isArray(dados.produtosEstoquePersonalizados)
+    ? dados.produtosEstoquePersonalizados
+    : []
+);
         setHistoricoRelacoes(
           Array.isArray(dados.historicoRelacoes) ? dados.historicoRelacoes : []
         );
@@ -423,8 +429,9 @@ setDadosEmpresa({
           contas: [],
           clientes: [],
           estoqueCompras: [],
-          estoquePerdas: [],
-          historicoRelacoes: [],
+estoquePerdas: [],
+produtosEstoquePersonalizados: [],
+historicoRelacoes: [],
           historicoFechamentos: [],
           logo: "",
 nome: "",
@@ -751,6 +758,12 @@ useEffect(() => {
   useEffect(() => {
     salvarNaNuvem("estoquePerdas", estoquePerdas);
   }, [estoquePerdas]);
+  useEffect(() => {
+  salvarNaNuvem(
+    "produtosEstoquePersonalizados",
+    produtosEstoquePersonalizados
+  );
+}, [produtosEstoquePersonalizados]);
 
   useEffect(() => {
     salvarNaNuvem("historicoRelacoes", historicoRelacoes);
@@ -965,6 +978,10 @@ const clienteVazio = {
   data: hoje,
   produto: "Placa Carro",
   quantidade: "",
+
+  larguraRibbon: "",
+  metragemRibbon: "",
+
   custoTotal: "",
   observacao: "",
 };
@@ -1993,6 +2010,8 @@ setModoRibbonPadrao,
     setContas,
     clientes,
     setClientes,
+    produtosEstoquePersonalizados,
+setProdutosEstoquePersonalizados,
     estoqueCompras,
     setEstoqueCompras,
     estoquePerdas,
