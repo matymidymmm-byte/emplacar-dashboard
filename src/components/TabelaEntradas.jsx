@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import styles from "../styles/styles.js";
 
@@ -15,8 +15,7 @@ export default function TabelaEntradas({
   const [selecionados, setSelecionados] = useState([]);
   const [filtros, setFiltros] = useState({});
   const [diaPagoMassa, setDiaPagoMassa] = useState("");
-  const [formaPagamentoMassa, setFormaPagamentoMassa] =
-    useState("Pix");
+  const [formaPagamentoMassa, setFormaPagamentoMassa] = useState("Pix");
 
   const colunas = [
     "✓",
@@ -34,8 +33,8 @@ export default function TabelaEntradas({
   function formatarData(data) {
     if (!data) return "-";
 
-    if (data.includes("-")) {
-      const [ano, mes, dia] = data.split("-");
+    if (String(data).includes("-")) {
+      const [ano, mes, dia] = String(data).split("-");
       return `${dia}/${mes}/${ano}`;
     }
 
@@ -43,9 +42,7 @@ export default function TabelaEntradas({
   }
 
   function texto(valor) {
-    return String(valor || "")
-      .toLowerCase()
-      .trim();
+    return String(valor || "").toLowerCase().trim();
   }
 
   function mudarFiltro(campo, valor) {
@@ -58,64 +55,34 @@ export default function TabelaEntradas({
   const entradasFiltradas = useMemo(() => {
     return entradas.filter((x) => {
       return (
-        texto(formatarData(x.data)).includes(
-          texto(filtros.data)
-        ) &&
-        texto(x.cliente).includes(
-          texto(filtros.cliente)
-        ) &&
-        texto(
-          x.produto || x.servico
-        ).includes(texto(filtros.produto)) &&
-        texto(x.placa).includes(
-          texto(filtros.placa)
-        ) &&
-        texto(
-          x.formaPagamento
-        ).includes(
-          texto(filtros.formaPagamento)
-        ) &&
-        texto(
-          moeda.format(
-            Number(x.valor || 0)
-          )
-        ).includes(texto(filtros.valor)) &&
-        texto(x.status).includes(
-          texto(filtros.status)
-        ) &&
-        texto(
-          formatarData(x.diaPago)
-        ).includes(texto(filtros.diaPago))
+        texto(formatarData(x.data)).includes(texto(filtros.data)) &&
+        texto(x.cliente).includes(texto(filtros.cliente)) &&
+        texto(x.produto || x.servico).includes(texto(filtros.produto)) &&
+        texto(x.placa).includes(texto(filtros.placa)) &&
+        texto(x.formaPagamento).includes(texto(filtros.formaPagamento)) &&
+        texto(moeda.format(Number(x.valor || 0))).includes(texto(filtros.valor)) &&
+        texto(x.status).includes(texto(filtros.status)) &&
+        texto(formatarData(x.diaPago)).includes(texto(filtros.diaPago))
       );
     });
-  }, [entradas, filtros]);
+  }, [entradas, filtros, moeda]);
 
-  const totalFiltrado =
-    entradasFiltradas.reduce(
-      (soma, item) =>
-        soma +
-        Number(item.valor || 0),
-      0
-    );
+  const totalFiltrado = entradasFiltradas.reduce(
+    (soma, item) => soma + Number(item.valor || 0),
+    0
+  );
 
   const mediaFiltrada =
-    entradasFiltradas.length > 0
-      ? totalFiltrado /
-        entradasFiltradas.length
-      : 0;
+    entradasFiltradas.length > 0 ? totalFiltrado / entradasFiltradas.length : 0;
 
   function alternarSelecionado(id) {
     setSelecionados((old) =>
-      old.includes(id)
-        ? old.filter((x) => x !== id)
-        : [...old, id]
+      old.includes(id) ? old.filter((x) => x !== id) : [...old, id]
     );
   }
 
   function selecionarTodosFiltrados() {
-    setSelecionados(
-      entradasFiltradas.map((x) => x.id)
-    );
+    setSelecionados(entradasFiltradas.map((x) => x.id));
   }
 
   function selecionarPendentesFiltrados() {
@@ -124,8 +91,7 @@ export default function TabelaEntradas({
         .filter(
           (x) =>
             x.status !== "Pago" ||
-            x.formaPagamento ===
-              "Nota / Faturado" ||
+            x.formaPagamento === "Nota / Faturado" ||
             !x.diaPago
         )
         .map((x) => x.id)
@@ -135,62 +101,55 @@ export default function TabelaEntradas({
   function limparSelecao() {
     setSelecionados([]);
   }
-function exportarEntradasFiltradas() {
-  if (entradasFiltradas.length === 0) {
-    alert("Nenhuma entrada filtrada para exportar.");
-    return;
+
+  function exportarEntradasFiltradas() {
+    if (entradasFiltradas.length === 0) {
+      alert("Nenhuma entrada filtrada para exportar.");
+      return;
+    }
+
+    const dadosExportar = entradasFiltradas.map((item) => ({
+      DATA: formatarData(item.data),
+      TIPO: item.tipo || "",
+      CLIENTE: item.cliente || "",
+      PRODUTO: item.produto || item.servico || "",
+      PLACA: item.placa || "",
+      RENAVAN: item.renavan || "",
+      "FORMA DE PAGAMENTO": item.formaPagamento || "",
+      VALOR: Number(item.valor || 0),
+      STATUS: item.status || "",
+      PROCESSO: item.processo || "",
+      "DIA PAGO": formatarData(item.diaPago),
+      CATEGORIA: item.categoriaPlaca || "",
+      CELULAR: item.celular || "",
+    }));
+
+    const planilha = XLSX.utils.json_to_sheet(dadosExportar);
+    const arquivo = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(arquivo, planilha, "Entradas");
+    XLSX.writeFile(arquivo, "entradas-filtradas.xlsx");
   }
 
-  const dadosExportar = entradasFiltradas.map((item) => ({
-    DATA: formatarData(item.data),
-    TIPO: item.tipo || "",
-    CLIENTE: item.cliente || "",
-    PRODUTO: item.produto || item.servico || "",
-    PLACA: item.placa || "",
-    RENAVAN: item.renavan || "",
-    "FORMA DE PAGAMENTO": item.formaPagamento || "",
-    VALOR: Number(item.valor || 0),
-    STATUS: item.status || "",
-    PROCESSO: item.processo || "",
-    "DIA PAGO": formatarData(item.diaPago),
-  }));
-
-  const planilha = XLSX.utils.json_to_sheet(dadosExportar);
-  const arquivo = XLSX.utils.book_new();
-
-  XLSX.utils.book_append_sheet(arquivo, planilha, "Entradas");
-
-  XLSX.writeFile(arquivo, "entradas-filtradas.xlsx");
-}
   function baixarSelecionados() {
-    if (
-      selecionados.length === 0
-    ) {
-      alert(
-        "Selecione pelo menos um serviço."
-      );
+    if (selecionados.length === 0) {
+      alert("Selecione pelo menos um serviço.");
       return;
     }
 
     if (!diaPagoMassa) {
-      alert(
-        "Informe o dia pago."
-      );
+      alert("Informe o dia pago.");
       return;
     }
 
     setEntradas((old) =>
       old.map((entrada) =>
-        selecionados.includes(
-          entrada.id
-        )
+        selecionados.includes(entrada.id)
           ? {
               ...entrada,
               status: "Pago",
-              formaPagamento:
-                formaPagamentoMassa,
-              diaPago:
-                diaPagoMassa,
+              formaPagamento: formaPagamentoMassa,
+              diaPago: diaPagoMassa,
             }
           : entrada
       )
@@ -199,13 +158,8 @@ function exportarEntradasFiltradas() {
     setSelecionados([]);
   }
 
-  function copiarTexto(
-    textoCopiar,
-    chave
-  ) {
-    navigator.clipboard.writeText(
-      textoCopiar || ""
-    );
+  function copiarTexto(textoCopiar, chave) {
+    navigator.clipboard.writeText(textoCopiar || "");
 
     setCopiados((old) => ({
       ...old,
@@ -224,254 +178,127 @@ function exportarEntradasFiltradas() {
     copiarTexto(
       `PLACA: ${item.placa || ""}
 RENAVAN: ${item.renavan || ""}
-PROCESSO: ${item.processo || ""}`,
+PROCESSO: ${item.processo || ""}
+CATEGORIA: ${item.categoriaPlaca || ""}
+CELULAR: ${item.celular || ""}`,
       `tudo-${item.id}`
     );
   }
 
-  function BotaoCopiar({
-    item,
-    campo,
-    label,
-  }) {
+  function BotaoCopiar({ item, campo, label }) {
     const chave = `${campo}-${item.id}`;
 
     return (
       <button
-        style={
-          copiados[chave]
-            ? styles.copiado
-            : styles.copiar
-        }
-        onClick={() =>
-          copiarTexto(
-            item[campo],
-            chave
-          )
-        }
+        style={copiados[chave] ? styles.copiado : styles.copiar}
+        onClick={() => copiarTexto(item[campo], chave)}
       >
-        {copiados[chave]
-          ? "Copiado"
-          : `Copiar ${label}`}
+        {copiados[chave] ? "Copiado" : `Copiar ${label}`}
       </button>
     );
   }
 
-  const grupos =
-    entradasFiltradas.reduce(
-      (acc, entrada) => {
-        const data =
-          entrada.data ||
-          "Sem data";
+  const grupos = entradasFiltradas.reduce((acc, entrada) => {
+    const data = entrada.data || "Sem data";
 
-        if (!acc[data])
-          acc[data] = [];
+    if (!acc[data]) acc[data] = [];
 
-        acc[data].push(
-          entrada
-        );
+    acc[data].push(entrada);
 
-        return acc;
-      },
-      {}
-    );
+    return acc;
+  }, {});
 
-  const datasOrdenadas =
-    Object.keys(grupos).sort(
-      (a, b) =>
-        b.localeCompare(a)
-    );
+  const datasOrdenadas = Object.keys(grupos).sort((a, b) => b.localeCompare(a));
 
   function totalDoDia(lista) {
-    return lista.reduce(
-      (soma, item) =>
-        soma +
-        Number(item.valor || 0),
-      0
-    );
+    return lista.reduce((soma, item) => soma + Number(item.valor || 0), 0);
   }
 
   return (
-    <div
-      style={
-        styles.tabelaContainer
-      }
-    >
-      <div
-        style={
-          styles.resumoFiltro
-        }
-      >
+    <div style={styles.tabelaContainer}>
+      <div style={styles.resumoFiltro}>
         <span>
-          <strong>
-            Filtrados:
-          </strong>{" "}
-          {
-            entradasFiltradas.length
-          }
+          <strong>Filtrados:</strong> {entradasFiltradas.length}
         </span>
 
         <span>
-          <strong>
-            Total:
-          </strong>{" "}
-          {moeda.format(
-            totalFiltrado
-          )}
+          <strong>Total:</strong> {moeda.format(totalFiltrado)}
         </span>
 
         <span>
-          <strong>
-            Média:
-          </strong>{" "}
-          {moeda.format(
-            mediaFiltrada
-          )}
+          <strong>Média:</strong> {moeda.format(mediaFiltrada)}
         </span>
 
         <span>
-          <strong>
-            Selecionados:
-          </strong>{" "}
-          {selecionados.length}
+          <strong>Selecionados:</strong> {selecionados.length}
         </span>
       </div>
 
       <div
         style={{
-          background:
-            "#0f172a",
-          border:
-            "1px solid #334155",
+          background: "#0f172a",
+          border: "1px solid #334155",
           borderRadius: 14,
           padding: 12,
           marginBottom: 12,
           display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit,minmax(180px,1fr))",
+          gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
           gap: 10,
           alignItems: "end",
         }}
       >
-        <button
-          style={
-            styles.botaoCinza
-          }
-          onClick={
-            selecionarTodosFiltrados
-          }
-        >
+        <button style={styles.botaoCinza} onClick={selecionarTodosFiltrados}>
           Selecionar filtrados
         </button>
 
-        <button
-          style={
-            styles.botaoCinza
-          }
-          onClick={
-            selecionarPendentesFiltrados
-          }
-        >
+        <button style={styles.botaoCinza} onClick={selecionarPendentesFiltrados}>
           Selecionar pendentes
         </button>
 
-        <button
-          style={
-            styles.botaoCinza
-          }
-          onClick={
-            limparSelecao
-          }
-        >
+        <button style={styles.botaoCinza} onClick={limparSelecao}>
           Limpar seleção
         </button>
 
-        <label
-          style={
-            styles.label
-          }
-        >
+        <label style={styles.label}>
           Forma pagamento
 
           <select
-            value={
-              formaPagamentoMassa
-            }
-            onChange={(e) =>
-              setFormaPagamentoMassa(
-                e.target.value
-              )
-            }
-            style={
-              styles.input
-            }
+            value={formaPagamentoMassa}
+            onChange={(e) => setFormaPagamentoMassa(e.target.value)}
+            style={styles.input}
           >
-            {(
-              formasPagamento.length >
-              0
-                ? formasPagamento
-                : [
-                    "Pix",
-                    "Débito",
-                    "Crédito",
-                    "Depósito",
-                    "Cheque",
-                    "Dinheiro",
-                  ]
+            {(formasPagamento.length > 0
+              ? formasPagamento
+              : ["Pix", "Débito", "Crédito", "Depósito", "Cheque", "Dinheiro"]
             ).map((forma) => (
-              <option
-                key={forma}
-                value={forma}
-              >
+              <option key={forma} value={forma}>
                 {forma}
               </option>
             ))}
           </select>
         </label>
 
-        <label
-          style={
-            styles.label
-          }
-        >
+        <label style={styles.label}>
           Pago dia
 
           <input
             type="date"
-            value={
-              diaPagoMassa
-            }
-            onChange={(e) =>
-              setDiaPagoMassa(
-                e.target.value
-              )
-            }
-            style={
-              styles.input
-            }
+            value={diaPagoMassa}
+            onChange={(e) => setDiaPagoMassa(e.target.value)}
+            style={styles.input}
           />
         </label>
 
-        <button
-  style={styles.botao}
-  onClick={baixarSelecionados}
->
-  Baixar selecionados
-</button>
+        <button style={styles.botao} onClick={baixarSelecionados}>
+          Baixar selecionados
+        </button>
 
-<button
-  style={styles.botaoCinza}
-  onClick={exportarEntradasFiltradas}
->
-  Exportar Excel filtrado
-</button>
+        <button style={styles.botaoCinza} onClick={exportarEntradasFiltradas}>
+          Exportar Excel filtrado
+        </button>
       </div>
 
-      <div
-        style={
-          styles.tabelaBox
-        }
-      >
+      <div style={styles.tabelaBox}>
         <table
           style={{
             ...styles.tabela,
@@ -495,647 +322,298 @@ PROCESSO: ${item.processo || ""}`,
           <thead>
             <tr>
               {colunas.map((coluna) => (
-                <th
-                  key={coluna}
-                  style={styles.th}
-                >
+                <th key={coluna} style={styles.th}>
                   {coluna}
                 </th>
               ))}
             </tr>
 
             <tr>
-              <th
-                style={
-                  styles.thFiltro
-                }
-              ></th>
+              <th style={styles.thFiltro}></th>
 
-              <th
-                style={
-                  styles.thFiltro
-                }
-              >
+              <th style={styles.thFiltro}>
                 <input
-                  style={
-                    styles.filtroInput
-                  }
+                  style={styles.filtroInput}
                   placeholder="Filtrar"
-                  value={
-                    filtros.data ||
-                    ""
-                  }
+                  value={filtros.data || ""}
+                  onChange={(e) => mudarFiltro("data", e.target.value)}
+                />
+              </th>
+
+              <th style={styles.thFiltro}>
+                <input
+                  style={styles.filtroInput}
+                  placeholder="Filtrar"
+                  value={filtros.cliente || ""}
+                  onChange={(e) => mudarFiltro("cliente", e.target.value)}
+                />
+              </th>
+
+              <th style={styles.thFiltro}>
+                <input
+                  style={styles.filtroInput}
+                  placeholder="Filtrar"
+                  value={filtros.produto || ""}
+                  onChange={(e) => mudarFiltro("produto", e.target.value)}
+                />
+              </th>
+
+              <th style={styles.thFiltro}>
+                <input
+                  style={styles.filtroInput}
+                  placeholder="Filtrar"
+                  value={filtros.placa || ""}
+                  onChange={(e) => mudarFiltro("placa", e.target.value)}
+                />
+              </th>
+
+              <th style={styles.thFiltro}>
+                <input
+                  style={styles.filtroInput}
+                  placeholder="Filtrar"
+                  value={filtros.formaPagamento || ""}
                   onChange={(e) =>
-                    mudarFiltro(
-                      "data",
-                      e.target.value
-                    )
+                    mudarFiltro("formaPagamento", e.target.value)
                   }
                 />
               </th>
 
-              <th
-                style={
-                  styles.thFiltro
-                }
-              >
+              <th style={styles.thFiltro}>
                 <input
-                  style={
-                    styles.filtroInput
-                  }
+                  style={styles.filtroInput}
                   placeholder="Filtrar"
-                  value={
-                    filtros.cliente ||
-                    ""
-                  }
-                  onChange={(e) =>
-                    mudarFiltro(
-                      "cliente",
-                      e.target.value
-                    )
-                  }
+                  value={filtros.valor || ""}
+                  onChange={(e) => mudarFiltro("valor", e.target.value)}
                 />
               </th>
 
-              <th
-                style={
-                  styles.thFiltro
-                }
-              >
+              <th style={styles.thFiltro}>
                 <input
-                  style={
-                    styles.filtroInput
-                  }
+                  style={styles.filtroInput}
                   placeholder="Filtrar"
-                  value={
-                    filtros.produto ||
-                    ""
-                  }
-                  onChange={(e) =>
-                    mudarFiltro(
-                      "produto",
-                      e.target.value
-                    )
-                  }
+                  value={filtros.status || ""}
+                  onChange={(e) => mudarFiltro("status", e.target.value)}
                 />
               </th>
 
-              <th
-                style={
-                  styles.thFiltro
-                }
-              >
+              <th style={styles.thFiltro}>
                 <input
-                  style={
-                    styles.filtroInput
-                  }
+                  style={styles.filtroInput}
                   placeholder="Filtrar"
-                  value={
-                    filtros.placa ||
-                    ""
-                  }
-                  onChange={(e) =>
-                    mudarFiltro(
-                      "placa",
-                      e.target.value
-                    )
-                  }
+                  value={filtros.diaPago || ""}
+                  onChange={(e) => mudarFiltro("diaPago", e.target.value)}
                 />
               </th>
 
-              <th
-                style={
-                  styles.thFiltro
-                }
-              >
-                <input
-                  style={
-                    styles.filtroInput
-                  }
-                  placeholder="Filtrar"
-                  value={
-                    filtros.formaPagamento ||
-                    ""
-                  }
-                  onChange={(e) =>
-                    mudarFiltro(
-                      "formaPagamento",
-                      e.target.value
-                    )
-                  }
-                />
-              </th>
-
-              <th
-                style={
-                  styles.thFiltro
-                }
-              >
-                <input
-                  style={
-                    styles.filtroInput
-                  }
-                  placeholder="Filtrar"
-                  value={
-                    filtros.valor ||
-                    ""
-                  }
-                  onChange={(e) =>
-                    mudarFiltro(
-                      "valor",
-                      e.target.value
-                    )
-                  }
-                />
-              </th>
-
-              <th
-                style={
-                  styles.thFiltro
-                }
-              >
-                <input
-                  style={
-                    styles.filtroInput
-                  }
-                  placeholder="Filtrar"
-                  value={
-                    filtros.status ||
-                    ""
-                  }
-                  onChange={(e) =>
-                    mudarFiltro(
-                      "status",
-                      e.target.value
-                    )
-                  }
-                />
-              </th>
-
-              <th
-                style={
-                  styles.thFiltro
-                }
-              >
-                <input
-                  style={
-                    styles.filtroInput
-                  }
-                  placeholder="Filtrar"
-                  value={
-                    filtros.diaPago ||
-                    ""
-                  }
-                  onChange={(e) =>
-                    mudarFiltro(
-                      "diaPago",
-                      e.target.value
-                    )
-                  }
-                />
-              </th>
-
-              <th
-                style={
-                  styles.thFiltro
-                }
-              ></th>
+              <th style={styles.thFiltro}></th>
             </tr>
           </thead>
 
           <tbody>
-            {datasOrdenadas.map(
-              (data) => {
-                const itensDoDia =
-                  grupos[data];
+            {datasOrdenadas.map((data) => {
+              const itensDoDia = grupos[data];
+              const total = totalDoDia(itensDoDia);
 
-                const total =
-                  totalDoDia(
-                    itensDoDia
-                  );
+              return (
+                <React.Fragment key={`grupo-${data}`}>
+                  <tr>
+                    <td colSpan={10} style={styles.linhaData}>
+                      {formatarData(data)} · {itensDoDia.length} serviços ·
+                      Total do dia: {moeda.format(total)}
+                    </td>
+                  </tr>
 
-                return (
-                  <>
-                    <tr
-                      key={`grupo-${data}`}
-                    >
-                      <td
-                        colSpan={
-                          10
-                        }
-                        style={
-                          styles.linhaData
-                        }
-                      >
-                        {formatarData(
-                          data
-                        )}{" "}
-                        ·{" "}
-                        {
-                          itensDoDia.length
-                        }{" "}
-                        serviços ·
-                        Total do dia:{" "}
-                        {moeda.format(
-                          total
-                        )}
-                      </td>
-                    </tr>
+                  {itensDoDia.map((x) => (
+                    <React.Fragment key={x.id}>
+                      <tr>
+                        <td style={styles.td}>
+                          <input
+                            type="checkbox"
+                            checked={selecionados.includes(x.id)}
+                            onChange={() => alternarSelecionado(x.id)}
+                          />
+                        </td>
 
-                    {itensDoDia.map(
-                      (x) => (
-                        <>
-                          <tr
-                            key={
-                              x.id
+                        <td style={styles.td}>{formatarData(x.data)}</td>
+
+                        <td style={styles.td}>{x.cliente}</td>
+
+                        <td
+                          style={{
+                            ...styles.td,
+                            color: "#c4b5fd",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {x.produto || x.servico}
+                        </td>
+
+                        <td
+                          style={{
+                            ...styles.td,
+                            color: "#5ecbff",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {x.placa}
+                        </td>
+
+                        <td style={styles.td}>{x.formaPagamento || "-"}</td>
+
+                        <td
+                          style={{
+                            ...styles.td,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {moeda.format(Number(x.valor || 0))}
+                        </td>
+
+                        <td style={styles.td}>{x.status}</td>
+
+                        <td style={styles.td}>{formatarData(x.diaPago)}</td>
+
+                        <td style={styles.td}>
+                          <button
+                            style={{
+                              background: "#243041",
+                              border: "none",
+                              color: "#fff",
+                              borderRadius: 10,
+                              padding: "5px 8px",
+                              cursor: "pointer",
+                              fontSize: 16,
+                            }}
+                            onClick={() =>
+                              setDetalhesAbertos({
+                                ...detalhesAbertos,
+                                [x.id]: !detalhesAbertos[x.id],
+                              })
                             }
                           >
-                            <td
-                              style={
-                                styles.td
-                              }
+                            ⋮
+                          </button>
+                        </td>
+                      </tr>
+
+                      {detalhesAbertos[x.id] && (
+                        <tr>
+                          <td
+                            colSpan={10}
+                            style={{
+                              background: "#101c33",
+                              padding: 18,
+                            }}
+                          >
+                            <div
+                              style={{
+                                ...styles.detalheGrid,
+                                gridTemplateColumns:
+  "repeat(auto-fit,minmax(140px,1fr))",
+                                gap: 12,
+                              }}
                             >
-                              <input
-                                type="checkbox"
-                                checked={selecionados.includes(
-                                  x.id
+                              <div style={styles.detalheItem}>
+                                <span style={styles.detalheLabel}>Tipo</span>
+                                {x.tipo || "-"}
+                              </div>
+
+                              <div style={styles.detalheItem}>
+                                <span style={styles.detalheLabel}>Placa</span>
+                                {x.placa || "-"}
+                                <BotaoCopiar
+                                  item={x}
+                                  campo="placa"
+                                  label="placa"
+                                />
+                              </div>
+
+                              <div style={styles.detalheItem}>
+                                <span style={styles.detalheLabel}>Renavan</span>
+                                {x.renavan || "-"}
+                                <BotaoCopiar
+                                  item={x}
+                                  campo="renavan"
+                                  label="renavan"
+                                />
+                              </div>
+
+                              <div style={styles.detalheItem}>
+                                <span style={styles.detalheLabel}>Processo</span>
+                                {x.processo || "-"}
+                                <BotaoCopiar
+                                  item={x}
+                                  campo="processo"
+                                  label="processo"
+                                />
+                              </div>
+
+                              <div style={styles.detalheItem}>
+                                <span style={styles.detalheLabel}>Categoria</span>
+                                {x.categoriaPlaca || "-"}
+                              </div>
+
+                              <div
+  style={{
+    ...styles.detalheItem,
+    minWidth: 140,
+  }}
+>
+                                <span style={styles.detalheLabel}>Celular</span>
+                                {x.celular || "-"}
+                                {x.celular && (
+                                  <BotaoCopiar
+                                    item={x}
+                                    campo="celular"
+                                    label="celular"
+                                  />
                                 )}
-                                onChange={() =>
-                                  alternarSelecionado(
-                                    x.id
-                                  )
-                                }
-                              />
-                            </td>
+                              </div>
+                            </div>
 
-                            <td
-                              style={
-                                styles.td
-                              }
-                            >
-                              {formatarData(
-                                x.data
-                              )}
-                            </td>
-
-                            <td
-                              style={
-                                styles.td
-                              }
-                            >
-                              {
-                                x.cliente
-                              }
-                            </td>
-
-                            <td
+                            <div
                               style={{
-                                ...styles.td,
-                                color:
-                                  "#c4b5fd",
-                                fontWeight: 700,
+                                display: "flex",
+                                gap: 10,
+                                marginTop: 18,
+                                flexWrap: "wrap",
                               }}
-                            >
-                              {x.produto ||
-                                x.servico}
-                            </td>
-
-                            <td
-                              style={{
-                                ...styles.td,
-                                color:
-                                  "#5ecbff",
-                                fontWeight: 700,
-                              }}
-                            >
-                              {
-                                x.placa
-                              }
-                            </td>
-
-                            <td
-                              style={
-                                styles.td
-                              }
-                            >
-                              {x.formaPagamento ||
-                                "-"}
-                            </td>
-
-                            <td
-                              style={{
-                                ...styles.td,
-                                fontWeight: 700,
-                              }}
-                            >
-                              {moeda.format(
-                                Number(
-                                  x.valor ||
-                                    0
-                                )
-                              )}
-                            </td>
-
-                            <td
-                              style={
-                                styles.td
-                              }
-                            >
-                              {
-                                x.status
-                              }
-                            </td>
-
-                            <td
-                              style={
-                                styles.td
-                              }
-                            >
-                              {formatarData(
-                                x.diaPago
-                              )}
-                            </td>
-                            
-
-                            <td
-                              style={
-                                styles.td
-                              }
                             >
                               <button
-                                style={{
-                                  background:
-                                    "#243041",
-                                  border:
-                                    "none",
-                                  color:
-                                    "#fff",
-                                  borderRadius: 10,
-                                  padding:
-                                    "5px 8px",
-                                  cursor:
-                                    "pointer",
-                                  fontSize: 16,
-                                }}
-                                onClick={() =>
-                                  setDetalhesAbertos(
-                                    {
-                                      ...detalhesAbertos,
-                                      [x.id]:
-                                        !detalhesAbertos[
-                                          x.id
-                                        ],
-                                    }
-                                  )
+                                style={
+                                  copiados[`tudo-${x.id}`]
+                                    ? styles.copiado
+                                    : styles.botaoPequeno
                                 }
+                                onClick={() => copiarTudo(x)}
                               >
-                                ⋮
+                                {copiados[`tudo-${x.id}`]
+                                  ? "Dados copiados"
+                                  : "Copiar tudo"}
                               </button>
-                            </td>
-                          </tr>
 
-                          {detalhesAbertos[
-                            x.id
-                          ] && (
-                            <tr>
-                              <td
-                                colSpan={
-                                  10
-                                }
-                                style={{
-                                  background:
-                                    "#101c33",
-                                  padding: 18,
-                                }}
+                              <button
+                                style={styles.editar}
+                                onClick={() => editar("entrada", x)}
                               >
-                                <div
-                                  style={
-                                    styles.detalheGrid
-                                  }
-                                >
-                                  <div
-                                    style={
-                                      styles.detalheItem
-                                    }
-                                  >
-                                    <span
-                                      style={
-                                        styles.detalheLabel
-                                      }
-                                    >
-                                      Tipo
-                                    </span>
+                                Editar
+                              </button>
 
-                                    {x.tipo ||
-                                      "-"}
-                                  </div>
-
-                                  <div
-                                    style={
-                                      styles.detalheItem
-                                    }
-                                  >
-                                    <span
-                                      style={
-                                        styles.detalheLabel
-                                      }
-                                    >
-                                      Placa
-                                    </span>
-
-                                    {x.placa}
-
-                                    <BotaoCopiar
-                                      item={
-                                        x
-                                      }
-                                      campo="placa"
-                                      label="placa"
-                                    />
-                                  </div>
-
-                                  <div
-                                    style={
-                                      styles.detalheItem
-                                    }
-                                  >
-                                    <span
-                                      style={
-                                        styles.detalheLabel
-                                      }
-                                    >
-                                      Renavan
-                                    </span>
-
-                                    {x.renavan ||
-                                      "-"}
-
-                                    <BotaoCopiar
-                                      item={
-                                        x
-                                      }
-                                      campo="renavan"
-                                      label="renavan"
-                                    />
-                                  </div>
-
-                                  <div
-                                    style={
-                                      styles.detalheItem
-                                    }
-                                  >
-                                    <span
-                                      style={
-                                        styles.detalheLabel
-                                      }
-                                    >
-                                      Processo
-                                    </span>
-
-                                    {x.processo ||
-                                      "-"}
-
-                                    <BotaoCopiar
-                                      item={
-                                        x
-                                      }
-                                      campo="processo"
-                                      label="processo"
-                                    />
-                                  </div>
-                                </div>
-
-<div
-  style={
-    styles.detalheItem
-  }
->
-  <span
-    style={
-      styles.detalheLabel
-    }
-  >
-    Categoria
-  </span>
-
-  {x.categoriaPlaca || "-"}
-</div>
-
-<div
-  style={
-    styles.detalheItem
-  }
->
-  <span
-    style={
-      styles.detalheLabel
-    }
-  >
-    Celular
-  </span>
-
-  {x.celular || "-"}
-
-  {x.celular && (
-    <BotaoCopiar
-      item={x}
-      campo="celular"
-      label="celular"
-    />
-  )}
-</div>
-<div
-  style={
-    styles.detalheItem
-  }
->
-  <span
-    style={
-      styles.detalheLabel
-    }
-  >
-    Celular
-  </span>
-
-  {x.celular || "-"}
-
-  {x.celular && (
-    <BotaoCopiar
-      item={x}
-      campo="celular"
-      label="celular"
-    />
-  )}
-</div>
-                                <div
-                                  style={{
-                                    display:
-                                      "flex",
-                                    gap: 10,
-                                    marginTop: 18,
-                                    flexWrap:
-                                      "wrap",
-                                  }}
-                                >
-                                  <button
-                                    style={
-                                      copiados[
-                                        `tudo-${x.id}`
-                                      ]
-                                        ? styles.copiado
-                                        : styles.botaoPequeno
-                                    }
-                                    onClick={() =>
-                                      copiarTudo(
-                                        x
-                                      )
-                                    }
-                                  >
-                                    {copiados[
-                                      `tudo-${x.id}`
-                                    ]
-                                      ? "Dados copiados"
-                                      : "Copiar tudo"}
-                                  </button>
-
-                                  <button
-                                    style={
-                                      styles.editar
-                                    }
-                                    onClick={() =>
-                                      editar(
-                                        "entrada",
-                                        x
-                                      )
-                                    }
-                                  >
-                                    Editar
-                                  </button>
-
-                                  <button
-                                    style={
-                                      styles.excluir
-                                    }
-                                    onClick={() =>
-                                      remover(
-                                        "entrada",
-                                        x.id
-                                      )
-                                    }
-                                  >
-                                    Excluir
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </>
-                      )
-                    )}
-                  </>
-                );
-              }
-            )}
+                              <button
+                                style={styles.excluir}
+                                onClick={() => remover("entrada", x.id)}
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

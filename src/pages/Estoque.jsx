@@ -16,7 +16,14 @@ const PRODUTOS_ESTOQUE_PROFISSIONAL = [
   "MOTO PADRÃO",
   "MOTO PRETA",
   "MOTO MINI",
-  "SUPORTE",
+  "SUPORTE TRIÂNGULO MOTO",
+"SUPORTE RESINA MOTO",
+"SUPORTE RESINA CARRO",
+  "RIBBON PRETO",
+"RIBBON VERMELHO",
+"RIBBON BRANCO",
+"RIBBON AZUL",
+"RIBBON VERDE",
 ];
 
 const TIPOS_SIMULACAO = [
@@ -24,17 +31,24 @@ const TIPOS_SIMULACAO = [
   "PAR VEICULAR PRETA",
   "PAR VEICULAR MINI",
   "PAR VEICULAR MINI-MINI",
+
   "MOTO PADRÃO",
   "MOTO PRETA",
   "MOTO MINI",
+
   "REBOQUE PADRÃO",
   "REBOQUE PRETA",
   "REBOQUE MINI",
+
+  "RIBBON CARRO",
+  "RIBBON MOTO",
 ];
 
 export default function Estoque({
   entradas,
   clientes,
+  modoRibbonPadrao,
+setModoRibbonPadrao,
   compraEstoqueForm,
   setCompraEstoqueForm,
   perdaEstoqueForm,
@@ -99,26 +113,47 @@ export default function Estoque({
   }
 
   function calcularConsumoSimulacao(tipo) {
-    const t = normalizar(tipo || "");
+  const t = normalizar(tipo || "");
 
-    if (t.includes("MOTO PRETA")) return { item: "MOTO PRETA", consumo: 1 };
-    if (t.includes("MOTO MINI")) return { item: "MOTO MINI", consumo: 1 };
-    if (t.includes("MOTO")) return { item: "MOTO PADRÃO", consumo: 1 };
+  if (t.includes("RIBBON")) {
+    const ehMoto = t.includes("MOTO");
+    const passadas = modoRibbonPadrao === "2X" ? 2 : 1;
 
-    if (t.includes("PRETA")) {
-      return { item: "VEICULAR PRETA", consumo: t.includes("REBOQUE") ? 1 : 2 };
-    }
+    const tamanhoPlacaMetro = ehMoto ? 0.20 : 0.40;
 
-    if (t.includes("MINI-MINI") || t.includes("MINI MINI") || t.includes("MINIMINI")) {
-      return { item: "VEICULAR MINI-MINI", consumo: t.includes("REBOQUE") ? 1 : 2 };
-    }
-
-    if (t.includes("MINI")) {
-      return { item: "VEICULAR MINI", consumo: t.includes("REBOQUE") ? 1 : 2 };
-    }
-
-    return { item: "VEICULAR PADRÃO", consumo: t.includes("REBOQUE") ? 1 : 2 };
+    return {
+      item: t.includes("VERMELHO")
+        ? "RIBBON VERMELHO"
+        : t.includes("BRANCO")
+        ? "RIBBON BRANCO"
+        : t.includes("AZUL")
+        ? "RIBBON AZUL"
+        : t.includes("VERDE")
+        ? "RIBBON VERDE"
+        : "RIBBON PRETO",
+      consumo: tamanhoPlacaMetro * passadas,
+      unidade: "m",
+    };
   }
+
+  if (t.includes("MOTO PRETA")) return { item: "MOTO PRETA", consumo: 1 };
+  if (t.includes("MOTO MINI")) return { item: "MOTO MINI", consumo: 1 };
+  if (t.includes("MOTO")) return { item: "MOTO PADRÃO", consumo: 1 };
+
+  if (t.includes("PRETA")) {
+    return { item: "VEICULAR PRETA", consumo: t.includes("REBOQUE") ? 1 : 2 };
+  }
+
+  if (t.includes("MINI-MINI") || t.includes("MINI MINI") || t.includes("MINIMINI")) {
+    return { item: "VEICULAR MINI-MINI", consumo: t.includes("REBOQUE") ? 1 : 2 };
+  }
+
+  if (t.includes("MINI")) {
+    return { item: "VEICULAR MINI", consumo: t.includes("REBOQUE") ? 1 : 2 };
+  }
+
+  return { item: "VEICULAR PADRÃO", consumo: t.includes("REBOQUE") ? 1 : 2 };
+}
 
   function salvarCompraEstoque() {
     if (!compraEstoqueForm.produto || !compraEstoqueForm.quantidade) return;
@@ -129,15 +164,17 @@ export default function Estoque({
         ...compraEstoqueForm,
         produto: normalizarProdutoEstoque(compraEstoqueForm.produto),
         quantidade: numero(compraEstoqueForm.quantidade),
+custoTotal: numero(compraEstoqueForm.custoTotal),
       },
       ...old,
     ]);
 
     setCompraEstoqueForm({
-      ...compraEstoqueForm,
-      quantidade: "",
-      observacao: "",
-    });
+  ...compraEstoqueForm,
+  quantidade: "",
+  custoTotal: "",
+  observacao: "",
+});
   }
 
   function salvarPerdaEstoque() {
@@ -175,6 +212,11 @@ export default function Estoque({
       const compras = estoqueCompras
         .filter((item) => normalizarProdutoEstoque(item.produto) === produto)
         .reduce((soma, item) => soma + numero(item.quantidade), 0);
+        const custoTotal = estoqueCompras
+  .filter((item) => normalizarProdutoEstoque(item.produto) === produto)
+  .reduce((soma, item) => soma + numero(item.custoTotal), 0);
+
+const custoMedio = compras > 0 ? custoTotal / compras : 0;
 
       const usadoEmServicos = entradas.reduce((soma, entrada) => {
         const uso = calcularUsoEstoque(entrada.produto);
@@ -193,6 +235,8 @@ export default function Estoque({
         compras,
         usadoEmServicos,
         perdas,
+        custoTotal,
+custoMedio,
         saldo,
         status: saldo <= 0 ? "CRÍTICO" : saldo <= 10 ? "BAIXO" : "OK",
       };
@@ -227,6 +271,13 @@ export default function Estoque({
   const quantidadePossivel = Math.floor(saldoDisponivel / regraSimulacao.consumo);
   const precoVenda = numero(simulacao.precoVenda);
   const faturamentoProjetado = quantidadePossivel * precoVenda;
+  const custoMedioSimulado = itemSimulado?.custoMedio || 0;
+
+const custoProjetado =
+  quantidadePossivel * regraSimulacao.consumo * custoMedioSimulado;
+
+const lucroProjetado =
+  faturamentoProjetado - custoProjetado;
 
   const totalCompras = estoqueResumo.reduce((soma, item) => soma + item.compras, 0);
   const totalUsado = estoqueResumo.reduce((soma, item) => soma + item.usadoEmServicos, 0);
@@ -250,7 +301,45 @@ export default function Estoque({
         <Kpi titulo="Itens críticos" valor={itensCriticos} />
         <Kpi titulo="Estoque baixo" valor={itensBaixos} />
       </div>
+<Card titulo="Configuração industrial do ribbon">
+  <div
+    style={{
+      display: "flex",
+      gap: 12,
+      flexWrap: "wrap",
+      alignItems: "center",
+    }}
+  >
+    <button
+      style={{
+        ...styles.botao,
+        opacity: modoRibbonPadrao === "1X" ? 1 : 0.6,
+      }}
+      onClick={() => setModoRibbonPadrao("1X")}
+    >
+      Ribbon padrão 1X
+    </button>
 
+    <button
+      style={{
+        ...styles.botao,
+        opacity: modoRibbonPadrao === "2X" ? 1 : 0.6,
+      }}
+      onClick={() => setModoRibbonPadrao("2X")}
+    >
+      Ribbon padrão 2X
+    </button>
+
+    <div
+      style={{
+        fontWeight: 700,
+        color: "#fff",
+      }}
+    >
+      Modo atual: {modoRibbonPadrao}
+    </div>
+  </div>
+</Card>
       <Card titulo="Projeção de faturamento pelo estoque disponível">
   <div style={styles.formGrid}>
     <Select
@@ -269,12 +358,14 @@ export default function Estoque({
   <Tabela
     colunas={[
       "Serviço",
-      "Produto físico",
-      "Consumo",
-      "Saldo disponível",
-      "Qtd possível",
-      "Preço",
-      "Faturamento projetado",
+"Produto físico",
+"Consumo",
+"Saldo disponível",
+"Qtd possível",
+"Preço",
+"Custo projetado",
+"Lucro projetado",
+"Faturamento projetado",
     ]}
     dados={TIPOS_SIMULACAO.map((tipoServico) => {
       const clienteSelecionado = clientes.find(
@@ -313,28 +404,61 @@ export default function Estoque({
 let preco = 0;
 
 if (clienteSelecionado) {
+
+  // RIBBONS
+  if (tipo.includes("RIBBON")) {
+
+    if (tipo.includes("RIBBON")) {
+
   if (tipo.includes("MOTO")) {
     preco = lerPreco(clienteSelecionado.precoMoto);
-  } else if (tipo.includes("REBOQUE")) {
-    preco = lerPreco(clienteSelecionado.precoReboque);
-  } else if (tipo.includes("PRETA")) {
-    preco = lerPreco(clienteSelecionado.precoPlacaPreta);
-  } else if (tipo.includes("MINI")) {
-    preco = lerPreco(clienteSelecionado.precoMini);
   } else {
     preco = lerPreco(clienteSelecionado.precoParVeicular);
   }
+
 }
 
+  }
+
+  // MOTO
+  else if (tipo.includes("MOTO")) {
+    preco = lerPreco(clienteSelecionado.precoMoto);
+  }
+
+  // REBOQUE
+  else if (tipo.includes("REBOQUE")) {
+    preco = lerPreco(clienteSelecionado.precoReboque);
+  }
+
+  // PRETA
+  else if (tipo.includes("PRETA")) {
+    preco = lerPreco(clienteSelecionado.precoPlacaPreta);
+  }
+
+  // MINI
+  else if (tipo.includes("MINI")) {
+    preco = lerPreco(clienteSelecionado.precoMini);
+  }
+
+  // PADRÃO
+  else {
+    preco = lerPreco(clienteSelecionado.precoParVeicular);
+  }
+}
       return [
-        tipoServico,
-        regra.item,
-        regra.consumo,
-        saldo,
-        Math.max(qtdPossivel, 0),
-        moeda.format(preco),
-        moeda.format(Math.max(qtdPossivel, 0) * preco),
-      ];
+  tipoServico,
+  regra.item,
+  regra.consumo,
+  saldo,
+  Math.max(qtdPossivel, 0),
+  moeda.format(preco),
+  moeda.format(Math.max(qtdPossivel, 0) * regra.consumo * (itemEstoque?.custoMedio || 0)),
+  moeda.format(
+    Math.max(qtdPossivel, 0) * preco -
+      Math.max(qtdPossivel, 0) * regra.consumo * (itemEstoque?.custoMedio || 0)
+  ),
+  moeda.format(Math.max(qtdPossivel, 0) * preco),
+];
     })}
   />
 </Card>
@@ -342,21 +466,25 @@ if (clienteSelecionado) {
       <Card titulo="Resumo profissional do estoque">
         <Tabela
           colunas={[
-            "Produto físico",
-            "Compras",
-            "Usado em serviços",
-            "Perdas/erros",
-            "Saldo atual",
-            "Status",
-          ]}
+  "Produto físico",
+  "Compras",
+  "Custo total",
+  "Custo médio",
+  "Usado em serviços",
+  "Perdas/erros",
+  "Saldo atual",
+  "Status",
+]}
           dados={estoqueResumo.map((item) => [
-            item.produto,
-            item.compras,
-            item.usadoEmServicos,
-            item.perdas,
-            item.saldo,
-            item.status,
-          ])}
+  item.produto,
+  item.compras,
+  moeda.format(item.custoTotal || 0),
+  moeda.format(item.custoMedio || 0),
+  item.usadoEmServicos,
+  item.perdas,
+  item.saldo,
+  item.status,
+])}
         />
       </Card>
 
@@ -385,6 +513,18 @@ if (clienteSelecionado) {
                 setCompraEstoqueForm({ ...compraEstoqueForm, quantidade: v })
               }
             />
+
+            <Campo
+  label="Custo total da compra"
+  tipo="number"
+  valor={compraEstoqueForm.custoTotal}
+  mudar={(v) =>
+    setCompraEstoqueForm({
+      ...compraEstoqueForm,
+      custoTotal: v,
+    })
+  }
+/>
 
             <Campo
               label="Observação"

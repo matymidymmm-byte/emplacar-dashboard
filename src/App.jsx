@@ -305,6 +305,7 @@ function calcularFimMesFinanceiro() {
 const [fimMes, setFimMes] = useState(hoje);
 
 const [metaMensal, setMetaMensal] = useState(80000);
+const [modoRibbonPadrao, setModoRibbonPadrao] = useState("2X");
 const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
 
   const [textoImportacao, setTextoImportacao] = useState("");
@@ -373,6 +374,9 @@ codigoConvite: "",
 setMetaMensal(
   Number(dados.metaMensal || 80000)
 );
+setModoRibbonPadrao(
+  dados.modoRibbonPadrao || "2X"
+);
 
 setInicioPeriodoSalvo(
   dados.inicioPeriodoSalvo || ""
@@ -437,6 +441,7 @@ pix: "",
 codigoConvite: "",
           
           metaMensal: 80000,
+modoRibbonPadrao: "2X",
 inicioPeriodoSalvo: "",
         });
       }
@@ -764,6 +769,13 @@ useEffect(() => {
   );
 }, [metaMensal]);
 
+useEffect(() => {
+  salvarNaNuvem(
+    "modoRibbonPadrao",
+    modoRibbonPadrao
+  );
+}, [modoRibbonPadrao]);
+
   useEffect(() => {
   if (!nuvemCarregada) return;
 
@@ -925,26 +937,37 @@ saidaGeradaId: "",
     status: "Pendente",
   };
 
- const clienteVazio = {
+const clienteVazio = {
   nome: "",
   tipoCliente: "",
+
   precoParVeicular: "",
   precoMoto: "",
   precoReboque: "",
   precoPlacaPreta: "",
   precoMini: "",
+
+  precoSuporteTriangulo: "",
+  precoSuporteResinaMoto: "",
+  precoSuporteResinaCarro: "",
+
+  precoRibbonCarro1x: "",
+  precoRibbonCarro2x: "",
+  precoRibbonMoto1x: "",
+  precoRibbonMoto2x: "",
+
   telefone: "",
   email: "",
   observacao: "",
 };
 
   const compraEstoqueVazia = {
-    data: hoje,
-    produto: "Placa Carro",
-    quantidade: "",
-    observacao: "",
-  };
-
+  data: hoje,
+  produto: "Placa Carro",
+  quantidade: "",
+  custoTotal: "",
+  observacao: "",
+};
   const perdaEstoqueVazia = {
     data: hoje,
     produto: "Placa Carro",
@@ -1957,6 +1980,8 @@ setDiaInicioMesFinanceiro,
     setFimMes,
     metaMensal,
     setMetaMensal,
+    modoRibbonPadrao,
+setModoRibbonPadrao,
     moeda,
     formasPagamento,
     produtosEstoque,

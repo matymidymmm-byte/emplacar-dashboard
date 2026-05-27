@@ -51,83 +51,91 @@ export default function Clientes({
 
     window.open(`https://wa.me/${telefone}?text=${mensagem}`, "_blank");
   }
+
   function sincronizarClientesPelasEntradas() {
-  const clientesAtualizados = [...clientes];
+    const clientesAtualizados = [...clientes];
 
-  entradas.forEach((entrada) => {
-    const nomeCliente = String(
-      entrada.cliente || ""
-    ).trim();
+    entradas.forEach((entrada) => {
+      const nomeCliente = String(entrada.cliente || "").trim();
 
-    if (!nomeCliente) return;
+      if (!nomeCliente) return;
 
-    const clienteExistente =
-      clientesAtualizados.find(
-        (c) =>
-          normalizar(c.nome) ===
-          normalizar(nomeCliente)
+      const clienteExistente = clientesAtualizados.find(
+        (c) => normalizar(c.nome) === normalizar(nomeCliente)
       );
 
-    if (clienteExistente) {
-      clienteExistente.tipoCliente =
-        entrada.tipo ||
-        clienteExistente.tipoCliente ||
-        "";
+      if (clienteExistente) {
+        clienteExistente.tipoCliente =
+          entrada.tipo || clienteExistente.tipoCliente || "";
 
-      clienteExistente.telefone =
-        entrada.celular ||
-        clienteExistente.telefone ||
-        "";
-    } else {
-      clientesAtualizados.push({
-        id: Date.now() + Math.random(),
-        nome: nomeCliente,
-        tipoCliente: entrada.tipo || "",
-        precoParVeicular: "",
-        precoMoto: "",
-        precoReboque: "",
-        precoPlacaPreta: "",
-        precoMini: "",
-        telefone: entrada.celular || "",
-        email: "",
-        observacao:
-          "Cliente sincronizado pelas entradas",
-      });
-    }
-  });
+        clienteExistente.telefone =
+          entrada.celular || clienteExistente.telefone || "";
+      } else {
+        clientesAtualizados.push({
+          id: Date.now() + Math.random(),
+          nome: nomeCliente,
+          tipoCliente: entrada.tipo || "",
 
-  setClientes(clientesAtualizados);
+          precoParVeicular: "",
+          precoMoto: "",
+          precoReboque: "",
+          precoPlacaPreta: "",
+          precoMini: "",
 
-  alert(
-    "Clientes sincronizados pelas entradas com sucesso."
-  );
-}
+          precoSuporteTriangulo: "",
+          precoSuporteResinaMoto: "",
+          precoSuporteResinaCarro: "",
+
+          
+
+          telefone: entrada.celular || "",
+          email: "",
+          observacao: "Cliente sincronizado pelas entradas",
+        });
+      }
+    });
+
+    setClientes(clientesAtualizados);
+
+    alert("Clientes sincronizados pelas entradas com sucesso.");
+  }
+
+  function formatarPreco(valor) {
+    if (!valor) return "-";
+
+    return `R$ ${Number(valor || 0).toFixed(2)}`;
+  }
 
   return (
     <>
       <div style={styles.resumoFiltro}>
         <span>
           <strong>Clientes cadastrados:</strong> {clientes.length}
+
           <button
-  style={{
-    background: "#1e293b",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "6px 12px",
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
-    marginLeft: 10,
-  }}
-  onClick={sincronizarClientesPelasEntradas}
->
-  Sincronizar CRM
-</button>
+            style={{
+              background: "#1e293b",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              marginLeft: 10,
+            }}
+            onClick={sincronizarClientesPelasEntradas}
+          >
+            Sincronizar CRM
+          </button>
         </span>
       </div>
 
-      <Card titulo={editando.tipo === "cliente" ? "Editando cliente" : "Cadastrar cliente"}>
+      <Card
+        titulo={
+          editando.tipo === "cliente" ? "Editando cliente" : "Cadastrar cliente"
+        }
+      >
         <div style={styles.formGrid}>
           <Campo
             label="Nome"
@@ -145,7 +153,9 @@ export default function Clientes({
             label="Preço par veicular"
             tipo="number"
             valor={clienteForm.precoParVeicular}
-            mudar={(v) => setClienteForm({ ...clienteForm, precoParVeicular: v })}
+            mudar={(v) =>
+              setClienteForm({ ...clienteForm, precoParVeicular: v })
+            }
           />
 
           <Campo
@@ -166,7 +176,9 @@ export default function Clientes({
             label="Preço placa preta"
             tipo="number"
             valor={clienteForm.precoPlacaPreta}
-            mudar={(v) => setClienteForm({ ...clienteForm, precoPlacaPreta: v })}
+            mudar={(v) =>
+              setClienteForm({ ...clienteForm, precoPlacaPreta: v })
+            }
           />
 
           <Campo
@@ -176,6 +188,34 @@ export default function Clientes({
             mudar={(v) => setClienteForm({ ...clienteForm, precoMini: v })}
           />
 
+          <Campo
+            label="Suporte triângulo moto"
+            tipo="number"
+            valor={clienteForm.precoSuporteTriangulo}
+            mudar={(v) =>
+              setClienteForm({ ...clienteForm, precoSuporteTriangulo: v })
+            }
+          />
+
+          <Campo
+            label="Suporte resina moto"
+            tipo="number"
+            valor={clienteForm.precoSuporteResinaMoto}
+            mudar={(v) =>
+              setClienteForm({ ...clienteForm, precoSuporteResinaMoto: v })
+            }
+          />
+
+          <Campo
+            label="Suporte resina carro"
+            tipo="number"
+            valor={clienteForm.precoSuporteResinaCarro}
+            mudar={(v) =>
+              setClienteForm({ ...clienteForm, precoSuporteResinaCarro: v })
+            }
+          />
+
+          
           <Campo
             label="Telefone"
             valor={clienteForm.telefone}
@@ -193,7 +233,7 @@ export default function Clientes({
             valor={clienteForm.observacao}
             mudar={(v) => setClienteForm({ ...clienteForm, observacao: v })}
           />
-     
+
           <button style={styles.botao} onClick={salvarCliente}>
             {editando.tipo === "cliente" ? "Salvar edição" : "Adicionar"}
           </button>
@@ -214,6 +254,7 @@ export default function Clientes({
             "Reboque",
             "Preta",
             "Mini",
+            
             "Telefone",
             "WhatsApp",
             "Ações",
@@ -221,37 +262,32 @@ export default function Clientes({
           dados={clientes.map((cliente) => [
             cliente.nome,
             cliente.tipoCliente,
-            cliente.precoParVeicular
-  ? `R$ ${Number(cliente.precoParVeicular).toFixed(2)}`
-  : "-",
-
-cliente.precoMoto
-  ? `R$ ${Number(cliente.precoMoto).toFixed(2)}`
-  : "-",
-
-cliente.precoReboque
-  ? `R$ ${Number(cliente.precoReboque).toFixed(2)}`
-  : "-",
-
-cliente.precoPlacaPreta
-  ? `R$ ${Number(cliente.precoPlacaPreta).toFixed(2)}`
-  : "-",
-
-cliente.precoMini
-  ? `R$ ${Number(cliente.precoMini).toFixed(2)}`
-  : "-",
+            formatarPreco(cliente.precoParVeicular),
+            formatarPreco(cliente.precoMoto),
+            formatarPreco(cliente.precoReboque),
+            formatarPreco(cliente.precoPlacaPreta),
+            formatarPreco(cliente.precoMini),
             
             cliente.telefone,
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button style={styles.copiar} onClick={() => abrirWhatsApp(cliente, "atendimento")}>
+              <button
+                style={styles.copiar}
+                onClick={() => abrirWhatsApp(cliente, "atendimento")}
+              >
                 Atendimento
               </button>
 
-              <button style={styles.detalhes} onClick={() => abrirWhatsApp(cliente, "placaPronta")}>
+              <button
+                style={styles.detalhes}
+                onClick={() => abrirWhatsApp(cliente, "placaPronta")}
+              >
                 Placa pronta
               </button>
 
-              <button style={styles.excluir} onClick={() => abrirWhatsApp(cliente, "cobranca")}>
+              <button
+                style={styles.excluir}
+                onClick={() => abrirWhatsApp(cliente, "cobranca")}
+              >
                 Cobrança
               </button>
             </div>,
