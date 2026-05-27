@@ -164,6 +164,8 @@ setModoRibbonPadrao,
         ...compraEstoqueForm,
         produto: normalizarProdutoEstoque(compraEstoqueForm.produto),
         quantidade: numero(compraEstoqueForm.quantidade),
+larguraRibbon: compraEstoqueForm.larguraRibbon || "",
+metragemRibbon: compraEstoqueForm.metragemRibbon || "",
 custoTotal: numero(compraEstoqueForm.custoTotal),
       },
       ...old,
@@ -171,7 +173,12 @@ custoTotal: numero(compraEstoqueForm.custoTotal),
 
     setCompraEstoqueForm({
   ...compraEstoqueForm,
+
   quantidade: "",
+
+  larguraRibbon: "",
+  metragemRibbon: "",
+
   custoTotal: "",
   observacao: "",
 });
@@ -513,6 +520,35 @@ if (clienteSelecionado) {
                 setCompraEstoqueForm({ ...compraEstoqueForm, quantidade: v })
               }
             />
+{String(compraEstoqueForm.produto || "")
+  .toUpperCase()
+  .includes("RIBBON") && (
+  <>
+    <Campo
+      label="Largura do ribbon (mm)"
+      tipo="number"
+      valor={compraEstoqueForm.larguraRibbon}
+      mudar={(v) =>
+        setCompraEstoqueForm({
+          ...compraEstoqueForm,
+          larguraRibbon: v,
+        })
+      }
+    />
+
+    <Campo
+      label="Metragem do rolo (m)"
+      tipo="number"
+      valor={compraEstoqueForm.metragemRibbon}
+      mudar={(v) =>
+        setCompraEstoqueForm({
+          ...compraEstoqueForm,
+          metragemRibbon: v,
+        })
+      }
+    />
+  </>
+)}
 
             <Campo
   label="Custo total da compra"
@@ -564,6 +600,7 @@ if (clienteSelecionado) {
                 setPerdaEstoqueForm({ ...perdaEstoqueForm, quantidade: v })
               }
             />
+            
 
             <Campo
               label="Motivo"
@@ -584,7 +621,9 @@ if (clienteSelecionado) {
             colunas={[
   "Data",
   "Produto",
-  "Quantidade",
+  "Qtd",
+  "Largura",
+  "Metragem",
   "Custo total",
   "Custo médio",
   "Observação",
@@ -593,11 +632,19 @@ if (clienteSelecionado) {
             dados={estoqueCompras.map((item) => [
   item.data,
 
-  normalizarProdutoEstoque(item.produto),
+normalizarProdutoEstoque(item.produto),
 
-  item.quantidade,
+item.quantidade,
 
-  moeda.format(item.custoTotal || 0),
+item.larguraRibbon
+  ? `${item.larguraRibbon} mm`
+  : "-",
+
+item.metragemRibbon
+  ? `${item.metragemRibbon} m`
+  : "-",
+
+moeda.format(item.custoTotal || 0),
 
   moeda.format(
     (item.custoTotal || 0) /
