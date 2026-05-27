@@ -581,12 +581,32 @@ if (clienteSelecionado) {
       <div style={styles.grid2}>
         <Card titulo="Histórico de compras">
           <Tabela
-            colunas={["Data", "Produto", "Quantidade", "Observação", "Ações"]}
+            colunas={[
+  "Data",
+  "Produto",
+  "Quantidade",
+  "Custo total",
+  "Custo médio",
+  "Observação",
+  "Ações",
+]}
             dados={estoqueCompras.map((item) => [
-              item.data,
-              normalizarProdutoEstoque(item.produto),
-              item.quantidade,
-              item.observacao,
+  item.data,
+
+  normalizarProdutoEstoque(item.produto),
+
+  item.quantidade,
+
+  moeda.format(item.custoTotal || 0),
+
+  moeda.format(
+    (item.custoTotal || 0) /
+      ((item.quantidade || 1) === 0
+        ? 1
+        : item.quantidade || 1)
+  ),
+
+  item.observacao,
               <button
                 style={styles.excluir}
                 onClick={() => removerMovimentoEstoque("compra", item.id)}
