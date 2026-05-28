@@ -1,8 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Card from "../components/Card.jsx";
 import Campo from "../components/Campo.jsx";
@@ -29,45 +25,34 @@ export default function Entradas({
   destinoDinheiro,
 
   editar,
-remover,
-inicioMes,
-fimMes,
+  remover,
+  inicioMes,
+  fimMes,
 }) {
   const formRef = useRef(null);
+  const scrollAnteriorRef = useRef(0);
 
-  const scrollAnteriorRef =
-    useRef(0);
-    const [modoVisualizacao, setModoVisualizacao] =
-  useState("periodo");
-  const entradasVisiveis = entradas.filter(
-  (entrada) => {
+  const [modoVisualizacao, setModoVisualizacao] = useState("periodo");
+
+  const entradasVisiveis = entradas.filter((entrada) => {
     if (!entrada.data) return false;
 
     if (modoVisualizacao === "todos") {
       return true;
     }
 
-    return (
-      entrada.data >= inicioMes &&
-      entrada.data <= fimMes
-    );
-  }
-);
+    return entrada.data >= inicioMes && entrada.data <= fimMes;
+  });
 
   useEffect(() => {
-    if (
-      editando.tipo === "entrada"
-    ) {
-      scrollAnteriorRef.current =
-        window.scrollY;
+    if (editando.tipo === "entrada") {
+      scrollAnteriorRef.current = window.scrollY;
 
       setTimeout(() => {
-        formRef.current?.scrollIntoView(
-          {
-            behavior: "smooth",
-            block: "start",
-          }
-        );
+        formRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       }, 120);
     }
   }, [editando]);
@@ -95,85 +80,66 @@ fimMes,
   }
 
   const total = entradasVisiveis.reduce(
-    (soma, entrada) =>
-      soma + entrada.valor,
+    (soma, entrada) => soma + Number(entrada.valor || 0),
     0
   );
 
   const media =
-  entradasVisiveis.length > 0
-    ? total / entradasVisiveis.length
-    : 0;
+    entradasVisiveis.length > 0 ? total / entradasVisiveis.length : 0;
 
-  const recebidas =
-  entradasVisiveis.filter(
-      (entrada) =>
-        entrada.diaPago
-    ).length;
+  const recebidas = entradasVisiveis.filter((entrada) => entrada.diaPago).length;
 
   return (
     <>
       <div style={styles.resumoFiltro}>
         <span>
-          <strong>Entradas:</strong>{" "}
-          {entradasVisiveis.length}
+          <strong>Entradas:</strong> {entradasVisiveis.length}
         </span>
 
         <span>
-          <strong>Total:</strong>{" "}
-          {moeda.format(total)}
+          <strong>Total:</strong> {moeda.format(total)}
         </span>
 
         <span>
-          <strong>Média:</strong>{" "}
-          {moeda.format(media)}
+          <strong>Média:</strong> {moeda.format(media)}
         </span>
 
         <span>
-          <strong>Recebidas:</strong>{" "}
-          {recebidas}
+          <strong>Recebidas:</strong> {recebidas}
         </span>
       </div>
-      <div style={styles.acoes}>
-  <button
-    style={
-      modoVisualizacao === "periodo"
-        ? styles.botao
-        : styles.botaoCinza
-    }
-    onClick={() => setModoVisualizacao("periodo")}
-  >
-    Período atual
-  </button>
 
-  <button
-    style={
-      modoVisualizacao === "todos"
-        ? styles.botao
-        : styles.botaoCinza
-    }
-    onClick={() => setModoVisualizacao("todos")}
-  >
-    Ver tudo
-  </button>
-</div>
+      <div style={styles.acoes}>
+        <button
+          style={
+            modoVisualizacao === "periodo" ? styles.botao : styles.botaoCinza
+          }
+          onClick={() => setModoVisualizacao("periodo")}
+        >
+          Período atual
+        </button>
+
+        <button
+          style={
+            modoVisualizacao === "todos" ? styles.botao : styles.botaoCinza
+          }
+          onClick={() => setModoVisualizacao("todos")}
+        >
+          Ver tudo
+        </button>
+      </div>
 
       <div ref={formRef}>
         <Card
           titulo={
-            editando.tipo ===
-            "entrada"
-              ? "Editando entrada"
-              : "Lançar entrada"
+            editando.tipo === "entrada" ? "Editando entrada" : "Lançar entrada"
           }
         >
           <div style={styles.formGrid}>
             <Campo
               label="Data"
               tipo="date"
-              valor={
-                entradaForm.data
-              }
+              valor={entradaForm.data}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
@@ -184,9 +150,7 @@ fimMes,
 
             <Campo
               label="Tipo"
-              valor={
-                entradaForm.tipo
-              }
+              valor={entradaForm.tipo}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
@@ -197,29 +161,20 @@ fimMes,
 
             <Select
               label="Cliente"
-              valor={
-                entradaForm.cliente
-              }
+              valor={entradaForm.cliente}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
                   cliente: v,
                 })
               }
-              opcoes={[
-                "",
-                ...clientes.map(
-                  (c) => c.nome
-                ),
-              ]}
+              opcoes={["", ...clientes.map((c) => c.nome)]}
               placeholder="Cliente"
             />
 
             <Campo
               label="Produto"
-              valor={
-                entradaForm.produto
-              }
+              valor={entradaForm.produto}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
@@ -230,23 +185,18 @@ fimMes,
 
             <Campo
               label="Placa"
-              valor={
-                entradaForm.placa
-              }
+              valor={entradaForm.placa}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
-                  placa:
-                    v.toUpperCase(),
+                  placa: v.toUpperCase(),
                 })
               }
             />
 
             <Campo
               label="Renavan"
-              valor={
-                entradaForm.renavan
-              }
+              valor={entradaForm.renavan}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
@@ -257,27 +207,20 @@ fimMes,
 
             <Select
               label="Forma de pagamento"
-              valor={
-                entradaForm.formaPagamento
-              }
+              valor={entradaForm.formaPagamento}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
-                  formaPagamento:
-                    v,
+                  formaPagamento: v,
                 })
               }
-              opcoes={
-                formasPagamento
-              }
+              opcoes={formasPagamento}
             />
 
             <Campo
               label="Valor"
               tipo="number"
-              valor={
-                entradaForm.valor
-              }
+              valor={entradaForm.valor}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
@@ -288,27 +231,19 @@ fimMes,
 
             <Select
               label="Status"
-              valor={
-                entradaForm.status
-              }
+              valor={entradaForm.status}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
                   status: v,
                 })
               }
-              opcoes={[
-                "Pago",
-                "Pendente",
-                "Atrasado",
-              ]}
+              opcoes={["Pago", "Pendente", "Atrasado"]}
             />
 
             <Campo
               label="Processo"
-              valor={
-                entradaForm.processo
-              }
+              valor={entradaForm.processo}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
@@ -320,10 +255,7 @@ fimMes,
             <Campo
               label="Dia pago"
               tipo="date"
-              valor={
-                entradaForm.diaPago ||
-                ""
-              }
+              valor={entradaForm.diaPago || ""}
               mudar={(v) =>
                 setEntradaForm({
                   ...entradaForm,
@@ -331,73 +263,76 @@ fimMes,
                 })
               }
             />
-<Select
-  label="Categoria"
-  valor={entradaForm.categoriaPlaca}
-  mudar={(v) =>
-    setEntradaForm({
-      ...entradaForm,
-      categoriaPlaca: v,
-    })
-  }
-  opcoes={[
-    "PARTICULAR",
-    "ALUGUEL",
-    "OFICIAL",
-    "COLEÇÃO",
-    "ESPECIAL",
-    "DIPLOMÁTICO",
-  ]}
-/>
-            <Campo
-  label="Celular"
-  valor={entradaForm.celular || ""}
-  mudar={(v) =>
-    setEntradaForm({
-      ...entradaForm,
-      celular: v,
-    })
-  }
-/>
 
-            <button
-              style={
-                styles.botao
+            <Select
+              label="Categoria"
+              valor={entradaForm.categoriaPlaca}
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  categoriaPlaca: v,
+                })
               }
-              onClick={
-                salvarComRetorno
+              opcoes={[
+                "PARTICULAR",
+                "ALUGUEL",
+                "OFICIAL",
+                "COLEÇÃO",
+                "ESPECIAL",
+                "DIPLOMÁTICO",
+              ]}
+            />
+
+            <Campo
+              label="Celular"
+              valor={entradaForm.celular || ""}
+              mudar={(v) =>
+                setEntradaForm({
+                  ...entradaForm,
+                  celular: v,
+                })
               }
-            >
-              {editando.tipo ===
-              "entrada"
-                ? "Salvar edição"
-                : "Adicionar"}
+            />
+
+            <label style={styles.label}>
+              Observação
+              <textarea
+                value={entradaForm.observacao || ""}
+                onChange={(e) =>
+                  setEntradaForm({
+                    ...entradaForm,
+                    observacao: e.target.value,
+                  })
+                }
+                placeholder="Ex: cliente pediu urgência, detalhe do pagamento, informação interna..."
+                style={{
+                  ...styles.textarea,
+                  minHeight: 74,
+                  resize: "vertical",
+                }}
+              />
+            </label>
+
+            <button style={styles.botao} onClick={salvarComRetorno}>
+              {editando.tipo === "entrada" ? "Salvar edição" : "Adicionar"}
             </button>
 
-            {editando.tipo ===
-              "entrada" && (
-              <button
-                style={
-                  styles.botaoCinza
-                }
-                onClick={
-                  cancelarComRetorno
-                }
-              >
+            {editando.tipo === "entrada" && (
+              <button style={styles.botaoCinza} onClick={cancelarComRetorno}>
                 Cancelar
               </button>
             )}
           </div>
 
           <TabelaEntradas
-  entradas={entradasVisiveis}
-  setEntradas={setEntradas}
-  moeda={moeda}
-  destinoDinheiro={destinoDinheiro}
-  editar={editar}
-  remover={remover}
-  formasPagamento={formasPagamento}
-/>
+            entradas={entradasVisiveis}
+            setEntradas={setEntradas}
+            moeda={moeda}
+            destinoDinheiro={destinoDinheiro}
+            editar={editar}
+            remover={remover}
+            formasPagamento={formasPagamento}
+          />
         </Card>
       </div>
     </>

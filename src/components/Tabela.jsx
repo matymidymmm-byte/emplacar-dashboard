@@ -5,27 +5,38 @@ import styles from "../styles/styles.js";
 export default function Tabela({ colunas, dados, aoFiltrar }) {
   const [filtros, setFiltros] = useState({});
 
+  function ehComponenteReact(celula) {
+    return typeof celula === "object" && celula !== null;
+  }
+
+  function textoFiltro(celula) {
+    if (ehComponenteReact(celula)) return "";
+
+    return String(celula || "").toLowerCase();
+  }
+
   const dadosFiltrados = useMemo(() => {
-    
     return dados.filter((linha) =>
       linha.every((celula, index) => {
         const filtro = filtros[index] || "";
 
         if (!filtro) return true;
 
-        if (typeof celula === "object" && celula !== null) {
+        if (ehComponenteReact(celula)) {
           return true;
         }
 
-        return String(celula).toLowerCase().includes(filtro.toLowerCase());
+        return textoFiltro(celula).includes(filtro.toLowerCase());
       })
     );
   }, [dados, filtros]);
-useEffect(() => {
-  if (aoFiltrar) {
-    aoFiltrar(dadosFiltrados);
-  }
-}, [dadosFiltrados]);
+
+  useEffect(() => {
+    if (aoFiltrar) {
+      aoFiltrar(dadosFiltrados);
+    }
+  }, [dadosFiltrados, aoFiltrar]);
+
   return (
     <div style={styles.tabelaContainer}>
       <div
@@ -78,23 +89,40 @@ useEffect(() => {
                 </td>
               </tr>
             ) : (
-              dadosFiltrados.map((linha, index) => (
-                <tr key={index}>
-                  {linha.map((celula, i) => (
-                    <td
-                      key={i}
-                      style={{
-                        ...styles.td,
-                        maxWidth: i === linha.length - 1 ? 260 : 220,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {celula}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              dadosFiltrados.map((linha, index) => {
+                const temObservacaoVisual = linha.some((celula) => {
+                  if (!ehComponenteReact(celula)) return false;
+
+                  const titulo = celula?.props?.title || "";
+                  return String(titulo).toLowerCase().includes("observação:");
+                });
+
+                return (
+                  <tr
+                    key={index}
+                    style={{
+                      boxShadow: temObservacaoVisual
+                        ? "inset 3px 0 0 #facc15"
+                        : "none",
+                    }}
+                  >
+                    {linha.map((celula, i) => (
+                      <td
+                        key={i}
+                        style={{
+                          ...styles.td,
+                          maxWidth: i === linha.length - 1 ? 260 : 220,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        {celula}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

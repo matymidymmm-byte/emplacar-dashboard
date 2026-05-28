@@ -94,6 +94,60 @@ export default function Saidas({
     return data.toISOString().slice(0, 10);
   }
 
+  function temObservacao(item) {
+    return String(item?.observacao || "").trim().length > 0;
+  }
+
+  function BotaoObservacao({ saida }) {
+    const possuiObservacao = temObservacao(saida);
+
+    return (
+      <button
+        title={
+          possuiObservacao
+            ? `Observação: ${saida.observacao}`
+            : "Sem observação"
+        }
+        onClick={() => {
+          if (possuiObservacao) {
+            alert(saida.observacao);
+          }
+        }}
+        style={{
+          position: "relative",
+          background: possuiObservacao ? "#1d4ed8" : "#243041",
+          border: possuiObservacao ? "1px solid #60a5fa" : "none",
+          color: "#fff",
+          borderRadius: 10,
+          padding: "5px 8px",
+          cursor: possuiObservacao ? "pointer" : "default",
+          fontSize: 16,
+          opacity: possuiObservacao ? 1 : 0.45,
+          boxShadow: possuiObservacao
+            ? "0 0 0 2px rgba(96,165,250,0.18)"
+            : "none",
+        }}
+      >
+        💬
+
+        {possuiObservacao && (
+          <span
+            style={{
+              position: "absolute",
+              top: -4,
+              right: -4,
+              width: 9,
+              height: 9,
+              background: "#facc15",
+              borderRadius: "50%",
+              border: "1px solid #0f172a",
+            }}
+          />
+        )}
+      </button>
+    );
+  }
+
   const saidasVisiveis = saidas.filter((saida) => {
     if (!saida.data) return false;
 
@@ -106,37 +160,32 @@ export default function Saidas({
     return saida.data >= inicioMes && saida.data <= fimMes;
   });
 
-  const total = saidasVisiveis.reduce(
-    (soma, saida) => soma + Number(saida.valor || 0),
-    0
-  );
-
-  const media =
-    saidasVisiveis.length > 0 ? total / saidasVisiveis.length : 0;
-
   const saidasOrdenadas = [...saidasVisiveis].sort((a, b) => {
     if (!a.data) return 1;
     if (!b.data) return -1;
 
     return new Date(b.data) - new Date(a.data);
   });
+
   const dadosParaResumo =
-  dadosFiltrados.length > 0 ? dadosFiltrados : saidasOrdenadas;
+    dadosFiltrados.length > 0 ? dadosFiltrados : saidasOrdenadas;
 
-const totalFiltrado = dadosParaResumo.reduce((soma, linha) => {
-  if (!Array.isArray(linha)) return soma;
+  const totalFiltrado = dadosParaResumo.reduce((soma, linha) => {
+    if (!Array.isArray(linha)) {
+      return soma + Number(linha.valor || 0);
+    }
 
-  const valorTexto = String(linha?.[5] || "")
-    .replace("R$", "")
-    .replace(/\s/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
+    const valorTexto = String(linha?.[5] || "")
+      .replace("R$", "")
+      .replace(/\s/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".");
 
-  return soma + (Number(valorTexto) || 0);
-}, 0);
+    return soma + (Number(valorTexto) || 0);
+  }, 0);
 
-const mediaFiltrada =
-  dadosParaResumo.length > 0 ? totalFiltrado / dadosParaResumo.length : 0;
+  const mediaFiltrada =
+    dadosParaResumo.length > 0 ? totalFiltrado / dadosParaResumo.length : 0;
 
   return (
     <>
@@ -188,9 +237,7 @@ const mediaFiltrada =
 
         <button
           style={
-            modoVisualizacao === "todos"
-              ? styles.botao
-              : styles.botaoCinza
+            modoVisualizacao === "todos" ? styles.botao : styles.botaoCinza
           }
           onClick={() => setModoVisualizacao("todos")}
         >
@@ -201,9 +248,7 @@ const mediaFiltrada =
       <div ref={formRef}>
         <Card
           titulo={
-            editando.tipo === "saida"
-              ? "Editando saída"
-              : "Lançar saída"
+            editando.tipo === "saida" ? "Editando saída" : "Lançar saída"
           }
         >
           <div style={styles.formGrid}>
@@ -277,6 +322,25 @@ const mediaFiltrada =
               }
             />
 
+            <label style={styles.label}>
+              Observação
+              <textarea
+                value={saidaForm.observacao || ""}
+                onChange={(e) =>
+                  setSaidaForm({
+                    ...saidaForm,
+                    observacao: e.target.value,
+                  })
+                }
+                placeholder="Ex: compra no mercado, itens comprados, motivo da saída..."
+                style={{
+                  ...styles.textarea,
+                  minHeight: 74,
+                  resize: "vertical",
+                }}
+              />
+            </label>
+
             <button style={styles.botao} onClick={salvarComRetorno}>
               {editando.tipo === "saida" ? "Salvar edição" : "Adicionar"}
             </button>
@@ -289,7 +353,7 @@ const mediaFiltrada =
           </div>
 
           <Tabela
-          aoFiltrar={setDadosFiltrados}
+            aoFiltrar={setDadosFiltrados}
             colunas={[
               "Dia saída",
               "Pagamento",
@@ -298,6 +362,7 @@ const mediaFiltrada =
               "Conta",
               "Valor",
               "Destino",
+              "Obs",
               "Ações",
             ]}
             dados={saidasOrdenadas.map((saida) => [
@@ -308,6 +373,7 @@ const mediaFiltrada =
               saida.conta,
               moeda.format(Number(saida.valor || 0)),
               destinoDinheiro(saida.formaPagamento),
+              <BotaoObservacao saida={saida} />,
               <Acoes
                 editar={() => editar("saida", saida)}
                 excluir={() => remover("saida", saida.id)}

@@ -22,17 +22,17 @@ export default function Importacao(props) {
     "Importar Entradas": {
       titulo: "Importar entradas",
       ajuda:
-        "Cole do Excel nesta ordem: DATA, TIPO, CLIENTE, PRODUTO/SERVIÇO, PLACA, RENAVAN, FORMA DE PAGAMENTO, VALOR, STATUS, PROCESSO, PAGO DIA, CELULAR.",
+        "Cole do Excel nesta ordem: DATA, TIPO, CLIENTE, PRODUTO/SERVIÇO, PLACA, RENAVAN, FORMA DE PAGAMENTO, VALOR, STATUS, PROCESSO, PAGO DIA, CELULAR, OBSERVAÇÃO.",
       exemplo:
-        "DATA\tTIPO\tCLIENTE\tSERVIÇO\tPLACA\tRENAVAN\tFORMA DE PAGAMENTO\tVALOR\tSTATUS\tPROCESSO\tPAGO DIA\tCELULAR\n15/05/2026\tPARTICULAR\tJOÃO\tREBOQUE\tABC1D23\t123456789\tPIX\t80,00\tPAGO\t192304316159\t16/05/2026\t45999999999",
+        "DATA\tTIPO\tCLIENTE\tSERVIÇO\tPLACA\tRENAVAN\tFORMA DE PAGAMENTO\tVALOR\tSTATUS\tPROCESSO\tPAGO DIA\tCELULAR\tOBSERVAÇÃO\n15/05/2026\tPARTICULAR\tJOÃO\tREBOQUE\tABC1D23\t123456789\tPIX\t80,00\tPAGO\t192304316159\t16/05/2026\t45999999999\tCliente pediu entrega urgente",
     },
 
     "Importar Saídas": {
       titulo: "Importar saídas",
       ajuda:
-        "Cole do Excel nesta ordem: DIA SAÍDA, FORMA DE PAGAMENTO SAÍDA, TIPO SAÍDA, CONTA, VALOR SAÍDA.",
+        "Cole do Excel nesta ordem: DIA SAÍDA, FORMA DE PAGAMENTO SAÍDA, CENTRO DE CUSTO, TIPO SAÍDA, CONTA, VALOR SAÍDA, OBSERVAÇÃO.",
       exemplo:
-        "DIA SAÍDA\tFORMA DE PAGAMENTO SAÍDA\tTIPO SAÍDA\tCONTA\tVALOR SAÍDA\n15/05/2026\tDINHEIRO\tMATERIAL\tCOMPRA DE MATERIAL\t80,00",
+        "DIA SAÍDA\tFORMA DE PAGAMENTO SAÍDA\tCENTRO DE CUSTO\tTIPO SAÍDA\tCONTA\tVALOR SAÍDA\tOBSERVAÇÃO\n15/05/2026\tDINHEIRO\tOutros\tMATERIAL\tCOMPRA DE MERCADO\t80,00\tComprei café, açúcar e produto de limpeza",
     },
 
     "Importar Contas": {
@@ -77,6 +77,19 @@ export default function Importacao(props) {
     }
 
     return "";
+  }
+
+  function pegarObservacao(row) {
+    return pegar(row, [
+      "OBSERVAÇÃO",
+      "OBSERVACAO",
+      "OBS",
+      "COMENTÁRIO",
+      "COMENTARIO",
+      "NOTA",
+      "ANOTAÇÃO",
+      "ANOTACAO",
+    ]);
   }
 
   function formaPadrao(valor) {
@@ -186,9 +199,11 @@ export default function Importacao(props) {
           status: statusPadrao(pegar(row, ["STATUS"]) || "Pago"),
           processo: pegar(row, ["PROCESSO"]),
           diaPago:
-            formatarData(pegar(row, ["PAGO DIA", "DIA PAGO", "DATA PAGAMENTO"])) ||
-            "",
+            formatarData(
+              pegar(row, ["PAGO DIA", "DIA PAGO", "DATA PAGAMENTO"])
+            ) || "",
           celular,
+          observacao: pegarObservacao(row),
           relacaoPagaId: "",
         };
 
@@ -196,58 +211,48 @@ export default function Importacao(props) {
           novasEntradas.push(entrada);
         }
 
-        const tipoCliente = pegar(row, [
-  "TIPO",
-  "TIPO CLIENTE",
-  "CATEGORIA",
-]);
+        const tipoCliente = pegar(row, ["TIPO", "TIPO CLIENTE", "CATEGORIA"]);
 
-const clienteExistente = clientes.find(
-  (c) =>
-    normalizar(c.nome) === normalizar(cliente)
-);
+        const clienteExistente = clientes.find(
+          (c) => normalizar(c.nome) === normalizar(cliente)
+        );
 
-const clienteNovoExistente = novosClientes.find(
-  (c) =>
-    normalizar(c.nome) === normalizar(cliente)
-);
+        const clienteNovoExistente = novosClientes.find(
+          (c) => normalizar(c.nome) === normalizar(cliente)
+        );
 
-if (clienteExistente) {
-  clienteExistente.tipoCliente =
-    tipoCliente || clienteExistente.tipoCliente || "";
+        if (clienteExistente) {
+          clienteExistente.tipoCliente =
+            tipoCliente || clienteExistente.tipoCliente || "";
 
-  clienteExistente.telefone =
-    celular || clienteExistente.telefone || "";
-}
+          clienteExistente.telefone =
+            celular || clienteExistente.telefone || "";
+        }
 
-if (clienteNovoExistente) {
-  clienteNovoExistente.tipoCliente =
-    tipoCliente || clienteNovoExistente.tipoCliente || "";
+        if (clienteNovoExistente) {
+          clienteNovoExistente.tipoCliente =
+            tipoCliente || clienteNovoExistente.tipoCliente || "";
 
-  clienteNovoExistente.telefone =
-    celular || clienteNovoExistente.telefone || "";
-}
+          clienteNovoExistente.telefone =
+            celular || clienteNovoExistente.telefone || "";
+        }
 
-if (
-  cliente &&
-  !clienteExistente &&
-  !clienteNovoExistente
-) {
-  novosClientes.push({
-    id: Date.now() + index + 100000,
-    nome: cliente,
-    tipoCliente: tipoCliente || "",
-    precoParVeicular: "",
-    precoMoto: "",
-    precoReboque: "",
-    precoPlacaPreta: "",
-    precoMini: "",
-    telefone: celular || "",
-    email: "",
-    observacao: "Importado pelas entradas",
-  });
-}
-}
+        if (cliente && !clienteExistente && !clienteNovoExistente) {
+          novosClientes.push({
+            id: Date.now() + index + 100000,
+            nome: cliente,
+            tipoCliente: tipoCliente || "",
+            precoParVeicular: "",
+            precoMoto: "",
+            precoReboque: "",
+            precoPlacaPreta: "",
+            precoMini: "",
+            telefone: celular || "",
+            email: "",
+            observacao: "Importado pelas entradas",
+          });
+        }
+      }
 
       if (aba === "Importar Saídas") {
         const saida = {
@@ -256,9 +261,17 @@ if (
           formaPagamento: formaPadrao(
             pegar(row, ["FORMA DE PAGAMENTO SAIDA", "FORMA DE PAGAMENTO SAÍDA"])
           ),
+          categoria:
+            pegar(row, [
+              "CENTRO DE CUSTO",
+              "CATEGORIA",
+              "CATEGORIA SAIDA",
+              "CATEGORIA SAÍDA",
+            ]) || "Outros",
           tipoSaida: pegar(row, ["TIPO SAIDA", "TIPO SAÍDA"]),
           conta: pegar(row, ["CONTA"]),
           valor: numero(pegar(row, ["VALOR SAIDA", "VALOR SAÍDA"])),
+          observacao: pegarObservacao(row),
           status: "Pago",
         };
 

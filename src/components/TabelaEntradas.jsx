@@ -45,6 +45,10 @@ export default function TabelaEntradas({
     return String(valor || "").toLowerCase().trim();
   }
 
+  function temObservacao(item) {
+    return String(item?.observacao || "").trim().length > 0;
+  }
+
   function mudarFiltro(campo, valor) {
     setFiltros((old) => ({
       ...old,
@@ -122,6 +126,7 @@ export default function TabelaEntradas({
       "DIA PAGO": formatarData(item.diaPago),
       CATEGORIA: item.categoriaPlaca || "",
       CELULAR: item.celular || "",
+      OBSERVAÇÃO: item.observacao || "",
     }));
 
     const planilha = XLSX.utils.json_to_sheet(dadosExportar);
@@ -180,7 +185,8 @@ export default function TabelaEntradas({
 RENAVAN: ${item.renavan || ""}
 PROCESSO: ${item.processo || ""}
 CATEGORIA: ${item.categoriaPlaca || ""}
-CELULAR: ${item.celular || ""}`,
+CELULAR: ${item.celular || ""}
+OBSERVAÇÃO: ${item.observacao || ""}`,
       `tudo-${item.id}`
     );
   }
@@ -194,6 +200,56 @@ CELULAR: ${item.celular || ""}`,
         onClick={() => copiarTexto(item[campo], chave)}
       >
         {copiados[chave] ? "Copiado" : `Copiar ${label}`}
+      </button>
+    );
+  }
+
+  function BotaoDetalhes({ item }) {
+    const possuiObservacao = temObservacao(item);
+
+    return (
+      <button
+        title={
+          possuiObservacao
+            ? `Tem observação: ${item.observacao}`
+            : "Ver detalhes"
+        }
+        style={{
+          position: "relative",
+          background: possuiObservacao ? "#1d4ed8" : "#243041",
+          border: possuiObservacao ? "1px solid #60a5fa" : "none",
+          color: "#fff",
+          borderRadius: 10,
+          padding: "5px 8px",
+          cursor: "pointer",
+          fontSize: 16,
+          boxShadow: possuiObservacao
+            ? "0 0 0 2px rgba(96,165,250,0.18)"
+            : "none",
+        }}
+        onClick={() =>
+          setDetalhesAbertos({
+            ...detalhesAbertos,
+            [item.id]: !detalhesAbertos[item.id],
+          })
+        }
+      >
+        {possuiObservacao ? "💬" : "⋮"}
+
+        {possuiObservacao && (
+          <span
+            style={{
+              position: "absolute",
+              top: -4,
+              right: -4,
+              width: 9,
+              height: 9,
+              background: "#facc15",
+              borderRadius: "50%",
+              border: "1px solid #0f172a",
+            }}
+          />
+        )}
       </button>
     );
   }
@@ -423,194 +479,232 @@ CELULAR: ${item.celular || ""}`,
                     </td>
                   </tr>
 
-                  {itensDoDia.map((x) => (
-                    <React.Fragment key={x.id}>
-                      <tr>
-                        <td style={styles.td}>
-                          <input
-                            type="checkbox"
-                            checked={selecionados.includes(x.id)}
-                            onChange={() => alternarSelecionado(x.id)}
-                          />
-                        </td>
+                  {itensDoDia.map((x) => {
+                    const possuiObservacao = temObservacao(x);
 
-                        <td style={styles.td}>{formatarData(x.data)}</td>
-
-                        <td style={styles.td}>{x.cliente}</td>
-
-                        <td
+                    return (
+                      <React.Fragment key={x.id}>
+                        <tr
+                          title={
+                            possuiObservacao
+                              ? `Observação: ${x.observacao}`
+                              : ""
+                          }
                           style={{
-                            ...styles.td,
-                            color: "#c4b5fd",
-                            fontWeight: 700,
+                            boxShadow: possuiObservacao
+                              ? "inset 3px 0 0 #facc15"
+                              : "none",
                           }}
                         >
-                          {x.produto || x.servico}
-                        </td>
+                          <td style={styles.td}>
+                            <input
+                              type="checkbox"
+                              checked={selecionados.includes(x.id)}
+                              onChange={() => alternarSelecionado(x.id)}
+                            />
+                          </td>
 
-                        <td
-                          style={{
-                            ...styles.td,
-                            color: "#5ecbff",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {x.placa}
-                        </td>
+                          <td style={styles.td}>{formatarData(x.data)}</td>
 
-                        <td style={styles.td}>{x.formaPagamento || "-"}</td>
+                          <td style={styles.td}>{x.cliente}</td>
 
-                        <td
-                          style={{
-                            ...styles.td,
-                            fontWeight: 700,
-                          }}
-                        >
-                          {moeda.format(Number(x.valor || 0))}
-                        </td>
-
-                        <td style={styles.td}>{x.status}</td>
-
-                        <td style={styles.td}>{formatarData(x.diaPago)}</td>
-
-                        <td style={styles.td}>
-                          <button
-                            style={{
-                              background: "#243041",
-                              border: "none",
-                              color: "#fff",
-                              borderRadius: 10,
-                              padding: "5px 8px",
-                              cursor: "pointer",
-                              fontSize: 16,
-                            }}
-                            onClick={() =>
-                              setDetalhesAbertos({
-                                ...detalhesAbertos,
-                                [x.id]: !detalhesAbertos[x.id],
-                              })
-                            }
-                          >
-                            ⋮
-                          </button>
-                        </td>
-                      </tr>
-
-                      {detalhesAbertos[x.id] && (
-                        <tr>
                           <td
-                            colSpan={10}
                             style={{
-                              background: "#101c33",
-                              padding: 18,
+                              ...styles.td,
+                              color: "#c4b5fd",
+                              fontWeight: 700,
                             }}
                           >
-                            <div
+                            {x.produto || x.servico}
+                          </td>
+
+                          <td
+                            style={{
+                              ...styles.td,
+                              color: "#5ecbff",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {x.placa}
+                          </td>
+
+                          <td style={styles.td}>{x.formaPagamento || "-"}</td>
+
+                          <td
+                            style={{
+                              ...styles.td,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {moeda.format(Number(x.valor || 0))}
+                          </td>
+
+                          <td style={styles.td}>{x.status}</td>
+
+                          <td style={styles.td}>{formatarData(x.diaPago)}</td>
+
+                          <td style={styles.td}>
+                            <BotaoDetalhes item={x} />
+                          </td>
+                        </tr>
+
+                        {detalhesAbertos[x.id] && (
+                          <tr>
+                            <td
+                              colSpan={10}
                               style={{
-                                ...styles.detalheGrid,
-                                gridTemplateColumns:
-  "repeat(auto-fit,minmax(140px,1fr))",
-                                gap: 12,
+                                background: "#101c33",
+                                padding: 18,
                               }}
                             >
-                              <div style={styles.detalheItem}>
-                                <span style={styles.detalheLabel}>Tipo</span>
-                                {x.tipo || "-"}
-                              </div>
+                              <div
+                                style={{
+                                  ...styles.detalheGrid,
+                                  gridTemplateColumns:
+                                    "repeat(auto-fit,minmax(140px,1fr))",
+                                  gap: 12,
+                                }}
+                              >
+                                <div style={styles.detalheItem}>
+                                  <span style={styles.detalheLabel}>Tipo</span>
+                                  {x.tipo || "-"}
+                                </div>
 
-                              <div style={styles.detalheItem}>
-                                <span style={styles.detalheLabel}>Placa</span>
-                                {x.placa || "-"}
-                                <BotaoCopiar
-                                  item={x}
-                                  campo="placa"
-                                  label="placa"
-                                />
-                              </div>
+                                <div style={styles.detalheItem}>
+                                  <span style={styles.detalheLabel}>Placa</span>
+                                  {x.placa || "-"}
+                                  <BotaoCopiar
+                                    item={x}
+                                    campo="placa"
+                                    label="placa"
+                                  />
+                                </div>
 
-                              <div style={styles.detalheItem}>
-                                <span style={styles.detalheLabel}>Renavan</span>
-                                {x.renavan || "-"}
-                                <BotaoCopiar
-                                  item={x}
-                                  campo="renavan"
-                                  label="renavan"
-                                />
-                              </div>
+                                <div style={styles.detalheItem}>
+                                  <span style={styles.detalheLabel}>
+                                    Renavan
+                                  </span>
+                                  {x.renavan || "-"}
+                                  <BotaoCopiar
+                                    item={x}
+                                    campo="renavan"
+                                    label="renavan"
+                                  />
+                                </div>
 
-                              <div style={styles.detalheItem}>
-                                <span style={styles.detalheLabel}>Processo</span>
-                                {x.processo || "-"}
-                                <BotaoCopiar
-                                  item={x}
-                                  campo="processo"
-                                  label="processo"
-                                />
-                              </div>
+                                <div style={styles.detalheItem}>
+                                  <span style={styles.detalheLabel}>
+                                    Processo
+                                  </span>
+                                  {x.processo || "-"}
+                                  <BotaoCopiar
+                                    item={x}
+                                    campo="processo"
+                                    label="processo"
+                                  />
+                                </div>
 
-                              <div style={styles.detalheItem}>
-                                <span style={styles.detalheLabel}>Categoria</span>
-                                {x.categoriaPlaca || "-"}
+                                <div style={styles.detalheItem}>
+                                  <span style={styles.detalheLabel}>
+                                    Categoria
+                                  </span>
+                                  {x.categoriaPlaca || "-"}
+                                </div>
+
+                                <div
+                                  style={{
+                                    ...styles.detalheItem,
+                                    minWidth: 140,
+                                  }}
+                                >
+                                  <span style={styles.detalheLabel}>
+                                    Celular
+                                  </span>
+                                  {x.celular || "-"}
+                                  {x.celular && (
+                                    <BotaoCopiar
+                                      item={x}
+                                      campo="celular"
+                                      label="celular"
+                                    />
+                                  )}
+                                </div>
+
+                                <div
+                                  style={{
+                                    ...styles.detalheItem,
+                                    gridColumn: "1 / -1",
+                                    border: possuiObservacao
+                                      ? "1px solid #facc15"
+                                      : "1px solid #334155",
+                                    background: possuiObservacao
+                                      ? "rgba(250,204,21,0.08)"
+                                      : styles.detalheItem?.background,
+                                  }}
+                                >
+                                  <span style={styles.detalheLabel}>
+                                    Observação
+                                  </span>
+                                  <div
+                                    style={{
+                                      whiteSpace: "pre-wrap",
+                                      lineHeight: 1.5,
+                                    }}
+                                  >
+                                    {x.observacao || "-"}
+                                  </div>
+
+                                  {x.observacao && (
+                                    <BotaoCopiar
+                                      item={x}
+                                      campo="observacao"
+                                      label="observação"
+                                    />
+                                  )}
+                                </div>
                               </div>
 
                               <div
-  style={{
-    ...styles.detalheItem,
-    minWidth: 140,
-  }}
->
-                                <span style={styles.detalheLabel}>Celular</span>
-                                {x.celular || "-"}
-                                {x.celular && (
-                                  <BotaoCopiar
-                                    item={x}
-                                    campo="celular"
-                                    label="celular"
-                                  />
-                                )}
+                                style={{
+                                  display: "flex",
+                                  gap: 10,
+                                  marginTop: 18,
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <button
+                                  style={
+                                    copiados[`tudo-${x.id}`]
+                                      ? styles.copiado
+                                      : styles.botaoPequeno
+                                  }
+                                  onClick={() => copiarTudo(x)}
+                                >
+                                  {copiados[`tudo-${x.id}`]
+                                    ? "Dados copiados"
+                                    : "Copiar tudo"}
+                                </button>
+
+                                <button
+                                  style={styles.editar}
+                                  onClick={() => editar("entrada", x)}
+                                >
+                                  Editar
+                                </button>
+
+                                <button
+                                  style={styles.excluir}
+                                  onClick={() => remover("entrada", x.id)}
+                                >
+                                  Excluir
+                                </button>
                               </div>
-                            </div>
-
-                            <div
-                              style={{
-                                display: "flex",
-                                gap: 10,
-                                marginTop: 18,
-                                flexWrap: "wrap",
-                              }}
-                            >
-                              <button
-                                style={
-                                  copiados[`tudo-${x.id}`]
-                                    ? styles.copiado
-                                    : styles.botaoPequeno
-                                }
-                                onClick={() => copiarTudo(x)}
-                              >
-                                {copiados[`tudo-${x.id}`]
-                                  ? "Dados copiados"
-                                  : "Copiar tudo"}
-                              </button>
-
-                              <button
-                                style={styles.editar}
-                                onClick={() => editar("entrada", x)}
-                              >
-                                Editar
-                              </button>
-
-                              <button
-                                style={styles.excluir}
-                                onClick={() => remover("entrada", x.id)}
-                              >
-                                Excluir
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </React.Fragment>
               );
             })}
