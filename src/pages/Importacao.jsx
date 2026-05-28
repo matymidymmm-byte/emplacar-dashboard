@@ -21,24 +21,30 @@ export default function Importacao(props) {
   const config = {
     "Importar Entradas": {
       titulo: "Importar entradas",
+
       ajuda:
-        "Cole do Excel nesta ordem: DATA, TIPO, CLIENTE, PRODUTO/SERVIÇO, PLACA, RENAVAN, FORMA DE PAGAMENTO, VALOR, STATUS, PROCESSO, PAGO DIA, CELULAR, OBSERVAÇÃO.",
+        "Cole do Excel nesta ordem: DATA, TIPO, CLIENTE, PRODUTO/SERVIÇO, PLACA, RENAVAN, FORMA DE PAGAMENTO, VALOR, STATUS, PROCESSO, PAGO DIA, CATEGORIA, CELULAR, OBSERVAÇÃO.",
+
       exemplo:
-        "DATA\tTIPO\tCLIENTE\tSERVIÇO\tPLACA\tRENAVAN\tFORMA DE PAGAMENTO\tVALOR\tSTATUS\tPROCESSO\tPAGO DIA\tCELULAR\tOBSERVAÇÃO\n15/05/2026\tPARTICULAR\tJOÃO\tREBOQUE\tABC1D23\t123456789\tPIX\t80,00\tPAGO\t192304316159\t16/05/2026\t45999999999\tCliente pediu entrega urgente",
+        "DATA\tTIPO\tCLIENTE\tSERVIÇO\tPLACA\tRENAVAN\tFORMA DE PAGAMENTO\tVALOR\tSTATUS\tPROCESSO\tPAGO DIA\tCATEGORIA\tCELULAR\tOBSERVAÇÃO\n15/05/2026\tPARTICULAR\tJOÃO\tREBOQUE\tABC1D23\t123456789\tPIX\t80,00\tPAGO\t192304316159\t16/05/2026\tPARTICULAR\t45999999999\tCliente pediu entrega urgente",
     },
 
     "Importar Saídas": {
       titulo: "Importar saídas",
+
       ajuda:
         "Cole do Excel nesta ordem: DIA SAÍDA, FORMA DE PAGAMENTO SAÍDA, CENTRO DE CUSTO, TIPO SAÍDA, CONTA, VALOR SAÍDA, OBSERVAÇÃO.",
+
       exemplo:
         "DIA SAÍDA\tFORMA DE PAGAMENTO SAÍDA\tCENTRO DE CUSTO\tTIPO SAÍDA\tCONTA\tVALOR SAÍDA\tOBSERVAÇÃO\n15/05/2026\tDINHEIRO\tOutros\tMATERIAL\tCOMPRA DE MERCADO\t80,00\tComprei café, açúcar e produto de limpeza",
     },
 
     "Importar Contas": {
       titulo: "Importar contas a pagar",
+
       ajuda:
         "Cole do Excel nesta ordem: CONTA A PAGAR, DIA QUE VENCE, VALOR, ETATUS.",
+
       exemplo:
         "CONTA A PAGAR\tDIA QUE VENCE\tVALOR\tETATUS\nALUGUEL\t20/05/2026\t1000,00\tPENDENTE",
     },
@@ -73,7 +79,10 @@ export default function Importacao(props) {
   function pegar(row, nomes) {
     for (const nome of nomes) {
       const chave = normalizar(nome);
-      if (row[chave] !== undefined && row[chave] !== "") return row[chave];
+
+      if (row[chave] !== undefined && row[chave] !== "") {
+        return row[chave];
+      }
     }
 
     return "";
@@ -101,7 +110,10 @@ export default function Importacao(props) {
     if (v.includes("DEPOSITO")) return "Depósito";
     if (v.includes("CHEQUE")) return "Cheque";
     if (v.includes("DINHEIRO")) return "Dinheiro";
-    if (v.includes("NOTA") || v.includes("FATURADO")) return "Nota / Faturado";
+
+    if (v.includes("NOTA") || v.includes("FATURADO")) {
+      return "Nota / Faturado";
+    }
 
     return valor || "Pix";
   }
@@ -120,7 +132,10 @@ export default function Importacao(props) {
     const v = texto(data);
 
     if (!v) return "";
-    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      return v;
+    }
 
     const partes = v.split(/[\/\-.]/);
 
@@ -137,7 +152,9 @@ export default function Importacao(props) {
 
   function separarLinha(linha) {
     if (linha.includes("\t")) return linha.split("\t");
+
     if (linha.includes(";")) return linha.split(";");
+
     return linha.split(",");
   }
 
@@ -148,10 +165,13 @@ export default function Importacao(props) {
 
     if (linhas.length < 2) return null;
 
-    const cabecalho = separarLinha(linhas[0]).map((h) => normalizar(h));
+    const cabecalho = separarLinha(linhas[0]).map((h) =>
+      normalizar(h)
+    );
 
     return linhas.slice(1).map((linha) => {
       const valores = separarLinha(linha);
+
       const row = {};
 
       cabecalho.forEach((coluna, i) => {
@@ -166,7 +186,10 @@ export default function Importacao(props) {
     const linhas = lerTabelaColada();
 
     if (!linhas) {
-      setResultadoImportacao("Cole a tabela com cabeçalho e dados.");
+      setResultadoImportacao(
+        "Cole a tabela com cabeçalho e dados."
+      );
+
       return;
     }
 
@@ -178,6 +201,7 @@ export default function Importacao(props) {
     linhas.forEach((row, index) => {
       if (aba === "Importar Entradas") {
         const cliente = pegar(row, ["CLIENTE"]);
+
         const celular = pegar(row, [
           "CELULAR",
           "TELEFONE",
@@ -188,68 +212,129 @@ export default function Importacao(props) {
 
         const entrada = {
           id: Date.now() + index,
+
           data: formatarData(pegar(row, ["DATA"])),
+
           tipo: pegar(row, ["TIPO"]),
+
           cliente,
-          produto: pegar(row, ["PRODUTO", "SERVICO", "SERVIÇO"]),
+
+          produto: pegar(row, [
+            "PRODUTO",
+            "SERVICO",
+            "SERVIÇO",
+          ]),
+
           placa: pegar(row, ["PLACA"]),
+
           renavan: pegar(row, ["RENAVAN"]),
-          formaPagamento: formaPadrao(pegar(row, ["FORMA DE PAGAMENTO"])),
+
+          formaPagamento: formaPadrao(
+            pegar(row, ["FORMA DE PAGAMENTO"])
+          ),
+
           valor: numero(pegar(row, ["VALOR"])),
-          status: statusPadrao(pegar(row, ["STATUS"]) || "Pago"),
+
+          status: statusPadrao(
+            pegar(row, ["STATUS"]) || "Pago"
+          ),
+
           processo: pegar(row, ["PROCESSO"]),
+
           diaPago:
             formatarData(
-              pegar(row, ["PAGO DIA", "DIA PAGO", "DATA PAGAMENTO"])
+              pegar(row, [
+                "PAGO DIA",
+                "DIA PAGO",
+                "DATA PAGAMENTO",
+              ])
             ) || "",
+
+          categoriaPlaca: pegar(row, [
+            "CATEGORIA",
+            "CATEGORIA PLACA",
+            "CATEGORIA DA PLACA",
+          ]),
+
           celular,
+
           observacao: pegarObservacao(row),
+
           relacaoPagaId: "",
         };
 
-        if (entrada.valor || entrada.cliente || entrada.produto) {
+        if (
+          entrada.valor ||
+          entrada.cliente ||
+          entrada.produto
+        ) {
           novasEntradas.push(entrada);
         }
 
-        const tipoCliente = pegar(row, ["TIPO", "TIPO CLIENTE", "CATEGORIA"]);
+        const tipoCliente = pegar(row, [
+          "TIPO",
+          "TIPO CLIENTE",
+          "CATEGORIA",
+        ]);
 
         const clienteExistente = clientes.find(
-          (c) => normalizar(c.nome) === normalizar(cliente)
+          (c) =>
+            normalizar(c.nome) === normalizar(cliente)
         );
 
         const clienteNovoExistente = novosClientes.find(
-          (c) => normalizar(c.nome) === normalizar(cliente)
+          (c) =>
+            normalizar(c.nome) === normalizar(cliente)
         );
 
         if (clienteExistente) {
           clienteExistente.tipoCliente =
-            tipoCliente || clienteExistente.tipoCliente || "";
+            tipoCliente ||
+            clienteExistente.tipoCliente ||
+            "";
 
           clienteExistente.telefone =
-            celular || clienteExistente.telefone || "";
+            celular ||
+            clienteExistente.telefone ||
+            "";
         }
 
         if (clienteNovoExistente) {
           clienteNovoExistente.tipoCliente =
-            tipoCliente || clienteNovoExistente.tipoCliente || "";
+            tipoCliente ||
+            clienteNovoExistente.tipoCliente ||
+            "";
 
           clienteNovoExistente.telefone =
-            celular || clienteNovoExistente.telefone || "";
+            celular ||
+            clienteNovoExistente.telefone ||
+            "";
         }
 
-        if (cliente && !clienteExistente && !clienteNovoExistente) {
+        if (
+          cliente &&
+          !clienteExistente &&
+          !clienteNovoExistente
+        ) {
           novosClientes.push({
             id: Date.now() + index + 100000,
+
             nome: cliente,
+
             tipoCliente: tipoCliente || "",
+
             precoParVeicular: "",
             precoMoto: "",
             precoReboque: "",
             precoPlacaPreta: "",
             precoMini: "",
+
             telefone: celular || "",
+
             email: "",
-            observacao: "Importado pelas entradas",
+
+            observacao:
+              "Importado pelas entradas",
           });
         }
       }
@@ -257,10 +342,21 @@ export default function Importacao(props) {
       if (aba === "Importar Saídas") {
         const saida = {
           id: Date.now() + index,
-          data: formatarData(pegar(row, ["DIA SAIDA", "DIA SAÍDA"])),
-          formaPagamento: formaPadrao(
-            pegar(row, ["FORMA DE PAGAMENTO SAIDA", "FORMA DE PAGAMENTO SAÍDA"])
+
+          data: formatarData(
+            pegar(row, [
+              "DIA SAIDA",
+              "DIA SAÍDA",
+            ])
           ),
+
+          formaPagamento: formaPadrao(
+            pegar(row, [
+              "FORMA DE PAGAMENTO SAIDA",
+              "FORMA DE PAGAMENTO SAÍDA",
+            ])
+          ),
+
           categoria:
             pegar(row, [
               "CENTRO DE CUSTO",
@@ -268,14 +364,31 @@ export default function Importacao(props) {
               "CATEGORIA SAIDA",
               "CATEGORIA SAÍDA",
             ]) || "Outros",
-          tipoSaida: pegar(row, ["TIPO SAIDA", "TIPO SAÍDA"]),
+
+          tipoSaida: pegar(row, [
+            "TIPO SAIDA",
+            "TIPO SAÍDA",
+          ]),
+
           conta: pegar(row, ["CONTA"]),
-          valor: numero(pegar(row, ["VALOR SAIDA", "VALOR SAÍDA"])),
+
+          valor: numero(
+            pegar(row, [
+              "VALOR SAIDA",
+              "VALOR SAÍDA",
+            ])
+          ),
+
           observacao: pegarObservacao(row),
+
           status: "Pago",
         };
 
-        if (saida.valor || saida.conta || saida.tipoSaida) {
+        if (
+          saida.valor ||
+          saida.conta ||
+          saida.tipoSaida
+        ) {
           novasSaidas.push(saida);
         }
       }
@@ -283,10 +396,27 @@ export default function Importacao(props) {
       if (aba === "Importar Contas") {
         const conta = {
           id: Date.now() + index,
-          conta: pegar(row, ["CONTA A PAGAR"]),
-          vencimento: formatarData(pegar(row, ["DIA QUE VENCE"])),
-          valor: numero(pegar(row, ["VALOR"])),
-          status: statusPadrao(pegar(row, ["ETATUS", "STATUS"]) || "Pendente"),
+
+          conta: pegar(row, [
+            "CONTA A PAGAR",
+          ]),
+
+          vencimento: formatarData(
+            pegar(row, [
+              "DIA QUE VENCE",
+            ])
+          ),
+
+          valor: numero(
+            pegar(row, ["VALOR"])
+          ),
+
+          status: statusPadrao(
+            pegar(row, [
+              "ETATUS",
+              "STATUS",
+            ]) || "Pendente"
+          ),
         };
 
         if (conta.valor || conta.conta) {
@@ -296,19 +426,31 @@ export default function Importacao(props) {
     });
 
     if (novasEntradas.length > 0) {
-      setEntradas([...entradas, ...novasEntradas]);
+      setEntradas([
+        ...entradas,
+        ...novasEntradas,
+      ]);
     }
 
     if (novasSaidas.length > 0) {
-      setSaidas([...saidas, ...novasSaidas]);
+      setSaidas([
+        ...saidas,
+        ...novasSaidas,
+      ]);
     }
 
     if (novasContas.length > 0) {
-      setContas([...contas, ...novasContas]);
+      setContas([
+        ...contas,
+        ...novasContas,
+      ]);
     }
 
     if (novosClientes.length > 0) {
-      setClientes([...clientes, ...novosClientes]);
+      setClientes([
+        ...clientes,
+        ...novosClientes,
+      ]);
     }
 
     setResultadoImportacao(
@@ -320,21 +462,32 @@ export default function Importacao(props) {
 
   return (
     <Card titulo={tela?.titulo || aba}>
-      <p style={styles.ajuda}>{tela?.ajuda}</p>
+      <p style={styles.ajuda}>
+        {tela?.ajuda}
+      </p>
 
       <textarea
         value={textoImportacao}
-        onChange={(e) => setTextoImportacao(e.target.value)}
+        onChange={(e) =>
+          setTextoImportacao(
+            e.target.value
+          )
+        }
         placeholder={tela?.exemplo}
         style={styles.textarea}
       />
 
-      <button style={styles.botao} onClick={importarDados}>
+      <button
+        style={styles.botao}
+        onClick={importarDados}
+      >
         Importar
       </button>
 
       {resultadoImportacao && (
-        <p style={styles.resultado}>{resultadoImportacao}</p>
+        <p style={styles.resultado}>
+          {resultadoImportacao}
+        </p>
       )}
     </Card>
   );
