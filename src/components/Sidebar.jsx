@@ -468,10 +468,11 @@ const superadmin =
   style={{
     ...styles.logoBox,
     cursor: "pointer",
-    flexDirection: mobile ? "column" : styles.logoBox.flexDirection,
-    alignItems: mobile ? "flex-start" : styles.logoBox.alignItems,
-    gap: mobile ? 10 : styles.logoBox.gap,
-    paddingTop: mobile ? 72 : styles.logoBox.paddingTop,
+    flexDirection: "row",
+alignItems: "center",
+gap: 12,
+paddingTop: mobile ? 58 : styles.logoBox.paddingTop,
+paddingLeft: mobile ? 72 : styles.logoBox.paddingLeft,
   }}
   onClick={() => setMostrarPerfil(!mostrarPerfil)}
 >
