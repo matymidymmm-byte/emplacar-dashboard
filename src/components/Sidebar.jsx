@@ -468,11 +468,13 @@ const superadmin =
   style={{
     ...styles.logoBox,
     cursor: "pointer",
-    flexDirection: "row",
+    flexDirection: mobile ? "column" : styles.logoBox.flexDirection,
 alignItems: "center",
-gap: 12,
-paddingTop: mobile ? 58 : styles.logoBox.paddingTop,
-paddingLeft: mobile ? 72 : styles.logoBox.paddingLeft,
+justifyContent: "center",
+gap: mobile ? 8 : styles.logoBox.gap,
+paddingTop: mobile ? 82 : styles.logoBox.paddingTop,
+paddingLeft: mobile ? 0 : styles.logoBox.paddingLeft,
+textAlign: "center",
   }}
   onClick={() => setMostrarPerfil(!mostrarPerfil)}
 >
@@ -482,9 +484,12 @@ paddingLeft: mobile ? 72 : styles.logoBox.paddingLeft,
   "/logo-emplacar.png"
 }
           alt={dadosEmpresa?.nome || "Logo da Empresa"}
-          style={
-            styles.logoImagem
-          }
+          style={{
+  ...styles.logoImagem,
+  width: mobile ? 76 : styles.logoImagem.width,
+  height: mobile ? 76 : styles.logoImagem.height,
+  objectFit: "contain",
+}}
         />
 
         <div>
