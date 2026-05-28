@@ -230,7 +230,7 @@ function Sistema({ usuario, acesso }) {
   );
 }
 
-const docDadosEmpresa = doc(
+const docSistema = doc(
   db,
   "empresas",
   empresaId,
@@ -452,7 +452,7 @@ inicioPeriodoSalvo: "",
   }, []);
   useEffect(() => {
   const cancelarDadosEmpresa = onSnapshot(
-    docDadosEmpresa,
+    docSistema,
     (snapshot) => {
       if (!snapshot.exists()) return;
 
@@ -570,7 +570,7 @@ useEffect(() => {
   async function salvarDadosEmpresa() {
   try {
     await setDoc(
-  docDadosEmpresa,
+  docSistema,
       {
         ...dadosEmpresa,
       },
