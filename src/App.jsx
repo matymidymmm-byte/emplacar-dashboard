@@ -576,6 +576,18 @@ useEffect(() => {
       },
       { merge: true }
     );
+    await setDoc(
+  doc(db, "empresas", empresaId),
+  {
+    empresaId,
+    nome: dadosEmpresa.nome || "",
+    codigoConvite:
+      dadosEmpresa.codigoConvite || "",
+    atualizadoEm:
+      new Date().toISOString(),
+  },
+  { merge: true }
+);
 
     alert(
       "Dados da empresa salvos."
@@ -2153,7 +2165,13 @@ setUsuariosOnline,
         {aba.startsWith("Importar") && <Importacao {...propsGlobais} />}
         {aba === "Atualizações" && <Atualizacoes {...propsGlobais} />}
         {aba === "Dados da Empresa" && (
-  <DadosEmpresa {...propsGlobais} />
+  <DadosEmpresa
+    {...propsGlobais}
+    admin={
+      acesso?.nivel === "admin" ||
+      usuario?.email === "matymidy.mmm@gmail.com"
+    }
+  />
 )}
         {aba === "Backups" && (
   <div style={styles.card}>

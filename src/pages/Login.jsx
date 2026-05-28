@@ -3,7 +3,15 @@ import {
   createUserWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  where,
+} from "firebase/firestore";
 
 import { login } from "../services/auth";
 import { auth, db } from "../services/firebase";
@@ -12,9 +20,10 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [nomeEmpresa, setNomeEmpresa] = useState("");
+  const [codigoConvite, setCodigoConvite] = useState("");
+
   const [modoCadastro, setModoCadastro] = useState(false);
   const [modoConvite, setModoConvite] = useState(false);
-const [codigoConvite, setCodigoConvite] = useState("");
   const [carregando, setCarregando] = useState(false);
 
   function gerarEmpresaId(nome) {
@@ -27,6 +36,74 @@ const [codigoConvite, setCodigoConvite] = useState("");
       .replace(/^-+|-+$/g, "");
   }
 
+  function normalizarCodigo(codigo) {
+    return String(codigo || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "");
+  }
+
+  function gerarCodigoConvite(empresaId) {
+    const sufixo = Math.floor(100 + Math.random() * 900);
+    return `${String(empresaId || "EMPRESA").toUpperCase()}${sufixo}`;
+  }
+
+  async function buscarEmpresaPorCodigoConvite(codigoDigitado) {
+    const codigo = normalizarCodigo(codigoDigitado);
+
+    if (!codigo) return null;
+
+    const consulta = query(
+      collection(db, "empresas"),
+      where("codigoConvite", "==", codigo)
+    );
+
+    const resultado = await getDocs(consulta);
+
+    if (!resultado.empty) {
+      const empresaDoc = resultado.docs[0];
+
+      return {
+        empresaId: empresaDoc.id,
+        ...empresaDoc.data(),
+      };
+    }
+
+    // Compatibilidade com empresas antigas que ainda não têm documento raiz.
+    const empresaIdPossivel = codigo
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .replace(/[0-9]+$/, "");
+
+    if (!empresaIdPossivel) return null;
+
+    const sistemaRef = doc(
+      db,
+      "empresas",
+      empresaIdPossivel,
+      "sistema",
+      "dados"
+    );
+
+    const sistemaSnap = await getDoc(sistemaRef);
+
+    if (!sistemaSnap.exists()) return null;
+
+    const dadosSistema = sistemaSnap.data();
+
+    if (
+      normalizarCodigo(dadosSistema.codigoConvite) !== codigo
+    ) {
+      return null;
+    }
+
+    return {
+      empresaId: empresaIdPossivel,
+      nome: dadosSistema.nome || "",
+      codigoConvite: codigo,
+    };
+  }
+
   async function entrar(e) {
     e.preventDefault();
     setCarregando(true);
@@ -35,88 +112,90 @@ const [codigoConvite, setCodigoConvite] = useState("");
       await login(email, senha);
       window.location.href = "/";
     } catch (erro) {
-      alert("Erro ao entrar. Verifique e-mail e senha.");
       console.error(erro);
+      alert("Erro ao entrar. Verifique e-mail e senha.");
     } finally {
       setCarregando(false);
     }
   }
-async function solicitarAcesso(e) {
-  e.preventDefault();
 
-  setCarregando(true);
+  async function solicitarAcesso(e) {
+    e.preventDefault();
+    setCarregando(true);
 
-  try {
-    const emailNormalizado = email
-      .toLowerCase()
-      .trim();
+    try {
+      const emailNormalizado = email.toLowerCase().trim();
+      const codigo = normalizarCodigo(codigoConvite);
 
-    const codigo = codigoConvite
-      .trim()
-      .toUpperCase();
+      const empresaEncontrada =
+        await buscarEmpresaPorCodigoConvite(codigo);
 
-    const credencial =
-      await createUserWithEmailAndPassword(
-        auth,
-        emailNormalizado,
-        senha
+      if (!empresaEncontrada?.empresaId) {
+        alert(
+          "Código convite não encontrado. Confira o código com o administrador."
+        );
+        setCarregando(false);
+        return;
+      }
+
+      const credencial =
+        await createUserWithEmailAndPassword(
+          auth,
+          emailNormalizado,
+          senha
+        );
+
+      const dadosAcesso = {
+        email: emailNormalizado,
+        uid: credencial.user.uid,
+        empresaId: empresaEncontrada.empresaId,
+        nomeEmpresa: empresaEncontrada.nome || "",
+        nivel: "socio",
+        status: "pendente",
+        bloqueado: false,
+        criadoEm: new Date().toISOString(),
+        aprovadoEm: "",
+        aprovadoPor: "",
+        codigoConvite: codigo,
+      };
+
+      await setDoc(
+        doc(db, "acessos", emailNormalizado),
+        dadosAcesso
       );
 
-    const empresaId = codigo
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "")
-      .replace(/[0-9]+$/, "");
+      await setDoc(
+        doc(
+          db,
+          "empresas",
+          empresaEncontrada.empresaId,
+          "acessos",
+          emailNormalizado
+        ),
+        dadosAcesso
+      );
 
-    const dadosAcesso = {
-      email: emailNormalizado,
-      uid: credencial.user.uid,
-      empresaId,
-      nivel: "socio",
-      status: "pendente",
-      bloqueado: false,
-      criadoEm: new Date().toISOString(),
-      aprovadoEm: "",
-      aprovadoPor: "",
-      codigoConvite: codigo,
-    };
+      await signOut(auth);
 
-    await setDoc(
-      doc(db, "acessos", emailNormalizado),
-      dadosAcesso
-    );
+      alert("Solicitação enviada. Aguarde aprovação.");
 
-    await setDoc(
-      doc(
-        db,
-        "empresas",
-        empresaId,
-        "acessos",
-        emailNormalizado
-      ),
-      dadosAcesso
-    );
+      setModoConvite(false);
+      setEmail("");
+      setSenha("");
+      setCodigoConvite("");
+    } catch (erro) {
+      console.error(erro);
 
-    await signOut(auth);
-
-    alert(
-      "Solicitação enviada. Aguarde aprovação."
-    );
-
-    setModoConvite(false);
-
-    setEmail("");
-    setSenha("");
-    setCodigoConvite("");
-  } catch (erro) {
-    console.error(erro);
-
-    alert(
-      "Erro ao solicitar acesso."
-    );
-  } finally {
-    setCarregando(false);
+      if (erro?.code === "auth/email-already-in-use") {
+        alert("Este e-mail já possui conta. Faça login normalmente.");
+      } else {
+        alert("Erro ao solicitar acesso.");
+      }
+    } finally {
+      setCarregando(false);
+    }
   }
-}
+
   async function criarConta(e) {
     e.preventDefault();
     setCarregando(true);
@@ -124,9 +203,6 @@ async function solicitarAcesso(e) {
     try {
       const emailNormalizado = email.toLowerCase().trim();
       const empresaId = gerarEmpresaId(nomeEmpresa);
-      const codigoConvite =
-  empresaId.toUpperCase() +
-  Math.floor(Math.random() * 999);
 
       if (!empresaId) {
         alert("Digite o nome da empresa.");
@@ -134,28 +210,56 @@ async function solicitarAcesso(e) {
         return;
       }
 
-      const credencial = await createUserWithEmailAndPassword(
-        auth,
-        emailNormalizado,
-        senha
-      );
+      const codigoConviteGerado =
+        gerarCodigoConvite(empresaId);
+
+      const credencial =
+        await createUserWithEmailAndPassword(
+          auth,
+          emailNormalizado,
+          senha
+        );
 
       const dadosAcesso = {
         email: emailNormalizado,
         uid: credencial.user.uid,
         empresaId,
+        nomeEmpresa: nomeEmpresa.trim(),
         nivel: "admin",
         status: "aprovado",
         bloqueado: false,
         criadoEm: new Date().toISOString(),
         aprovadoEm: new Date().toISOString(),
         aprovadoPor: "cadastro-automatico",
+        codigoConvite: codigoConviteGerado,
       };
 
-      await setDoc(doc(db, "acessos", emailNormalizado), dadosAcesso);
+      await setDoc(
+        doc(db, "empresas", empresaId),
+        {
+          empresaId,
+          nome: nomeEmpresa.trim(),
+          codigoConvite: codigoConviteGerado,
+          criadoEm: new Date().toISOString(),
+          criadoPor: emailNormalizado,
+          ativo: true,
+        },
+        { merge: true }
+      );
 
       await setDoc(
-        doc(db, "empresas", empresaId, "acessos", emailNormalizado),
+        doc(db, "acessos", emailNormalizado),
+        dadosAcesso
+      );
+
+      await setDoc(
+        doc(
+          db,
+          "empresas",
+          empresaId,
+          "acessos",
+          emailNormalizado
+        ),
         dadosAcesso
       );
 
@@ -168,14 +272,17 @@ async function solicitarAcesso(e) {
           clientes: [],
           estoqueCompras: [],
           estoquePerdas: [],
+          produtosEstoquePersonalizados: [],
           historicoRelacoes: [],
           historicoFechamentos: [],
+
           metaMensal: 80000,
+          modoRibbonPadrao: "2X",
           inicioPeriodoSalvo: "",
 
           logo: "",
           nome: nomeEmpresa.trim(),
-          codigoConvite,
+          codigoConvite: codigoConviteGerado,
           ie: "",
           cnpj: "",
           email: emailNormalizado,
@@ -192,15 +299,22 @@ async function solicitarAcesso(e) {
 
       await signOut(auth);
 
-      alert("Empresa criada com sucesso. Agora faça login.");
+      alert(
+        `Empresa criada com sucesso. Código convite: ${codigoConviteGerado}`
+      );
 
       setModoCadastro(false);
       setEmail("");
       setSenha("");
       setNomeEmpresa("");
     } catch (erro) {
-      alert("Erro ao criar empresa. Verifique os dados ou tente outro e-mail.");
       console.error(erro);
+
+      if (erro?.code === "auth/email-already-in-use") {
+        alert("Este e-mail já possui conta. Faça login normalmente.");
+      } else {
+        alert("Erro ao criar empresa. Verifique os dados.");
+      }
     } finally {
       setCarregando(false);
     }
@@ -218,12 +332,12 @@ async function solicitarAcesso(e) {
     >
       <form
         onSubmit={
-  modoCadastro
-    ? criarConta
-    : modoConvite
-    ? solicitarAcesso
-    : entrar
-}
+          modoCadastro
+            ? criarConta
+            : modoConvite
+            ? solicitarAcesso
+            : entrar
+        }
         style={{
           background: "#101935",
           padding: 30,
@@ -236,7 +350,11 @@ async function solicitarAcesso(e) {
         }}
       >
         <h1 style={{ color: "#fff", margin: 0 }}>
-          {modoCadastro ? "Criar empresa" : "Login"}
+          {modoCadastro
+            ? "Criar empresa"
+            : modoConvite
+            ? "Solicitar acesso"
+            : "Login"}
         </h1>
 
         <p
@@ -248,6 +366,8 @@ async function solicitarAcesso(e) {
         >
           {modoCadastro
             ? "Crie uma nova empresa com banco de dados separado."
+            : modoConvite
+            ? "Digite o código convite enviado pelo administrador."
             : "Entre com seu e-mail e senha."}
         </p>
 
@@ -258,33 +378,20 @@ async function solicitarAcesso(e) {
             value={nomeEmpresa}
             required
             onChange={(e) => setNomeEmpresa(e.target.value)}
-            style={{
-              padding: 12,
-              borderRadius: 10,
-              border: "1px solid #243056",
-              background: "#0b1220",
-              color: "#fff",
-            }}
+            style={inputStyle}
           />
         )}
+
         {modoConvite && (
-  <input
-    type="text"
-    placeholder="Código convite"
-    value={codigoConvite}
-    required
-    onChange={(e) =>
-      setCodigoConvite(e.target.value)
-    }
-    style={{
-      padding: 12,
-      borderRadius: 10,
-      border: "1px solid #243056",
-      background: "#0b1220",
-      color: "#fff",
-    }}
-  />
-)}
+          <input
+            type="text"
+            placeholder="Código convite"
+            value={codigoConvite}
+            required
+            onChange={(e) => setCodigoConvite(e.target.value)}
+            style={inputStyle}
+          />
+        )}
 
         <input
           type="email"
@@ -292,13 +399,7 @@ async function solicitarAcesso(e) {
           value={email}
           required
           onChange={(e) => setEmail(e.target.value)}
-          style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #243056",
-            background: "#0b1220",
-            color: "#fff",
-          }}
+          style={inputStyle}
         />
 
         <input
@@ -308,13 +409,7 @@ async function solicitarAcesso(e) {
           required
           minLength={6}
           onChange={(e) => setSenha(e.target.value)}
-          style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #243056",
-            background: "#0b1220",
-            color: "#fff",
-          }}
+          style={inputStyle}
         />
 
         <button
@@ -334,47 +429,52 @@ async function solicitarAcesso(e) {
             ? "Aguarde..."
             : modoCadastro
             ? "Criar empresa"
+            : modoConvite
+            ? "Solicitar acesso"
             : "Entrar"}
         </button>
 
         <button
           type="button"
-          onClick={() => setModoCadastro(!modoCadastro)}
-          style={{
-            padding: 10,
-            borderRadius: 10,
-            border: "1px solid #334155",
-            background: "transparent",
-            color: "#cbd5e1",
-            cursor: "pointer",
+          onClick={() => {
+            setModoCadastro(!modoCadastro);
+            setModoConvite(false);
           }}
+          style={secondaryButtonStyle}
         >
-          {modoCadastro
-  ? "Já tenho conta"
-  : modoConvite
-  ? "Já tenho conta"
-  : "Criar nova empresa"}
+          {modoCadastro ? "Já tenho conta" : "Criar nova empresa"}
         </button>
+
         <button
-  type="button"
-  onClick={() => {
-    setModoCadastro(false);
-    setModoConvite(!modoConvite);
-  }}
-  style={{
-    padding: 10,
-    borderRadius: 10,
-    border: "1px solid #334155",
-    background: "transparent",
-    color: "#cbd5e1",
-    cursor: "pointer",
-  }}
->
-  {modoConvite
-    ? "Cancelar convite"
-    : "Entrar em empresa existente"}
-</button>
+          type="button"
+          onClick={() => {
+            setModoConvite(!modoConvite);
+            setModoCadastro(false);
+          }}
+          style={secondaryButtonStyle}
+        >
+          {modoConvite
+            ? "Cancelar convite"
+            : "Entrar em empresa existente"}
+        </button>
       </form>
     </div>
   );
 }
+
+const inputStyle = {
+  padding: 12,
+  borderRadius: 10,
+  border: "1px solid #243056",
+  background: "#0b1220",
+  color: "#fff",
+};
+
+const secondaryButtonStyle = {
+  padding: 10,
+  borderRadius: 10,
+  border: "1px solid #334155",
+  background: "transparent",
+  color: "#cbd5e1",
+  cursor: "pointer",
+};
