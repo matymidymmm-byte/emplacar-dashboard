@@ -230,10 +230,12 @@ function Sistema({ usuario, acesso }) {
   );
 }
 
-const docSistema = doc(
+const docDadosEmpresa = doc(
   db,
+  "empresas",
+  empresaId,
   "sistema",
-  "emplacar"
+  "dados"
 );
   const docBackup = (id) =>
   doc(
@@ -405,22 +407,7 @@ setInicioPeriodoSalvo(
     : []
 );
 
-setDadosEmpresa({
-  logo: dados.logo || "",
-  nome: dados.nome || "",
-  ie: dados.ie || "",
-  cnpj: dados.cnpj || "",
-  email: dados.email || "",
-  whatsapp: dados.whatsapp || "",
-  cep: dados.cep || "",
-  logradouro: dados.logradouro || "",
-  numero: dados.numero || "",
-  bairro: dados.bairro || "",
-  cidade: dados.cidade || "",
-  pix: dados.pix || "",
-  codigoConvite:
-    dados.codigoConvite || "",
-});
+
       } else {
         await setDoc(docSistema, {
           entradas: [],
@@ -463,6 +450,35 @@ inicioPeriodoSalvo: "",
 
     return () => cancelar();
   }, []);
+  useEffect(() => {
+  const cancelarDadosEmpresa = onSnapshot(
+    docDadosEmpresa,
+    (snapshot) => {
+      if (!snapshot.exists()) return;
+
+      const dados = snapshot.data();
+
+      setDadosEmpresa({
+        logo: dados.logo || "",
+        nome: dados.nome || "",
+        ie: dados.ie || "",
+        cnpj: dados.cnpj || "",
+        email: dados.email || "",
+        whatsapp: dados.whatsapp || "",
+        cep: dados.cep || "",
+        logradouro: dados.logradouro || "",
+        numero: dados.numero || "",
+        bairro: dados.bairro || "",
+        cidade: dados.cidade || "",
+        pix: dados.pix || "",
+        codigoConvite:
+          dados.codigoConvite || "",
+      });
+    }
+  );
+
+  return () => cancelarDadosEmpresa();
+}, [empresaId]);
   useEffect(() => {
   const cancelar = onSnapshot(
     collection(
@@ -554,13 +570,7 @@ useEffect(() => {
   async function salvarDadosEmpresa() {
   try {
     await setDoc(
-  doc(
-    db,
-    "empresas",
-    empresaId,
-    "sistema",
-    "dados"
-  ),
+  docDadosEmpresa,
       {
         ...dadosEmpresa,
       },
