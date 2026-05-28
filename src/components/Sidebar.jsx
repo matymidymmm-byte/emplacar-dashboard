@@ -11,6 +11,7 @@ import styles from "../styles/styles.js";
 import { db, auth } from "../services/firebase.js";
 
 export default function Sidebar({
+  empresaId,
   aba,
   setAba,
   acesso,
@@ -70,8 +71,11 @@ const [senhaAtual, setSenhaAtual] = useState("");
 const [novaSenha, setNovaSenha] = useState("");
 const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
 
-  const docSistema =
-    doc(db, "sistema", "emplacar");
+  const docSistema = doc(
+  db,
+  "empresas",
+  empresaId
+);
 
   const email =
     usuario?.email?.toLowerCase() || "";
@@ -460,22 +464,23 @@ const superadmin =
           : "none",
       }}
     >
-      <div
+     <div
   style={{
     ...styles.logoBox,
     cursor: "pointer",
+    flexDirection: mobile ? "column" : styles.logoBox.flexDirection,
+    alignItems: mobile ? "flex-start" : styles.logoBox.alignItems,
+    gap: mobile ? 10 : styles.logoBox.gap,
+    paddingTop: mobile ? 72 : styles.logoBox.paddingTop,
   }}
   onClick={() => setMostrarPerfil(!mostrarPerfil)}
 >
         <img
-        src={
+          src={
   dadosEmpresa?.logo ||
-  "/logo-nexora.png"
+  "/logo-emplacar.png"
 }
-          alt={
-  dadosEmpresa?.nome ||
-  "Logo da Empresa"
-}
+          alt={dadosEmpresa?.nome || "Logo da Empresa"}
           style={
             styles.logoImagem
           }
@@ -483,7 +488,7 @@ const superadmin =
 
         <div>
           <h2 style={styles.logo}>
-            {dadosEmpresa?.nome || "Nexora"}
+            {dadosEmpresa?.nome || "Emplacar"}
           </h2>
 
           <p
