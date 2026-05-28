@@ -480,8 +480,7 @@ textAlign: "center",
 >
         <img
           src={
-  dadosEmpresa?.logo ||
-  "/logo-emplacar.png"
+  dadosEmpresa?.logo || "/logo-nexora.png"
 }
           alt={dadosEmpresa?.nome || "Logo da Empresa"}
           style={{
@@ -494,7 +493,7 @@ textAlign: "center",
 
         <div>
           <h2 style={styles.logo}>
-            {dadosEmpresa?.nome || "Emplacar"}
+            {dadosEmpresa?.nome || "Nexora"}
           </h2>
 
           <p
