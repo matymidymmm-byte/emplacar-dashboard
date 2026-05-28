@@ -151,21 +151,25 @@ export default function DadosEmpresa({
           </p>
 
           <div
-            style={{
-              background: "#050816",
-              padding: "14px 18px",
-              borderRadius: 12,
-              color: "#fff",
-              fontWeight: "bold",
-              letterSpacing: 1,
-              border: "1px solid #243056",
-              width: "fit-content",
-              maxWidth: "100%",
-              wordBreak: "break-word",
-            }}
-          >
-            {temCodigoConvite ? dadosEmpresa.codigoConvite : "SEM CONVITE"}
-          </div>
+  style={{
+    background: "#050816",
+    padding: "14px 18px",
+    borderRadius: 12,
+    color: "#fff",
+    fontWeight: "bold",
+    letterSpacing: 1,
+    border: "1px solid #243056",
+    width: "fit-content",
+    maxWidth: "100%",
+    wordBreak: "break-word",
+  }}
+>
+  {admin
+    ? temCodigoConvite
+      ? dadosEmpresa.codigoConvite
+      : "SEM CONVITE"
+    : "••••••••"}
+</div>
 
           <div
             style={{
@@ -174,12 +178,11 @@ export default function DadosEmpresa({
               flexWrap: "wrap",
             }}
           >
-            {temCodigoConvite && (
-              <button onClick={copiarConvite} style={styles.botao}>
-                Copiar convite
-              </button>
-            )}
-
+           {admin && temCodigoConvite && (
+  <button onClick={copiarConvite} style={styles.botao}>
+    Copiar convite
+  </button>
+)}
             {admin && !temCodigoConvite && (
               <button onClick={gerarCodigoConvite} style={styles.botao}>
                 Gerar convite

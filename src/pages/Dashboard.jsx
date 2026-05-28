@@ -1,5 +1,6 @@
 import { useState } from "react";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 import styles from "../styles/styles.js";
 
@@ -7,7 +8,6 @@ import Card from "../components/Card.jsx";
 import Kpi from "../components/Kpi.jsx";
 import GraficoLinha from "../components/GraficoLinha.jsx";
 import GraficoBarras from "../components/GraficoBarras.jsx";
-import html2canvas from "html2canvas";
 
 export default function Dashboard({
   usuario,
@@ -38,9 +38,13 @@ export default function Dashboard({
   destinoDinheiro,
 
   metaMensal,
-  setMetaMensal,
+setMetaMensal,
+
+historicoFechamentos,
 }) {
   const [modoDetalhado, setModoDetalhado] = useState(false);
+  const [diasComparativo, setDiasComparativo] = useState(10);
+  const [tooltipAberto, setTooltipAberto] = useState("");
 
   const emailUsuario = usuario?.email?.toLowerCase() || "";
 
@@ -50,16 +54,64 @@ export default function Dashboard({
 
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
-
     const [ano, mes, dia] = data.split("-");
-
     return `${dia}/${mes}/${ano}`;
   }
 
   function dentroDoPeriodo(data) {
     if (!data) return false;
-
     return data >= inicioMes && data <= fimMes;
+  }
+
+  function adicionarDias(dataBase, dias) {
+    const data = new Date(dataBase + "T00:00:00");
+    data.setDate(data.getDate() + dias);
+    return data.toISOString().slice(0, 10);
+  }
+
+  function calcularVariacao(atual, anterior) {
+    if (!anterior || anterior <= 0) return atual > 0 ? 100 : 0;
+    return ((atual - anterior) / anterior) * 100;
+  }
+
+  function corVariacao(valor) {
+    if (valor > 0) return "#22c55e";
+    if (valor < 0) return "#ef4444";
+    return "#94a3b8";
+  }
+
+  function textoVariacao(valor) {
+    const numero = Number(valor || 0);
+    const sinal = numero > 0 ? "+" : "";
+    return `${sinal}${numero.toFixed(1)}%`;
+  }
+
+  function ehInjecaoOuAporte(item) {
+    const texto = String(
+      [
+        item?.tipo,
+        item?.produto,
+        item?.processo,
+        item?.cliente,
+        item?.observacao,
+      ].join(" ")
+    )
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    return (
+      texto.includes("INJECAO") ||
+      texto.includes("APORTE") ||
+      texto.includes("CAPITAL")
+    );
+  }
+
+  function somarEntradasPeriodo(inicio, fim) {
+    return entradas
+      .filter((entrada) => entrada.data >= inicio && entrada.data <= fim)
+      .filter((entrada) => !ehInjecaoOuAporte(entrada))
+      .reduce((soma, entrada) => soma + Number(entrada.valor || 0), 0);
   }
 
   function confirmarFechamentoMes() {
@@ -72,7 +124,6 @@ export default function Dashboard({
     if (!confirmar) return;
 
     fecharMesFinanceiro();
-
     window.alert("Mês financeiro salvo no histórico com sucesso.");
   }
 
@@ -139,7 +190,6 @@ export default function Dashboard({
       if (statusConta(conta) !== "Pago") return;
 
       criarDia(conta.vencimento);
-
       mapa[conta.vencimento].saidaBanco += Number(conta.valor || 0);
     });
 
@@ -168,7 +218,6 @@ export default function Dashboard({
     indicadores.faturamentoCompetencia || indicadores.entradaBruta || 0;
 
   const despesasOperacionais = indicadores.saidasTotal || 0;
-
   const resultadoOperacional = receitaOperacional - despesasOperacionais;
 
   const margemOperacional =
@@ -194,15 +243,11 @@ export default function Dashboard({
       if (!dentroDoPeriodo(saida.data)) return;
 
       const categoria = saida.categoria || "Outros";
-
       mapa[categoria] = (mapa[categoria] || 0) + Number(saida.valor || 0);
     });
 
     return Object.entries(mapa)
-      .map(([categoria, valor]) => ({
-        categoria,
-        valor,
-      }))
+      .map(([categoria, valor]) => ({ categoria, valor }))
       .sort((a, b) => b.valor - a.valor);
   })();
 
@@ -238,7 +283,6 @@ export default function Dashboard({
     });
 
     const imagem = canvas.toDataURL("image/png");
-
     const doc = new jsPDF("p", "mm", "a4");
 
     const larguraPDF = 210;
@@ -261,21 +305,112 @@ export default function Dashboard({
     doc.save("dashboard-financeiro.pdf");
   }
 
-  const kpisSimples = [
-    ["Faturamento", receitaOperacional],
-    ["Entradas à Vista", indicadores.entradasVistaTotal || 0],
-    ["Caixa Real", indicadores.entradaLiquida || 0],
-    ["Saídas", indicadores.saidasTotal || 0],
-    ["Faturado em Aberto", indicadores.faturadoEmAberto || 0],
-    ["Banco", indicadores.tenhoNoBanco || 0],
-    ["Caixa Físico", indicadores.tenhoNoCaixa || 0],
-  ];
+  const explicacoesKpi = {
+    Faturamento:
+      "Tudo que foi vendido no período analisado, mesmo que ainda não tenha sido recebido.",
+    "Entradas à Vista":
+      "Vendas pagas na hora, como Pix, dinheiro, cartão ou depósito.",
+    "Caixa Real":
+      "Dinheiro real restante depois das entradas recebidas e das saídas pagas.",
+    Saídas:
+      "Tudo que saiu da empresa no período: contas, despesas, fornecedores, vales e pagamentos.",
+    "Faturado em Aberto":
+      "Valor vendido como Nota/Faturado que ainda não foi recebido.",
+    Banco:
+      "Quanto deveria existir no banco, considerando entradas bancárias menos saídas bancárias.",
+    "Caixa Físico":
+      "Quanto deveria existir em dinheiro físico, considerando entradas e saídas em caixa.",
+    "Recebimentos Antigos":
+      "Notas ou faturados de períodos anteriores que foram pagos agora.",
+    "Caixa Recebido":
+      "Tudo que realmente entrou no caixa/banco no período analisado.",
+    "Caixa Operacional":
+      "Dinheiro operacional da empresa sem contar aportes ou injeções de capital.",
+    "Saldo Operacional":
+      "Sobra operacional após descontar as saídas do caixa operacional.",
+    "Injeção Sócios":
+      "Dinheiro colocado pelos sócios na empresa. Não é venda.",
+    "Injeção Loja":
+      "Dinheiro colocado diretamente na operação da loja. Não é venda.",
+    "Injeção Caixa":
+      "Reforço manual de caixa físico. Não é venda.",
+    "Aporte Total":
+      "Soma de todas as injeções/aportes feitos na empresa.",
+    "Banco Real":
+      "Quanto deveria existir no banco segundo o sistema.",
+    "Recuperação Vale":
+      "Valor recuperado de vales ou adiantamentos descontados depois.",
+  };
+
+  function KpiComAjuda({ titulo, valor }) {
+    const aberto = tooltipAberto === titulo;
+
+    return (
+      <div style={{ position: "relative" }}>
+        <button
+          type="button"
+          onMouseEnter={() => setTooltipAberto(titulo)}
+          onMouseLeave={() => setTooltipAberto("")}
+          onClick={() => setTooltipAberto(aberto ? "" : titulo)}
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            zIndex: 5,
+            width: 24,
+            height: 24,
+            borderRadius: "50%",
+            border: "1px solid #334155",
+            background: "#0f172a",
+            color: "#93c5fd",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          ?
+        </button>
+
+        {aberto && (
+          <div
+            style={{
+              position: "absolute",
+              top: 40,
+              right: 10,
+              zIndex: 20,
+              width: 260,
+              background: "#020617",
+              color: "#e5e7eb",
+              border: "1px solid #334155",
+              borderRadius: 12,
+              padding: 12,
+              fontSize: 13,
+              lineHeight: 1.45,
+              boxShadow: "0 20px 40px rgba(0,0,0,0.45)",
+            }}
+          >
+            {explicacoesKpi[titulo] || "Indicador financeiro do período."}
+          </div>
+        )}
+
+        <Kpi titulo={titulo} valor={valor} />
+      </div>
+    );
+  }
 
   const caixaOperacional =
     (indicadores.caixaRecebidoTotal || 0) -
     (indicadores.injecaoCapitalTotal || 0);
 
   const saldoOperacional = caixaOperacional - (indicadores.saidasTotal || 0);
+
+  const kpisSimples = [
+    ["Faturamento", receitaOperacional],
+    ["Caixa Real", indicadores.entradaLiquida || 0],
+    ["Saídas", indicadores.saidasTotal || 0],
+    ["Faturado em Aberto", indicadores.faturadoEmAberto || 0],
+    ["Banco", indicadores.tenhoNoBanco || 0],
+    ["Caixa Físico", indicadores.tenhoNoCaixa || 0],
+  ];
 
   const kpisDetalhados = [
     ["Faturamento", receitaOperacional],
@@ -296,6 +431,154 @@ export default function Dashboard({
   ];
 
   const kpis = modoDetalhado ? kpisDetalhados : kpisSimples;
+
+  const inicioSemanaAtual = adicionarDias(fimMes, -6);
+  const fimSemanaAtual = fimMes;
+
+  const inicioSemanaAnterior = adicionarDias(inicioSemanaAtual, -7);
+  const fimSemanaAnterior = adicionarDias(inicioSemanaAtual, -1);
+
+  const vendaSemanaAtual = somarEntradasPeriodo(
+    inicioSemanaAtual,
+    fimSemanaAtual
+  );
+
+  const vendaSemanaAnterior = somarEntradasPeriodo(
+    inicioSemanaAnterior,
+    fimSemanaAnterior
+  );
+
+  const variacaoSemana = calcularVariacao(
+    vendaSemanaAtual,
+    vendaSemanaAnterior
+  );
+
+  const dataInicioAtual = new Date(inicioMes + "T00:00:00");
+
+  const ultimoFechamento =
+  historicoFechamentos?.[0];
+
+const fechamentoAnterior =
+  historicoFechamentos?.[1];
+
+const inicioMesAnterior =
+  ultimoFechamento?.inicio || "";
+
+const fimMesAnterior =
+  ultimoFechamento?.fim || "";
+  const quantidadeDiasAtual =
+  Math.max(
+    1,
+    Math.floor(
+      (
+        new Date(fimMes + "T00:00:00") -
+        new Date(inicioMes + "T00:00:00")
+      ) /
+        (1000 * 60 * 60 * 24)
+    ) + 1
+  );
+
+const fimMesAnteriorComparativo =
+  inicioMesAnterior
+    ? adicionarDias(
+        inicioMesAnterior,
+        quantidadeDiasAtual - 1
+      )
+    : "";
+
+  const vendaMesAtual = somarEntradasPeriodo(inicioMes, fimMes);
+
+  const vendaMesAnterior =
+  inicioMesAnterior && fimMesAnteriorComparativo
+    ? somarEntradasPeriodo(
+        inicioMesAnterior,
+        fimMesAnteriorComparativo
+      )
+    : 0;
+  const variacaoMes = calcularVariacao(vendaMesAtual, vendaMesAnterior);
+
+  const fimComparativoAtual = adicionarDias(inicioMes, diasComparativo - 1);
+  const fimComparativoAnterior =
+  inicioMesAnterior
+    ? adicionarDias(
+        inicioMesAnterior,
+        diasComparativo - 1
+      )
+    : "";
+
+  const vendaPeriodoAtual = somarEntradasPeriodo(
+    inicioMes,
+    fimComparativoAtual
+  );
+
+  const vendaPeriodoAnterior =
+  inicioMesAnterior && fimComparativoAnterior
+    ? somarEntradasPeriodo(
+        inicioMesAnterior,
+        fimComparativoAnterior
+      )
+    : 0;
+
+  const variacaoPeriodo = calcularVariacao(
+    vendaPeriodoAtual,
+    vendaPeriodoAnterior
+  );
+
+  function CardComparativo({
+    titulo,
+    descricao,
+    periodoAtual,
+    periodoAnterior,
+    atual,
+    anterior,
+    variacao,
+  }) {
+    return (
+      <div style={styles.card}>
+        <h3
+          style={{
+            color: "#fff",
+            marginTop: 0,
+            marginBottom: 8,
+          }}
+        >
+          {titulo}
+        </h3>
+
+        <p
+          style={{
+            color: "#94a3b8",
+            marginTop: 0,
+            fontSize: 13,
+            lineHeight: 1.5,
+          }}
+        >
+          {descricao}
+        </p>
+
+        <p style={{ color: "#cbd5e1", marginBottom: 6 }}>
+          <strong>Atual:</strong> {periodoAtual}
+          <br />
+          {moeda.format(atual)}
+        </p>
+
+        <p style={{ color: "#cbd5e1", marginBottom: 6 }}>
+          <strong>Anterior:</strong> {periodoAnterior}
+          <br />
+          {moeda.format(anterior)}
+        </p>
+
+        <strong
+          style={{
+            color: corVariacao(variacao),
+            fontSize: 24,
+          }}
+        >
+          {textoVariacao(variacao)}
+        </strong>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -369,7 +652,6 @@ export default function Dashboard({
         <div style={styles.formGrid}>
           <label style={styles.label}>
             Começa em
-
             <input
               type="date"
               value={inicioMes}
@@ -380,7 +662,6 @@ export default function Dashboard({
 
           <label style={styles.label}>
             Fecha em
-
             <input
               type="date"
               value={fimMes}
@@ -393,9 +674,92 @@ export default function Dashboard({
 
       <div style={styles.kpisModernos}>
         {kpis.map(([titulo, valor]) => (
-          <Kpi key={titulo} titulo={titulo} valor={moeda.format(valor)} />
+          <KpiComAjuda
+            key={titulo}
+            titulo={titulo}
+            valor={moeda.format(valor)}
+          />
         ))}
       </div>
+
+      {modoDetalhado && (
+        <Card titulo="Comparativos Inteligentes">
+          <div
+            style={{
+              display: "flex",
+              gap: 20,
+              flexWrap: "wrap",
+              marginBottom: 20,
+              alignItems: "flex-end",
+            }}
+          >
+            <label style={styles.label}>
+              Comparar primeiros dias do mês
+              <input
+                type="number"
+                min={1}
+                max={31}
+                value={diasComparativo}
+                onChange={(e) =>
+                  setDiasComparativo(Number(e.target.value || 1))
+                }
+                style={{
+                  ...styles.input,
+                  maxWidth: 160,
+                }}
+              />
+            </label>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
+              gap: 20,
+            }}
+          >
+            <CardComparativo
+              titulo="Semana atual vs semana anterior"
+              descricao="Compara os últimos 7 dias do período selecionado com os 7 dias imediatamente anteriores."
+              periodoAtual={`${dataBR(inicioSemanaAtual)} a ${dataBR(
+                fimSemanaAtual
+              )}`}
+              periodoAnterior={`${dataBR(inicioSemanaAnterior)} a ${dataBR(
+                fimSemanaAnterior
+              )}`}
+              atual={vendaSemanaAtual}
+              anterior={vendaSemanaAnterior}
+              variacao={variacaoSemana}
+            />
+
+            <CardComparativo
+              titulo="Mês atual vs mês anterior"
+              descricao="Compara o período financeiro atual selecionado com o mês anterior completo."
+              periodoAtual={`${dataBR(inicioMes)} a ${dataBR(fimMes)}`}
+              periodoAnterior={`${dataBR(inicioMesAnterior)} a ${dataBR(
+  fimMesAnteriorComparativo
+)}`}
+              atual={vendaMesAtual}
+              anterior={vendaMesAnterior}
+              variacao={variacaoMes}
+            />
+
+            <CardComparativo
+              titulo={`Primeiros ${diasComparativo} dias vs mês anterior`}
+              descricao="Compara a mesma quantidade de dias no início do mês atual contra o início do mês anterior."
+              periodoAtual={`${dataBR(inicioMes)} a ${dataBR(
+                fimComparativoAtual
+              )}`}
+              periodoAnterior={`${dataBR(inicioMesAnterior)} a ${dataBR(
+                fimComparativoAnterior
+              )}`}
+              atual={vendaPeriodoAtual}
+              anterior={vendaPeriodoAnterior}
+              variacao={variacaoPeriodo}
+            />
+          </div>
+        </Card>
+      )}
 
       <div className="dashboard-graficos-executivos">
         <div style={{ minWidth: 0 }}>
@@ -429,22 +793,22 @@ export default function Dashboard({
 
       <Card titulo="DRE gerencial simples">
         <div style={styles.kpisModernos}>
-          <Kpi
+          <KpiComAjuda
             titulo="Receita Operacional"
             valor={moeda.format(receitaOperacional)}
           />
 
-          <Kpi
+          <KpiComAjuda
             titulo="Despesas Operacionais"
             valor={moeda.format(despesasOperacionais)}
           />
 
-          <Kpi
+          <KpiComAjuda
             titulo="Resultado Operacional"
             valor={moeda.format(resultadoOperacional)}
           />
 
-          <Kpi
+          <KpiComAjuda
             titulo="Margem Operacional"
             valor={`${margemOperacional.toFixed(1)}%`}
           />
@@ -504,19 +868,25 @@ export default function Dashboard({
         </div>
 
         <div style={styles.kpisModernos}>
-          <Kpi titulo="% Meta" valor={`${percentualMeta.toFixed(1)}%`} />
+          <KpiComAjuda
+            titulo="% Meta"
+            valor={`${percentualMeta.toFixed(1)}%`}
+          />
 
-          <Kpi
+          <KpiComAjuda
             titulo="Falta para meta"
             valor={moeda.format(Math.max(faltaMeta, 0))}
           />
 
-          <Kpi
+          <KpiComAjuda
             titulo="Meta diária necessária"
             valor={moeda.format(mediaNecessaria)}
           />
 
-          <Kpi titulo="Projeção mês" valor={moeda.format(projecaoMes)} />
+          <KpiComAjuda
+            titulo="Projeção mês"
+            valor={moeda.format(projecaoMes)}
+          />
         </div>
       </Card>
     </>
