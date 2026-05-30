@@ -1930,44 +1930,98 @@ const entradaLiquida = caixaRecebidoTotal - saidasTotal;
   }, [dadosPeriodo]);
 function fecharMesFinanceiro() {
   const fechamento = {
-    id: Date.now(),
+  id: Date.now(),
 
-    inicio: inicioMes,
-    fim: hoje,
+  inicio: inicioMes,
+  fim: hoje,
 
-    dataFechamento: hoje,
+  dataFechamento: hoje,
 
-    faturamento:
-      indicadores.faturamentoCompetencia || 0,
+  faturamento:
+    indicadores.faturamentoCompetencia || 0,
 
-    recebido:
-      indicadores.caixaRecebidoTotal || 0,
+  recebido:
+    indicadores.caixaRecebidoTotal || 0,
 
-    recebidoBanco:
-      indicadores.tenhoNoBanco || 0,
+  recebidoBanco:
+    indicadores.tenhoNoBanco || 0,
 
-    recebidoCaixa:
-      indicadores.tenhoNoCaixa || 0,
+  recebidoCaixa:
+    indicadores.tenhoNoCaixa || 0,
 
-    faturadoEmAberto:
-      indicadores.faturadoEmAberto || 0,
+  bancoEsperado:
+    indicadores.tenhoNoBanco || 0,
 
-    saidas:
-      indicadores.saidasTotal || 0,
+  caixaEsperado:
+    indicadores.tenhoNoCaixa || 0,
 
-    lucro:
-      indicadores.entradaLiquida || 0,
+  saldoTotal:
+    (indicadores.tenhoNoBanco || 0) +
+    (indicadores.tenhoNoCaixa || 0),
 
-    quantidadeEntradas:
-      dadosPeriodo.entradas.length || 0,
+  faturadoEmAberto:
+    indicadores.faturadoEmAberto || 0,
 
-    quantidadeSaidas:
-      dadosPeriodo.saidas.length || 0,
+  saidas:
+    indicadores.saidasTotal || 0,
 
-    metaMensal,
+  lucro:
+    indicadores.entradaLiquida || 0,
 
-    diaInicioMesFinanceiro,
-  };
+  entradasVista:
+    indicadores.entradasVistaTotal || 0,
+
+  recebimentosAntigos:
+    indicadores.recebimentosAntigos || 0,
+
+  servicosRealizados:
+    dadosPeriodo.entradas.filter(ehVendaReal)
+      .length || 0,
+
+  quantidadeEntradas:
+    dadosPeriodo.entradas.length || 0,
+
+  quantidadeSaidas:
+    dadosPeriodo.saidas.length || 0,
+
+  quantidadeNotasEmAberto:
+    entradas.filter(
+      (x) =>
+        x.data >= inicioMes &&
+        x.data <= hoje &&
+        x.formaPagamento ===
+          "Nota / Faturado" &&
+        !x.diaPago
+    ).length,
+
+  notasEmAbertoDetalhadas:
+  entradas
+    .filter(
+      (x) =>
+        x.data >= inicioMes &&
+        x.data <= hoje &&
+        x.formaPagamento ===
+          "Nota / Faturado" &&
+        !x.diaPago
+    )
+    .map((x) => ({
+      id: x.id,
+      cliente: x.cliente || "",
+      placa: x.placa || "",
+      produto: x.produto || "",
+      valor: Number(x.valor || 0),
+      data: x.data || "",
+      status: x.status || "",
+      diaPago: x.diaPago || "",
+      formaPagamento: x.formaPagamento || "",
+      categoriaPlaca: x.categoriaPlaca || "",
+      processo: x.processo || "",
+    })),
+
+  metaMensal,
+
+  diaInicioMesFinanceiro,
+};
 
   setHistoricoFechamentos((old) => [
     fechamento,

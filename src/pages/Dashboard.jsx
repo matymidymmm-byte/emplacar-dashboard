@@ -8,6 +8,7 @@ import Card from "../components/Card.jsx";
 import Kpi from "../components/Kpi.jsx";
 import GraficoLinha from "../components/GraficoLinha.jsx";
 import GraficoBarras from "../components/GraficoBarras.jsx";
+import Tabela from "../components/Tabela.jsx";
 
 export default function Dashboard({
   usuario,
@@ -38,13 +39,15 @@ export default function Dashboard({
   destinoDinheiro,
 
   metaMensal,
-setMetaMensal,
+  setMetaMensal,
 
-historicoFechamentos,
+  historicoFechamentos,
 }) {
   const [modoDetalhado, setModoDetalhado] = useState(false);
   const [diasComparativo, setDiasComparativo] = useState(10);
   const [tooltipAberto, setTooltipAberto] = useState("");
+  const [mostrarRecebimentosAntigos, setMostrarRecebimentosAntigos] =
+    useState(false);
 
   const emailUsuario = usuario?.email?.toLowerCase() || "";
 
@@ -266,6 +269,45 @@ historicoFechamentos,
     receitaOperacional -
     (indicadores.caixaRecebidoTotal || indicadores.recebidoTotal || 0);
 
+  const entradasOperacionaisPeriodo = (dadosPeriodo?.entradas || []).filter(
+    (entrada) => !ehInjecaoOuAporte(entrada)
+  );
+
+  const servicosRealizadosPeriodo = entradasOperacionaisPeriodo.length;
+
+  const totalServicosGrafico = (servicosPorDia || []).reduce(
+    (soma, item) => soma + Number(item.quantidade || 0),
+    0
+  );
+
+  const recebimentosAntigosDetalhados = entradas
+    .filter((entrada) => {
+      const dataRecebimento = dataRecebimentoEntrada(entrada);
+
+      if (!entrada?.data) return false;
+      if (!dataRecebimento) return false;
+      if (entrada.status !== "Pago") return false;
+      if (ehInjecaoOuAporte(entrada)) return false;
+
+      return (
+        entrada.data < inicioMes &&
+        dataRecebimento >= inicioMes &&
+        dataRecebimento <= fimMes
+      );
+    })
+    .sort((a, b) =>
+      String(dataRecebimentoEntrada(b)).localeCompare(
+        String(dataRecebimentoEntrada(a))
+      )
+    );
+
+  const quantidadeRecebimentosAntigos = recebimentosAntigosDetalhados.length;
+
+  const valorRecebimentosAntigos = recebimentosAntigosDetalhados.reduce(
+    (soma, entrada) => soma + Number(entrada.valor || 0),
+    0
+  );
+
   async function exportarPDF() {
     const elemento = document.querySelector("main");
 
@@ -340,6 +382,12 @@ historicoFechamentos,
       "Quanto deveria existir no banco segundo o sistema.",
     "Recuperação Vale":
       "Valor recuperado de vales ou adiantamentos descontados depois.",
+    "Serviços Realizados":
+      "Quantidade de serviços/vendas operacionais lançados dentro do período financeiro atual.",
+    "Notas Antigas Recebidas":
+      "Quantidade de vendas feitas antes do período atual, mas recebidas dentro deste período financeiro.",
+    "Valor de Notas Antigas":
+      "Valor financeiro recebido neste período referente a vendas de períodos anteriores.",
   };
 
   function KpiComAjuda({ titulo, valor }) {
@@ -453,57 +501,40 @@ historicoFechamentos,
     vendaSemanaAnterior
   );
 
-  const dataInicioAtual = new Date(inicioMes + "T00:00:00");
+  const ultimoFechamento = historicoFechamentos?.[0];
 
-  const ultimoFechamento =
-  historicoFechamentos?.[0];
+  const fechamentoAnterior = historicoFechamentos?.[1];
 
-const fechamentoAnterior =
-  historicoFechamentos?.[1];
+  const inicioMesAnterior = ultimoFechamento?.inicio || "";
 
-const inicioMesAnterior =
-  ultimoFechamento?.inicio || "";
+  const fimMesAnterior = ultimoFechamento?.fim || "";
 
-const fimMesAnterior =
-  ultimoFechamento?.fim || "";
-  const quantidadeDiasAtual =
-  Math.max(
+  const quantidadeDiasAtual = Math.max(
     1,
     Math.floor(
-      (
-        new Date(fimMes + "T00:00:00") -
-        new Date(inicioMes + "T00:00:00")
-      ) /
+      (new Date(fimMes + "T00:00:00") -
+        new Date(inicioMes + "T00:00:00")) /
         (1000 * 60 * 60 * 24)
     ) + 1
   );
 
-const fimMesAnteriorComparativo =
-  inicioMesAnterior
-    ? adicionarDias(
-        inicioMesAnterior,
-        quantidadeDiasAtual - 1
-      )
+  const fimMesAnteriorComparativo = inicioMesAnterior
+    ? adicionarDias(inicioMesAnterior, quantidadeDiasAtual - 1)
     : "";
 
   const vendaMesAtual = somarEntradasPeriodo(inicioMes, fimMes);
 
   const vendaMesAnterior =
-  inicioMesAnterior && fimMesAnteriorComparativo
-    ? somarEntradasPeriodo(
-        inicioMesAnterior,
-        fimMesAnteriorComparativo
-      )
-    : 0;
+    inicioMesAnterior && fimMesAnteriorComparativo
+      ? somarEntradasPeriodo(inicioMesAnterior, fimMesAnteriorComparativo)
+      : 0;
+
   const variacaoMes = calcularVariacao(vendaMesAtual, vendaMesAnterior);
 
   const fimComparativoAtual = adicionarDias(inicioMes, diasComparativo - 1);
-  const fimComparativoAnterior =
-  inicioMesAnterior
-    ? adicionarDias(
-        inicioMesAnterior,
-        diasComparativo - 1
-      )
+
+  const fimComparativoAnterior = inicioMesAnterior
+    ? adicionarDias(inicioMesAnterior, diasComparativo - 1)
     : "";
 
   const vendaPeriodoAtual = somarEntradasPeriodo(
@@ -512,12 +543,9 @@ const fimMesAnteriorComparativo =
   );
 
   const vendaPeriodoAnterior =
-  inicioMesAnterior && fimComparativoAnterior
-    ? somarEntradasPeriodo(
-        inicioMesAnterior,
-        fimComparativoAnterior
-      )
-    : 0;
+    inicioMesAnterior && fimComparativoAnterior
+      ? somarEntradasPeriodo(inicioMesAnterior, fimComparativoAnterior)
+      : 0;
 
   const variacaoPeriodo = calcularVariacao(
     vendaPeriodoAtual,
@@ -683,6 +711,89 @@ const fimMesAnteriorComparativo =
       </div>
 
       {modoDetalhado && (
+  <Card titulo="Fechamento do caixa">
+    <div style={styles.kpisModernos}>
+      <KpiComAjuda
+        titulo="Serviços Realizados"
+        valor={`${servicosRealizadosPeriodo}`}
+      />
+
+      <KpiComAjuda
+        titulo="Notas Antigas Recebidas"
+        valor={`${quantidadeRecebimentosAntigos}`}
+      />
+
+      <KpiComAjuda
+        titulo="Valor de Notas Antigas"
+        valor={moeda.format(valorRecebimentosAntigos)}
+      />
+
+      <KpiComAjuda
+        titulo="Recebimentos Antigos"
+        valor={moeda.format(indicadores.recebimentosAntigos || 0)}
+      />
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        gap: 10,
+        marginTop: 16,
+        flexWrap: "wrap",
+      }}
+    >
+      <button
+        style={
+          mostrarRecebimentosAntigos
+            ? styles.botao
+            : styles.botaoCinza
+        }
+        onClick={() =>
+          setMostrarRecebimentosAntigos(!mostrarRecebimentosAntigos)
+        }
+      >
+        {mostrarRecebimentosAntigos
+          ? "Ocultar recebimentos antigos"
+          : "Ver recebimentos antigos"}
+      </button>
+    </div>
+  </Card>
+)}
+
+      {modoDetalhado && mostrarRecebimentosAntigos && (
+        <Card titulo="Notas antigas recebidas neste período">
+          {recebimentosAntigosDetalhados.length === 0 ? (
+            <p style={styles.vazio}>
+              Nenhuma nota antiga foi recebida neste período.
+            </p>
+          ) : (
+            <Tabela
+              colunas={[
+                "Cliente",
+                "Placa",
+                "Produto",
+                "Data venda",
+                "Dia pago",
+                "Pagamento",
+                "Valor",
+                "Processo",
+              ]}
+              dados={recebimentosAntigosDetalhados.map((entrada) => [
+                entrada.cliente || "-",
+                entrada.placa || "-",
+                entrada.produto || "-",
+                dataBR(entrada.data),
+                dataBR(dataRecebimentoEntrada(entrada)),
+                entrada.formaPagamento || "-",
+                moeda.format(Number(entrada.valor || 0)),
+                entrada.processo || "-",
+              ])}
+            />
+          )}
+        </Card>
+      )}
+
+      {modoDetalhado && (
         <Card titulo="Comparativos Inteligentes">
           <div
             style={{
@@ -737,8 +848,8 @@ const fimMesAnteriorComparativo =
               descricao="Compara o período financeiro atual selecionado com o mês anterior completo."
               periodoAtual={`${dataBR(inicioMes)} a ${dataBR(fimMes)}`}
               periodoAnterior={`${dataBR(inicioMesAnterior)} a ${dataBR(
-  fimMesAnteriorComparativo
-)}`}
+                fimMesAnteriorComparativo
+              )}`}
               atual={vendaMesAtual}
               anterior={vendaMesAnterior}
               variacao={variacaoMes}
@@ -779,7 +890,9 @@ const fimMesAnteriorComparativo =
         </div>
 
         <div style={{ minWidth: 0 }}>
-          <Card titulo="Quantidade de serviços por dia">
+          <Card
+            titulo={`Quantidade de serviços por dia · Total: ${totalServicosGrafico}`}
+          >
             <GraficoBarras
               dados={servicosPorDia}
               moeda={null}
