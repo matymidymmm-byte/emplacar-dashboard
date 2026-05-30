@@ -9,6 +9,7 @@ export default function Pendencias({
   entradas,
   moeda,
   chavePix,
+  dadosEmpresa = {},
   clientePendenciaSelecionado,
   setClientePendenciaSelecionado,
   salvarRelacaoPaga,
@@ -23,15 +24,6 @@ export default function Pendencias({
   const [formaPagamento, setFormaPagamento] = useState("Pix");
   const [selecionados, setSelecionados] = useState([]);
 
-  const dadosEmpresa = {
-    nome: "Emplacar",
-    subtitulo: "Relação de Serviços em Aberto",
-    cnpj: "63.488.249/0001-08",
-    email: "emplacarmcr@gmail.com",
-    whatsapp: "45 2031-1407",
-    endereco: "Rua Rio de Janeiro, 1766 - Centro - Marechal Cândido Rondon/PR",
-  };
-
   const formasPagamento = [
     "Pix",
     "Débito",
@@ -41,16 +33,51 @@ export default function Pendencias({
     "Dinheiro",
   ];
 
+  const empresaPdf = {
+    nome: dadosEmpresa.nome || "Empresa não configurada",
+    subtitulo: "Relação de Serviços",
+    cnpj: dadosEmpresa.cnpj || "",
+    ie: dadosEmpresa.ie || "",
+    email: dadosEmpresa.email || "",
+    whatsapp: dadosEmpresa.whatsapp || "",
+    pix: dadosEmpresa.pix || chavePix || "",
+    logo: dadosEmpresa.logo || "",
+    endereco: [
+      dadosEmpresa.logradouro,
+      dadosEmpresa.numero,
+      dadosEmpresa.bairro,
+      dadosEmpresa.cidade,
+      dadosEmpresa.cep,
+    ]
+      .filter(Boolean)
+      .join(" - "),
+  };
+
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
     const [ano, mes, dia] = data.split("-");
     return `${dia}/${mes}/${ano}`;
   }
 
+  function nomeArquivo(texto) {
+    return String(texto || "relacao")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
   function carregarLogo() {
     return new Promise((resolve) => {
+      if (!empresaPdf.logo) {
+        resolve(null);
+        return;
+      }
+
       const img = new Image();
-      img.src = "/logo-emplacar.png";
+      img.crossOrigin = "anonymous";
+      img.src = empresaPdf.logo;
       img.onload = () => resolve(img);
       img.onerror = () => resolve(null);
     });
@@ -89,6 +116,19 @@ export default function Pendencias({
     (item) => item.cliente === clientePendenciaSelecionado
   );
 
+  const itensSelecionados = useMemo(() => {
+    if (!detalhePendencia) return [];
+
+    return detalhePendencia.itens.filter((item) =>
+      selecionados.includes(item.id)
+    );
+  }, [detalhePendencia, selecionados]);
+
+  const totalSelecionado = itensSelecionados.reduce(
+    (soma, item) => soma + Number(item.valor || 0),
+    0
+  );
+
   function alternarSelecionado(id) {
     setSelecionados((old) =>
       old.includes(id) ? old.filter((x) => x !== id) : [...old, id]
@@ -107,10 +147,6 @@ export default function Pendencias({
   function salvarSelecionados() {
     if (!detalhePendencia) return;
 
-    const itensSelecionados = detalhePendencia.itens.filter((item) =>
-      selecionados.includes(item.id)
-    );
-
     if (itensSelecionados.length === 0) {
       alert("Selecione pelo menos um serviço.");
       return;
@@ -120,10 +156,7 @@ export default function Pendencias({
       {
         cliente: detalhePendencia.cliente,
         quantidade: itensSelecionados.length,
-        total: itensSelecionados.reduce(
-          (soma, item) => soma + Number(item.valor || 0),
-          0
-        ),
+        total: totalSelecionado,
         itens: itensSelecionados,
       },
       diaPagamento,
@@ -136,11 +169,7 @@ export default function Pendencias({
   function salvarRelacaoInteira() {
     if (!detalhePendencia) return;
 
-    salvarRelacaoPaga(
-      detalhePendencia,
-      diaPagamento,
-      formaPagamento
-    );
+    salvarRelacaoPaga(detalhePendencia, diaPagamento, formaPagamento);
 
     setSelecionados([]);
   }
@@ -159,15 +188,13 @@ export default function Pendencias({
 
     return `Olá, tudo bem?
 
-Segue a relação das placas em aberto:
+Segue a relação dos serviços em aberto:
 
 ${linhas}
 
 Total em aberto: ${moeda.format(pendencia.total)}
 
-Chave Pix: ${chavePix}
-
-Observação: quando houver acréscimo de R$ 25,00 no serviço, o valor corresponde ao procedimento de replaca.
+Chave Pix: ${empresaPdf.pix || "-"}
 
 Após o pagamento, nos envie o comprovante, por favor.`;
   }
@@ -182,54 +209,89 @@ Após o pagamento, nos envie o comprovante, por favor.`;
     window.open(`https://web.whatsapp.com/send?text=${mensagem}`, "_blank");
   }
 
-  async function gerarPdfPendencia(pendencia) {
-    if (!pendencia) return;
-
-    const horizontal = pendencia.itens.length > 18;
-    const doc = new jsPDF(horizontal ? "l" : "p", "mm", "a4");
-    const logo = await carregarLogo();
-
+  function desenharCabecalho(doc, logo, titulo, horizontal) {
     const larguraPagina = doc.internal.pageSize.getWidth();
-    const alturaPagina = doc.internal.pageSize.getHeight();
     const margem = 10;
 
-    let y = 10;
-
     doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, larguraPagina, horizontal ? 30 : 36, "F");
+    doc.rect(0, 0, larguraPagina, horizontal ? 32 : 38, "F");
 
     if (logo) {
-      doc.addImage(logo, "PNG", margem, 5, horizontal ? 20 : 24, horizontal ? 20 : 24);
+      doc.addImage(
+        logo,
+        "PNG",
+        margem,
+        6,
+        horizontal ? 20 : 24,
+        horizontal ? 20 : 24
+      );
     }
+
+    const xTexto = logo ? (horizontal ? 36 : 42) : margem;
 
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(horizontal ? 16 : 18);
-    doc.text(dadosEmpresa.nome, logo ? (horizontal ? 36 : 42) : margem, horizontal ? 13 : 15);
+    doc.setFontSize(horizontal ? 15 : 18);
+    doc.text(empresaPdf.nome, xTexto, horizontal ? 13 : 15);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(horizontal ? 8 : 9);
-    doc.text(dadosEmpresa.subtitulo, logo ? (horizontal ? 36 : 42) : margem, horizontal ? 19 : 23);
-    doc.text(`CNPJ: ${dadosEmpresa.cnpj}`, logo ? (horizontal ? 36 : 42) : margem, horizontal ? 24 : 29);
+    doc.text(titulo, xTexto, horizontal ? 19 : 23);
+
+    const linhaDocumento = [
+      empresaPdf.cnpj ? `CNPJ: ${empresaPdf.cnpj}` : "",
+      empresaPdf.ie ? `IE: ${empresaPdf.ie}` : "",
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    if (linhaDocumento) {
+      doc.text(linhaDocumento, xTexto, horizontal ? 25 : 30);
+    }
+  }
+
+  function desenharRodape(doc, horizontal) {
+    const larguraPagina = doc.internal.pageSize.getWidth();
+    const alturaPagina = doc.internal.pageSize.getHeight();
+    const margem = 10;
+    const rodapeY = alturaPagina - 24;
+
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margem, rodapeY - 8, larguraPagina - margem, rodapeY - 8);
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(horizontal ? 10 : 11);
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(horizontal ? 8 : 9);
 
-    if (horizontal) {
-      doc.text(`Cliente: ${pendencia.cliente}`, 180, 12);
-      doc.text(`Qtd: ${pendencia.quantidade}`, 180, 18);
-      doc.text(`Total: ${moeda.format(pendencia.total)}`, 180, 24);
-      y = 38;
-    } else {
-      y = 48;
-      doc.setTextColor(15, 23, 42);
-      doc.text(`Cliente: ${pendencia.cliente}`, margem, y);
-      y += 7;
-      doc.text(`Qtd: ${pendencia.quantidade}`, margem, y);
-      y += 7;
-      doc.text(`Total: ${moeda.format(pendencia.total)}`, margem, y);
-      y += 11;
+    if (empresaPdf.pix) {
+      doc.text(`Chave Pix: ${empresaPdf.pix}`, margem, rodapeY);
     }
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(horizontal ? 7 : 7);
+    doc.setTextColor(100, 116, 139);
+
+    if (empresaPdf.endereco) {
+      doc.text(empresaPdf.endereco.slice(0, 120), margem, rodapeY + 7);
+    }
+
+    const contato = [
+      empresaPdf.email ? `E-mail: ${empresaPdf.email}` : "",
+      empresaPdf.whatsapp ? `WhatsApp: ${empresaPdf.whatsapp}` : "",
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    if (contato) {
+      doc.text(contato.slice(0, 120), margem, rodapeY + 13);
+    }
+  }
+
+  function desenharTabelaServicos(doc, itens, horizontal, yInicial) {
+    const larguraPagina = doc.internal.pageSize.getWidth();
+    const margem = 10;
+
+    let y = yInicial;
 
     doc.setTextColor(15, 23, 42);
     doc.setFont("helvetica", "bold");
@@ -262,7 +324,7 @@ Após o pagamento, nos envie o comprovante, por favor.`;
     const limiteItens = horizontal ? 50 : 18;
     const alturaLinha = horizontal ? 4.5 : 6;
 
-    pendencia.itens.slice(0, limiteItens).forEach((item, index) => {
+    itens.slice(0, limiteItens).forEach((item, index) => {
       if (index % 2 === 0) {
         doc.setFillColor(248, 250, 252);
         doc.rect(margem, y - 3.5, larguraPagina - margem * 2, alturaLinha, "F");
@@ -275,59 +337,113 @@ Após o pagamento, nos envie o comprovante, por favor.`;
         doc.text(String(item.produto || "Serviço").slice(0, 32), margem + 27, y);
         doc.text(String(item.placa || "-").slice(0, 12), margem + 86, y);
         doc.text(String(item.renavan || "-").slice(0, 16), margem + 122, y);
-        doc.text(String(item.formaPagamento || "-").slice(0, 18), margem + 165, y);
+        doc.text(
+          String(item.formaPagamento || item.formaPagamentoAnterior || "-").slice(
+            0,
+            18
+          ),
+          margem + 165,
+          y
+        );
         doc.text(moeda.format(Number(item.valor || 0)), margem + 210, y);
-        doc.text(String(item.status || "-").slice(0, 12), margem + 238, y);
+        doc.text(String(item.status || item.statusAnterior || "-").slice(0, 12), margem + 238, y);
       } else {
         doc.text(dataBR(item.data), margem + 2, y);
         doc.text(String(item.produto || "Serviço").slice(0, 28), margem + 25, y);
         doc.text(String(item.placa || "-").slice(0, 12), margem + 82, y);
         doc.text(moeda.format(Number(item.valor || 0)), margem + 122, y);
-        doc.text(String(item.status || "-").slice(0, 12), margem + 155, y);
+        doc.text(String(item.status || item.statusAnterior || "-").slice(0, 12), margem + 155, y);
       }
 
       y += alturaLinha;
     });
 
-    if (pendencia.itens.length > limiteItens) {
+    if (itens.length > limiteItens) {
       doc.setFont("helvetica", "bold");
       doc.setTextColor(220, 38, 38);
       doc.text(
-        `+ ${pendencia.itens.length - limiteItens} serviços não exibidos por limite de 1 página.`,
+        `+ ${itens.length - limiteItens} serviços não exibidos por limite de 1 página.`,
         margem + 2,
         y + 4
       );
     }
 
-    const rodapeY = alturaPagina - 22;
+    return y;
+  }
 
-    doc.setDrawColor(226, 232, 240);
-    doc.line(margem, rodapeY - 8, larguraPagina - margem, rodapeY - 8);
+  async function gerarPdfPendencia(pendencia) {
+    if (!pendencia) return;
 
-    doc.setFont("helvetica", "bold");
+    const horizontal = pendencia.itens.length > 18;
+    const doc = new jsPDF(horizontal ? "l" : "p", "mm", "a4");
+    const logo = await carregarLogo();
+
+    const margem = 10;
+    let y = horizontal ? 42 : 50;
+
+    desenharCabecalho(doc, logo, "Relação de Serviços em Aberto", horizontal);
+
     doc.setTextColor(15, 23, 42);
-    doc.setFontSize(horizontal ? 9 : 9);
-    doc.text(`Chave Pix: ${chavePix}`, margem, rodapeY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(horizontal ? 10 : 11);
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(horizontal ? 7 : 7);
-    doc.text(
-      "Observação: quando houver acréscimo de R$ 25,00 no serviço, o valor corresponde ao procedimento de replaca.",
-      margem,
-      rodapeY + 5
-    );
+    if (horizontal) {
+      doc.text(`Cliente: ${pendencia.cliente}`, 180, 12);
+      doc.text(`Qtd: ${pendencia.quantidade}`, 180, 18);
+      doc.text(`Total: ${moeda.format(pendencia.total)}`, 180, 24);
+    } else {
+      doc.text(`Cliente: ${pendencia.cliente}`, margem, y);
+      y += 7;
+      doc.text(`Qtd: ${pendencia.quantidade}`, margem, y);
+      y += 7;
+      doc.text(`Total em aberto: ${moeda.format(pendencia.total)}`, margem, y);
+      y += 11;
+    }
 
-    doc.setTextColor(100, 116, 139);
-    doc.text(dadosEmpresa.endereco, margem, rodapeY + 11);
-    doc.text(
-      `E-mail: ${dadosEmpresa.email} | WhatsApp: ${dadosEmpresa.whatsapp}`,
-      margem,
-      rodapeY + 16
-    );
+    desenharTabelaServicos(doc, pendencia.itens, horizontal, y);
+    desenharRodape(doc, horizontal);
 
-    doc.save(
-      `relacao-${pendencia.cliente.toLowerCase().replace(/\s+/g, "-")}.pdf`
-    );
+    doc.save(`relacao-aberta-${nomeArquivo(pendencia.cliente)}.pdf`);
+  }
+
+  async function gerarPdfRelacaoPaga(relacao) {
+    if (!relacao) return;
+
+    const itens = Array.isArray(relacao.itens) ? relacao.itens : [];
+    const horizontal = itens.length > 18;
+    const doc = new jsPDF(horizontal ? "l" : "p", "mm", "a4");
+    const logo = await carregarLogo();
+
+    const margem = 10;
+    let y = horizontal ? 42 : 50;
+
+    desenharCabecalho(doc, logo, "Comprovante de Relação Paga", horizontal);
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(horizontal ? 10 : 11);
+
+    if (horizontal) {
+      doc.text(`Cliente: ${relacao.cliente}`, 180, 12);
+      doc.text(`Pago em: ${dataBR(relacao.diaPago)}`, 180, 18);
+      doc.text(`Total: ${moeda.format(relacao.total)}`, 180, 24);
+    } else {
+      doc.text(`Cliente: ${relacao.cliente}`, margem, y);
+      y += 7;
+      doc.text(`Data do pagamento: ${dataBR(relacao.diaPago)}`, margem, y);
+      y += 7;
+      doc.text(`Forma de pagamento: ${relacao.formaPagamento || "-"}`, margem, y);
+      y += 7;
+      doc.text(`Quantidade paga: ${relacao.quantidade}`, margem, y);
+      y += 7;
+      doc.text(`Total recebido: ${moeda.format(relacao.total)}`, margem, y);
+      y += 11;
+    }
+
+    desenharTabelaServicos(doc, itens, horizontal, y);
+    desenharRodape(doc, horizontal);
+
+    doc.save(`comprovante-pago-${nomeArquivo(relacao.cliente)}.pdf`);
   }
 
   return (
@@ -378,11 +494,46 @@ Após o pagamento, nos envie o comprovante, por favor.`;
       {detalhePendencia && (
         <Card titulo={`Relação em aberto - ${detalhePendencia.cliente}`}>
           <div style={styles.caixaCobranca}>
-            <strong>
-              Total em aberto: {moeda.format(detalhePendencia.total)}
-            </strong>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                gap: 12,
+                marginBottom: 14,
+              }}
+            >
+              <div>
+                <strong>Total em aberto</strong>
+                <p style={{ margin: "6px 0 0 0" }}>
+                  {moeda.format(detalhePendencia.total)}
+                </p>
+              </div>
 
-            <p>Chave Pix: {chavePix}</p>
+              <div>
+                <strong>Selecionados</strong>
+                <p style={{ margin: "6px 0 0 0" }}>
+                  {itensSelecionados.length}
+                </p>
+              </div>
+
+              <div>
+                <strong>Total selecionado</strong>
+                <p
+                  style={{
+                    margin: "6px 0 0 0",
+                    color: totalSelecionado > 0 ? "#22c55e" : "#94a3b8",
+                    fontWeight: 800,
+                  }}
+                >
+                  {moeda.format(totalSelecionado)}
+                </p>
+              </div>
+
+              <div>
+                <strong>Chave Pix</strong>
+                <p style={{ margin: "6px 0 0 0" }}>{empresaPdf.pix || "-"}</p>
+              </div>
+            </div>
 
             <div style={styles.formGrid}>
               <label style={styles.label}>
@@ -422,10 +573,7 @@ Após o pagamento, nos envie o comprovante, por favor.`;
                 Salvar selecionados como pagos
               </button>
 
-              <button
-                style={styles.botao}
-                onClick={salvarRelacaoInteira}
-              >
+              <button style={styles.botao} onClick={salvarRelacaoInteira}>
                 Salvar relação inteira como paga
               </button>
             </div>
@@ -514,24 +662,27 @@ Após o pagamento, nos envie o comprovante, por favor.`;
               relacao.quantidade,
               moeda.format(relacao.total),
               <div style={styles.acoes}>
-  <button
-    style={styles.botao}
-    onClick={() =>
-      desfazerUltimaRelacaoPaga(relacao.id)
-    }
-  >
-    Desfazer pagamento
-  </button>
+                <button
+                  style={styles.detalhes}
+                  onClick={() => gerarPdfRelacaoPaga(relacao)}
+                >
+                  Baixar PDF
+                </button>
 
-  <button
-    style={styles.excluir}
-    onClick={() =>
-      excluirRelacaoHistorico(relacao.id)
-    }
-  >
-    Excluir histórico
-  </button>
-</div>
+                <button
+                  style={styles.botao}
+                  onClick={() => desfazerUltimaRelacaoPaga(relacao.id)}
+                >
+                  Desfazer pagamento
+                </button>
+
+                <button
+                  style={styles.excluir}
+                  onClick={() => excluirRelacaoHistorico(relacao.id)}
+                >
+                  Excluir histórico
+                </button>
+              </div>,
             ])}
           />
         )}
