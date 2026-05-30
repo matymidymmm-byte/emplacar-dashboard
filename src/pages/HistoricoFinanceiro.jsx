@@ -256,11 +256,9 @@ export default function HistoricoFinanceiro({
           "servicosRealizados",
           item.quantidadeEntradas || 0
         );
-        acc.notasAberto += valor(
-          item,
-          "faturadoEmAberto",
-          item.notasPendentes || 0
-        );
+        const carteira = analisarCarteira(item);
+
+acc.notasAberto += carteira.valorOriginal;
         acc.saldoTotal += valor(
           item,
           "saldoTotal",
