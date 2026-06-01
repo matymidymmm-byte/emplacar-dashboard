@@ -11,7 +11,6 @@ import GraficoBarras from "../components/GraficoBarras.jsx";
 import Tabela from "../components/Tabela.jsx";
 
 export default function Dashboard({
-  usuario,
   fecharMesFinanceiro,
   setAba,
 
@@ -42,18 +41,14 @@ export default function Dashboard({
   setMetaMensal,
 
   historicoFechamentos,
+
+  podeEditarMeta = false,
 }) {
   const [modoDetalhado, setModoDetalhado] = useState(false);
   const [diasComparativo, setDiasComparativo] = useState(10);
   const [tooltipAberto, setTooltipAberto] = useState("");
   const [mostrarRecebimentosAntigos, setMostrarRecebimentosAntigos] =
     useState(false);
-
-  const emailUsuario = usuario?.email?.toLowerCase() || "";
-
-  const podeEditarMeta =
-    emailUsuario === "matymidy.mmm@gmail.com" ||
-    emailUsuario !== "emplacarmcr@gmail.com";
 
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
@@ -711,54 +706,54 @@ export default function Dashboard({
       </div>
 
       {modoDetalhado && (
-  <Card titulo="Fechamento do caixa">
-    <div style={styles.kpisModernos}>
-      <KpiComAjuda
-        titulo="Serviços Realizados"
-        valor={`${servicosRealizadosPeriodo}`}
-      />
+        <Card titulo="Fechamento do caixa">
+          <div style={styles.kpisModernos}>
+            <KpiComAjuda
+              titulo="Serviços Realizados"
+              valor={`${servicosRealizadosPeriodo}`}
+            />
 
-      <KpiComAjuda
-        titulo="Notas Antigas Recebidas"
-        valor={`${quantidadeRecebimentosAntigos}`}
-      />
+            <KpiComAjuda
+              titulo="Notas Antigas Recebidas"
+              valor={`${quantidadeRecebimentosAntigos}`}
+            />
 
-      <KpiComAjuda
-        titulo="Valor de Notas Antigas"
-        valor={moeda.format(valorRecebimentosAntigos)}
-      />
+            <KpiComAjuda
+              titulo="Valor de Notas Antigas"
+              valor={moeda.format(valorRecebimentosAntigos)}
+            />
 
-      <KpiComAjuda
-        titulo="Recebimentos Antigos"
-        valor={moeda.format(indicadores.recebimentosAntigos || 0)}
-      />
-    </div>
+            <KpiComAjuda
+              titulo="Recebimentos Antigos"
+              valor={moeda.format(indicadores.recebimentosAntigos || 0)}
+            />
+          </div>
 
-    <div
-      style={{
-        display: "flex",
-        gap: 10,
-        marginTop: 16,
-        flexWrap: "wrap",
-      }}
-    >
-      <button
-        style={
-          mostrarRecebimentosAntigos
-            ? styles.botao
-            : styles.botaoCinza
-        }
-        onClick={() =>
-          setMostrarRecebimentosAntigos(!mostrarRecebimentosAntigos)
-        }
-      >
-        {mostrarRecebimentosAntigos
-          ? "Ocultar recebimentos antigos"
-          : "Ver recebimentos antigos"}
-      </button>
-    </div>
-  </Card>
-)}
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              marginTop: 16,
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              style={
+                mostrarRecebimentosAntigos
+                  ? styles.botao
+                  : styles.botaoCinza
+              }
+              onClick={() =>
+                setMostrarRecebimentosAntigos(!mostrarRecebimentosAntigos)
+              }
+            >
+              {mostrarRecebimentosAntigos
+                ? "Ocultar recebimentos antigos"
+                : "Ver recebimentos antigos"}
+            </button>
+          </div>
+        </Card>
+      )}
 
       {modoDetalhado && mostrarRecebimentosAntigos && (
         <Card titulo="Notas antigas recebidas neste período">

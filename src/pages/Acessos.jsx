@@ -16,12 +16,24 @@ import Select from "../components/Select.jsx";
 import Tabela from "../components/Tabela.jsx";
 import Acoes from "../components/Acoes.jsx";
 
-export default function Acessos({ usuariosOnline = [] }) {
+const PRAZO_GOVERNANCA_MS = 72 * 60 * 60 * 1000;
+
+export default function Acessos({
+  usuariosOnline = [],
+  empresaId,
+  usuario,
+  nivelAcesso = "socio",
+  ehSuperadmin = false,
+  ehAdmin = false,
+}) {
   const [acessos, setAcessos] = useState([]);
   const [email, setEmail] = useState("");
   const [nivel, setNivel] = useState("socio");
   const [status, setStatus] = useState("aprovado");
   const [editandoEmail, setEditandoEmail] = useState("");
+
+  const podeGerenciar = ehSuperadmin || ehAdmin;
+  const usuarioEmail = usuario?.email || "Usuário não identificado";
 
   useEffect(() => {
     const cancelar = onSnapshot(collection(db, "acessos"), (snapshot) => {
@@ -40,8 +52,18 @@ export default function Acessos({ usuariosOnline = [] }) {
     return () => cancelar();
   }, []);
 
+  const acessosFiltrados = useMemo(() => {
+    if (ehSuperadmin) return acessos;
+
+    return acessos.filter(
+      (item) =>
+        String(item.empresaId || "") === String(empresaId || "") ||
+        !item.empresaId
+    );
+  }, [acessos, empresaId, ehSuperadmin]);
+
   const acessosComSessao = useMemo(() => {
-    return acessos.map((item) => {
+    return acessosFiltrados.map((item) => {
       const emailItem = String(item.email || item.id || "").toLowerCase();
 
       const sessao = usuariosOnline.find(
@@ -57,20 +79,97 @@ export default function Acessos({ usuariosOnline = [] }) {
         ultimoLogout: sessao?.ultimoLogout || "",
       };
     });
-  }, [acessos, usuariosOnline]);
+  }, [acessosFiltrados, usuariosOnline]);
+
+  function dataBR(dataISO) {
+    if (!dataISO) return "-";
+
+    try {
+      return new Date(dataISO).toLocaleString("pt-BR");
+    } catch {
+      return dataISO;
+    }
+  }
+
+  function criarExecucaoGovernanca() {
+    const agora = new Date();
+    const executarEm = new Date(agora.getTime() + PRAZO_GOVERNANCA_MS);
+
+    return {
+      solicitadoPor: usuarioEmail,
+      solicitadoEm: agora.toISOString(),
+      executarEm: executarEm.toISOString(),
+      status: "pendente",
+    };
+  }
+
+  function pendenciaVencida(pendencia) {
+    if (!pendencia?.executarEm) return false;
+    return new Date() >= new Date(pendencia.executarEm);
+  }
 
   async function registrarAuditoria({ tipo, descricao, risco = "MÉDIO" }) {
     await setDoc(
-      doc(collection(db, "empresas", "emplacar-mcr", "historicoAlteracoes")),
+      doc(collection(db, "empresas", empresaId, "historicoAlteracoes")),
       {
         tipo,
         modulo: "Acessos",
         descricao,
-        usuario: "Administrador",
+        usuario: usuarioEmail,
+        nivelUsuario: nivelAcesso,
         dataHora: new Date().toISOString(),
         risco,
       }
     );
+  }
+
+  function nivelDoItem(item) {
+    return String(item?.nivel || "socio").toLowerCase();
+  }
+
+  function ehItemSuperadmin(item) {
+    return nivelDoItem(item) === "superadmin";
+  }
+
+  function ehItemAdmin(item) {
+    return nivelDoItem(item) === "admin";
+  }
+
+  function podeEditarItem(item) {
+    if (!podeGerenciar) return false;
+    if (ehItemSuperadmin(item)) return false;
+    return true;
+  }
+
+  function podeBloquearImediato(item) {
+    if (!podeGerenciar) return false;
+    if (ehItemSuperadmin(item)) return false;
+
+    if (ehItemAdmin(item)) {
+      return ehSuperadmin;
+    }
+
+    return true;
+  }
+
+  function podeExcluirImediato(item) {
+    if (!podeGerenciar) return false;
+    if (ehItemSuperadmin(item)) return false;
+
+    if (ehItemAdmin(item)) {
+      return ehSuperadmin;
+    }
+
+    return true;
+  }
+
+  function podeSolicitarGovernancaAdmin(item) {
+    if (!ehAdmin) return false;
+    if (ehSuperadmin) return false;
+    if (!ehItemAdmin(item)) return false;
+    if (ehItemSuperadmin(item)) return false;
+
+    return true;
   }
 
   function limparFormulario() {
@@ -81,6 +180,8 @@ export default function Acessos({ usuariosOnline = [] }) {
   }
 
   async function salvarAcesso() {
+    if (!podeGerenciar) return;
+
     const emailLimpo = String(email || "").trim().toLowerCase();
 
     if (!emailLimpo) {
@@ -88,19 +189,34 @@ export default function Acessos({ usuariosOnline = [] }) {
       return;
     }
 
+    if (nivel === "superadmin") {
+      alert("Superadmin só pode ser criado diretamente pelo Firebase.");
+      return;
+    }
+
     const acessoExistente = acessos.find(
       (item) => String(item.email || item.id).toLowerCase() === emailLimpo
     );
 
+    if (acessoExistente && ehItemSuperadmin(acessoExistente)) {
+      alert("Superadmin não pode ser editado por esta tela.");
+      return;
+    }
+
+    const dadosAcesso = {
+      email: emailLimpo,
+      empresaId,
+      nivel,
+      status,
+      bloqueado: acessoExistente?.bloqueado || false,
+      atualizadoEm: new Date().toISOString(),
+    };
+
+    await setDoc(doc(db, "acessos", emailLimpo), dadosAcesso, { merge: true });
+
     await setDoc(
-      doc(db, "acessos", emailLimpo),
-      {
-        email: emailLimpo,
-        nivel,
-        status,
-        bloqueado: acessoExistente?.bloqueado || false,
-        atualizadoEm: new Date().toISOString(),
-      },
+      doc(db, "empresas", empresaId, "acessos", emailLimpo),
+      dadosAcesso,
       { merge: true }
     );
 
@@ -137,10 +253,17 @@ export default function Acessos({ usuariosOnline = [] }) {
   async function bloquearAcesso(item) {
     const emailItem = item.email || item.id;
 
-    if (emailItem === "matymidy.mmm@gmail.com") {
-      alert("O administrador principal não pode ser bloqueado.");
+    if (ehItemSuperadmin(item)) {
+      alert("Superadmin não pode ser bloqueado pela tela.");
       return;
     }
+
+    if (ehItemAdmin(item) && !ehSuperadmin) {
+      await solicitarBloqueioAdmin(item);
+      return;
+    }
+
+    if (!podeBloquearImediato(item)) return;
 
     await registrarAuditoria({
       tipo: "SEGURANÇA",
@@ -148,13 +271,20 @@ export default function Acessos({ usuariosOnline = [] }) {
       risco: "ALTO",
     });
 
+    const dadosAtualizados = {
+      ...item,
+      bloqueado: true,
+      bloqueadoEm: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString(),
+    };
+
+    await setDoc(doc(db, "acessos", emailItem), dadosAtualizados, {
+      merge: true,
+    });
+
     await setDoc(
-      doc(db, "acessos", emailItem),
-      {
-        ...item,
-        bloqueado: true,
-        bloqueadoEm: new Date().toISOString(),
-      },
+      doc(db, "empresas", empresaId, "acessos", emailItem),
+      dadosAtualizados,
       { merge: true }
     );
   }
@@ -162,24 +292,192 @@ export default function Acessos({ usuariosOnline = [] }) {
   async function desbloquearAcesso(item) {
     const emailItem = item.email || item.id;
 
+    if (!podeGerenciar) return;
+
     await registrarAuditoria({
       tipo: "SEGURANÇA",
       descricao: `Usuário desbloqueado: ${emailItem}`,
       risco: "MÉDIO",
     });
 
+    const dadosAtualizados = {
+      ...item,
+      bloqueado: false,
+      desbloqueadoEm: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString(),
+    };
+
+    await setDoc(doc(db, "acessos", emailItem), dadosAtualizados, {
+      merge: true,
+    });
+
     await setDoc(
-      doc(db, "acessos", emailItem),
-      {
-        ...item,
-        bloqueado: false,
-        desbloqueadoEm: new Date().toISOString(),
-      },
+      doc(db, "empresas", empresaId, "acessos", emailItem),
+      dadosAtualizados,
       { merge: true }
     );
   }
 
+  async function solicitarBloqueioAdmin(item) {
+    const emailItem = item.email || item.id;
+
+    const pendencia = criarExecucaoGovernanca();
+
+    const dadosAtualizados = {
+      ...item,
+      solicitacaoBloqueioAdmin: pendencia,
+      atualizadoEm: new Date().toISOString(),
+    };
+
+    await setDoc(doc(db, "acessos", emailItem), dadosAtualizados, {
+      merge: true,
+    });
+
+    await setDoc(
+      doc(db, "empresas", empresaId, "acessos", emailItem),
+      dadosAtualizados,
+      { merge: true }
+    );
+
+    await registrarAuditoria({
+      tipo: "GOVERNANÇA",
+      descricao: `Solicitação de bloqueio de Admin: ${emailItem}. Execução liberada em ${dataBR(
+        pendencia.executarEm
+      )}.`,
+      risco: "ALTO",
+    });
+
+    alert("Solicitação de bloqueio criada. Prazo de 72 horas iniciado.");
+  }
+
+  async function solicitarExclusaoAdmin(item) {
+    const emailItem = item.email || item.id;
+
+    const pendencia = criarExecucaoGovernanca();
+
+    const dadosAtualizados = {
+      ...item,
+      solicitacaoExclusaoAdmin: pendencia,
+      atualizadoEm: new Date().toISOString(),
+    };
+
+    await setDoc(doc(db, "acessos", emailItem), dadosAtualizados, {
+      merge: true,
+    });
+
+    await setDoc(
+      doc(db, "empresas", empresaId, "acessos", emailItem),
+      dadosAtualizados,
+      { merge: true }
+    );
+
+    await registrarAuditoria({
+      tipo: "GOVERNANÇA",
+      descricao: `Solicitação de exclusão de Admin: ${emailItem}. Execução liberada em ${dataBR(
+        pendencia.executarEm
+      )}.`,
+      risco: "ALTO",
+    });
+
+    alert("Solicitação de exclusão criada. Prazo de 72 horas iniciado.");
+  }
+
+  async function cancelarPendenciaAdmin(item, tipoPendencia) {
+    const emailItem = item.email || item.id;
+
+    const dadosAtualizados = {
+      ...item,
+      atualizadoEm: new Date().toISOString(),
+    };
+
+    if (tipoPendencia === "bloqueio") {
+      dadosAtualizados.solicitacaoBloqueioAdmin = null;
+    }
+
+    if (tipoPendencia === "exclusao") {
+      dadosAtualizados.solicitacaoExclusaoAdmin = null;
+    }
+
+    await setDoc(doc(db, "acessos", emailItem), dadosAtualizados, {
+      merge: true,
+    });
+
+    await setDoc(
+      doc(db, "empresas", empresaId, "acessos", emailItem),
+      dadosAtualizados,
+      { merge: true }
+    );
+
+    await registrarAuditoria({
+      tipo: "GOVERNANÇA",
+      descricao: `Pendência de ${tipoPendencia} de Admin cancelada: ${emailItem}`,
+      risco: "MÉDIO",
+    });
+
+    alert("Pendência cancelada.");
+  }
+
+  async function executarBloqueioAdmin(item) {
+    const emailItem = item.email || item.id;
+
+    if (!pendenciaVencida(item.solicitacaoBloqueioAdmin)) {
+      alert("Ainda não completou o prazo de 72 horas.");
+      return;
+    }
+
+    const dadosAtualizados = {
+      ...item,
+      bloqueado: true,
+      bloqueadoEm: new Date().toISOString(),
+      solicitacaoBloqueioAdmin: null,
+      atualizadoEm: new Date().toISOString(),
+    };
+
+    await setDoc(doc(db, "acessos", emailItem), dadosAtualizados, {
+      merge: true,
+    });
+
+    await setDoc(
+      doc(db, "empresas", empresaId, "acessos", emailItem),
+      dadosAtualizados,
+      { merge: true }
+    );
+
+    await registrarAuditoria({
+      tipo: "GOVERNANÇA",
+      descricao: `Bloqueio de Admin executado após 72h: ${emailItem}`,
+      risco: "ALTO",
+    });
+
+    alert("Bloqueio executado.");
+  }
+
+  async function executarExclusaoAdmin(item) {
+    const emailItem = item.email || item.id;
+
+    if (!pendenciaVencida(item.solicitacaoExclusaoAdmin)) {
+      alert("Ainda não completou o prazo de 72 horas.");
+      return;
+    }
+
+    await registrarAuditoria({
+      tipo: "GOVERNANÇA",
+      descricao: `Exclusão de Admin executada após 72h: ${emailItem}`,
+      risco: "ALTO",
+    });
+
+    await deleteDoc(doc(db, "empresas", empresaId, "acessos", emailItem));
+    await deleteDoc(doc(db, "acessos", emailItem));
+
+    alert("Admin excluído.");
+  }
+
   function editarAcesso(item) {
+    if (!podeEditarItem(item)) {
+      alert("Este acesso não pode ser editado por esta tela.");
+      return;
+    }
+
     setEditandoEmail(item.email || item.id);
     setEmail(item.email || item.id);
     setNivel(item.nivel || "socio");
@@ -189,10 +487,17 @@ export default function Acessos({ usuariosOnline = [] }) {
   async function excluirAcesso(item) {
     const emailExcluir = item.email || item.id;
 
-    if (emailExcluir === "matymidy.mmm@gmail.com") {
-      alert("O administrador principal não pode ser removido.");
+    if (ehItemSuperadmin(item)) {
+      alert("Superadmin não pode ser removido pela tela.");
       return;
     }
+
+    if (ehItemAdmin(item) && !ehSuperadmin) {
+      await solicitarExclusaoAdmin(item);
+      return;
+    }
+
+    if (!podeExcluirImediato(item)) return;
 
     const confirmar = confirm("Deseja remover este acesso?");
 
@@ -206,7 +511,18 @@ export default function Acessos({ usuariosOnline = [] }) {
       risco: "ALTO",
     });
 
+    await deleteDoc(doc(db, "empresas", empresaId, "acessos", emailExcluir));
     await deleteDoc(doc(db, "acessos", emailExcluir));
+  }
+
+  if (!podeGerenciar) {
+    return (
+      <Card titulo="Acesso restrito">
+        <p style={{ color: "#94a3b8" }}>
+          Esta tela é exclusiva para Administradores e Superadmins.
+        </p>
+      </Card>
+    );
   }
 
   return (
@@ -249,9 +565,11 @@ export default function Acessos({ usuariosOnline = [] }) {
             </button>
           )}
         </div>
+      </Card>
 
+      <Card titulo="Acessos cadastrados">
         <Tabela
-          colunas={["Usuário", "Nível", "Status", "Bloqueio", "Ações"]}
+          colunas={["Usuário", "Nível", "Status", "Governança", "Bloqueio", "Ações"]}
           dados={acessosComSessao.map((item) => [
             <>
               <div style={{ fontWeight: 700 }}>{item.email || item.id}</div>
@@ -276,11 +594,64 @@ export default function Acessos({ usuariosOnline = [] }) {
               </div>
             </>,
 
-            item.nivel || "socio",
+            ehItemSuperadmin(item) ? "superadmin" : item.nivel || "socio",
 
             item.bloqueado ? "Bloqueado" : item.status || "pendente",
 
-            (item.email || item.id) === "matymidy.mmm@gmail.com" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {item.solicitacaoBloqueioAdmin && (
+                <div style={{ color: "#f97316", fontSize: 12, fontWeight: 700 }}>
+                  Bloqueio pendente até{" "}
+                  {dataBR(item.solicitacaoBloqueioAdmin.executarEm)}
+                  <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                    <button
+                      style={styles.botaoCinza}
+                      onClick={() => cancelarPendenciaAdmin(item, "bloqueio")}
+                    >
+                      Cancelar
+                    </button>
+
+                    {pendenciaVencida(item.solicitacaoBloqueioAdmin) && (
+                      <button
+                        style={styles.excluir}
+                        onClick={() => executarBloqueioAdmin(item)}
+                      >
+                        Executar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {item.solicitacaoExclusaoAdmin && (
+                <div style={{ color: "#ef4444", fontSize: 12, fontWeight: 700 }}>
+                  Exclusão pendente até{" "}
+                  {dataBR(item.solicitacaoExclusaoAdmin.executarEm)}
+                  <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                    <button
+                      style={styles.botaoCinza}
+                      onClick={() => cancelarPendenciaAdmin(item, "exclusao")}
+                    >
+                      Cancelar
+                    </button>
+
+                    {pendenciaVencida(item.solicitacaoExclusaoAdmin) && (
+                      <button
+                        style={styles.excluir}
+                        onClick={() => executarExclusaoAdmin(item)}
+                      >
+                        Executar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!item.solicitacaoBloqueioAdmin &&
+                !item.solicitacaoExclusaoAdmin && <span>-</span>}
+            </div>,
+
+            ehItemSuperadmin(item) ? (
               <div
                 style={{
                   color: "#22c55e",
@@ -296,7 +667,9 @@ export default function Acessos({ usuariosOnline = [] }) {
               </button>
             ) : (
               <button style={styles.botaoCinza} onClick={() => bloquearAcesso(item)}>
-                Bloquear
+                {ehItemAdmin(item) && !ehSuperadmin
+                  ? "Solicitar bloqueio"
+                  : "Bloquear"}
               </button>
             ),
 

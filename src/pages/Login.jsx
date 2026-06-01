@@ -276,7 +276,7 @@ export default function Login() {
           historicoRelacoes: [],
           historicoFechamentos: [],
 
-          metaMensal: 80000,
+          metaMensal: 0,
           modoRibbonPadrao: "2X",
           inicioPeriodoSalvo: "",
 

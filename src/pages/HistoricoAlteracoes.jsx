@@ -16,7 +16,7 @@ export default function HistoricoAlteracoes({
   const [registroExpandido, setRegistroExpandido] = useState(null);
 
   const email = usuario?.email?.toLowerCase() || "";
-  const ehAdmin = admin || email === "matymidy.mmm@gmail.com";
+  const ehAdmin = admin;
 
   const tipos = useMemo(() => {
     return [
@@ -182,9 +182,9 @@ export default function HistoricoAlteracoes({
     const a = document.createElement("a");
 
     a.href = url;
-    a.download = `historico-alteracoes-emplacar-${agora
-      .toISOString()
-      .slice(0, 10)}.json`;
+    a.download = `historico-alteracoes-${agora
+  .toISOString()
+  .slice(0, 10)}.json`;
 
     a.click();
     URL.revokeObjectURL(url);

@@ -5,7 +5,7 @@ import {
   doc,
   onSnapshot,
   setDoc,
-addDoc,
+  addDoc,
 } from "firebase/firestore";
 import DadosEmpresa from "./pages/DadosEmpresa.jsx";
 
@@ -33,88 +33,82 @@ export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [carregandoAuth, setCarregandoAuth] = useState(true);
   const [acesso, setAcesso] = useState(null);
-const [carregandoAcesso, setCarregandoAcesso] = useState(true);
+  const [carregandoAcesso, setCarregandoAcesso] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUsuario(user);
-    
       setCarregandoAuth(false);
     });
 
     return () => unsubscribe();
   }, []);
+
   useEffect(() => {
-  if (!usuario?.email) {
-    setCarregandoAcesso(false);
-    return;
-  }
+    if (!usuario?.email) {
+      setCarregandoAcesso(false);
+      return;
+    }
 
-  const email = usuario.email.toLowerCase();
+    const email = usuario.email.toLowerCase();
 
-  let cancelarAcessoEmpresa = null;
+    let cancelarAcessoEmpresa = null;
 
-  const cancelarAcessoGlobal = onSnapshot(
-    doc(db, "acessos", email),
-    (snapshotGlobal) => {
-      if (!snapshotGlobal.exists()) {
-        setAcesso(null);
-        setCarregandoAcesso(false);
-        return;
+    const cancelarAcessoGlobal = onSnapshot(
+      doc(db, "acessos", email),
+      (snapshotGlobal) => {
+        if (!snapshotGlobal.exists()) {
+          setAcesso(null);
+          setCarregandoAcesso(false);
+          return;
+        }
+
+        const acessoGlobal = snapshotGlobal.data();
+        const empresaIdUsuario = acessoGlobal?.empresaId;
+
+        if (!empresaIdUsuario) {
+          setAcesso(acessoGlobal);
+          setCarregandoAcesso(false);
+          return;
+        }
+
+        if (cancelarAcessoEmpresa) {
+          cancelarAcessoEmpresa();
+        }
+
+        cancelarAcessoEmpresa = onSnapshot(
+          doc(db, "empresas", empresaIdUsuario, "acessos", email),
+          (snapshotEmpresa) => {
+            const acessoEmpresa = snapshotEmpresa.exists()
+              ? snapshotEmpresa.data()
+              : acessoGlobal;
+
+            const acessoFinal = {
+              ...acessoGlobal,
+              ...acessoEmpresa,
+              empresaId: empresaIdUsuario,
+            };
+
+            setAcesso(acessoFinal);
+
+            if (acessoFinal?.bloqueado === true) {
+              auth.signOut();
+            }
+
+            setCarregandoAcesso(false);
+          }
+        );
       }
+    );
 
-      const acessoGlobal = snapshotGlobal.data();
-      const empresaIdUsuario = acessoGlobal?.empresaId;
-
-      if (!empresaIdUsuario) {
-        setAcesso(acessoGlobal);
-        setCarregandoAcesso(false);
-        return;
-      }
+    return () => {
+      cancelarAcessoGlobal();
 
       if (cancelarAcessoEmpresa) {
         cancelarAcessoEmpresa();
       }
-
-      cancelarAcessoEmpresa = onSnapshot(
-        doc(
-          db,
-          "empresas",
-          empresaIdUsuario,
-          "acessos",
-          email
-        ),
-        (snapshotEmpresa) => {
-          const acessoEmpresa = snapshotEmpresa.exists()
-            ? snapshotEmpresa.data()
-            : acessoGlobal;
-
-          const acessoFinal = {
-            ...acessoGlobal,
-            ...acessoEmpresa,
-            empresaId: empresaIdUsuario,
-          };
-
-          setAcesso(acessoFinal);
-
-          if (acessoFinal?.bloqueado === true) {
-            auth.signOut();
-          }
-
-          setCarregandoAcesso(false);
-        }
-      );
-    }
-  );
-
-  return () => {
-    cancelarAcessoGlobal();
-
-    if (cancelarAcessoEmpresa) {
-      cancelarAcessoEmpresa();
-    }
-  };
-}, [usuario]);
+    };
+  }, [usuario]);
 
   if (carregandoAuth) {
     return (
@@ -136,115 +130,116 @@ const [carregandoAcesso, setCarregandoAcesso] = useState(true);
   if (!usuario) {
     return <Login />;
   }
-  
 
+  if (carregandoAcesso) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#050816",
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        Carregando acesso...
+      </div>
+    );
+  }
 
+  if (!acesso || acesso.status !== "aprovado" || acesso.bloqueado === true) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#050816",
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "column",
+          gap: 16,
+          textAlign: "center",
+        }}
+      >
+        <h1>{acesso?.bloqueado ? "Conta bloqueada" : "Conta pendente"}</h1>
 
+        <p>
+          {acesso?.bloqueado
+            ? "Seu acesso foi bloqueado pelo administrador."
+            : "Aguarde aprovação do administrador."}
+        </p>
 
+        <button
+          onClick={async () => {
+            await auth.signOut();
+          }}
+          style={{
+            padding: 12,
+            borderRadius: 10,
+            border: "none",
+            background: "#5b5cff",
+            color: "#fff",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Sair
+        </button>
+      </div>
+    );
+  }
 
-
-
-
-
-
-
-
-
-
-
-
-if (carregandoAcesso) {
-  return <div style={{ minHeight: "100vh", background: "#050816", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>Carregando acesso...</div>;
-}
-
-if (
-  !acesso ||
-  acesso.status !== "aprovado" ||
-  acesso.bloqueado === true
-) {
-  return <div style={{ minHeight: "100vh", background: "#050816", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, textAlign: "center" }}><h1>
-  {acesso?.bloqueado
-    ? "Conta bloqueada"
-    : "Conta pendente"}
-</h1>
-
-<p>
-  {acesso?.bloqueado
-    ? "Seu acesso foi bloqueado pelo administrador."
-    : "Aguarde aprovação do administrador."}
-</p>
-
-<button
-  onClick={async () => {
-    await auth.signOut();
-  }}
-  style={{
-    padding: 12,
-    borderRadius: 10,
-    border: "none",
-    background: "#5b5cff",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: "bold",
-  }}
->
-  Sair
-</button></div>;
-}
-
-return (
-  <Sistema
-    usuario={usuario}
-    acesso={acesso}
-  />
-);
+  return <Sistema usuario={usuario} acesso={acesso} />;
 }
 
 function Sistema({ usuario, acesso }) {
   const hoje = new Date().toISOString().slice(0, 10);
-  const empresaId =
-  acesso?.empresaId;
+  const empresaId = acesso?.empresaId;
+
   if (!empresaId) {
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#050816",
-        color: "#fff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexDirection: "column",
-        gap: 16,
-        textAlign: "center",
-      }}
-    >
-      <h1>
-        Usuário sem empresa vinculada
-      </h1>
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#050816",
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "column",
+          gap: 16,
+          textAlign: "center",
+        }}
+      >
+        <h1>Usuário sem empresa vinculada</h1>
 
-      <p>
-        Entre em contato com o administrador.
-      </p>
-    </div>
-  );
-}
+        <p>Entre em contato com o administrador.</p>
+      </div>
+    );
+  }
 
-const docSistema = doc(
-  db,
-  "empresas",
-  empresaId,
-  "sistema",
-  "dados"
-);
+  const nivelAcesso = String(acesso?.nivel || "socio").toLowerCase();
+
+  const ehSuperadmin = nivelAcesso === "superadmin";
+  const ehAdmin = nivelAcesso === "admin";
+  const ehSocio = nivelAcesso === "socio";
+  const ehLojista = nivelAcesso === "lojista" || nivelAcesso === "operador";
+
+  const podeAdministrarEmpresa = ehSuperadmin || ehAdmin;
+  const podeGerenciarAcessos = ehSuperadmin || ehAdmin;
+  const podeConfigurarSistema = ehSuperadmin || ehAdmin;
+  const podeGerenciarBackups = ehSuperadmin || ehAdmin;
+  const podeLimparSistema = ehSuperadmin || ehAdmin;
+  const podeEditarMeta = ehSuperadmin || ehAdmin;
+  const podeVerFinanceiro = true;
+  const podeOperarSistema = ehSuperadmin || ehAdmin || ehSocio || ehLojista;
+
+  const docSistema = doc(db, "empresas", empresaId, "sistema", "dados");
+
   const docBackup = (id) =>
-  doc(
-    db,
-    "empresas",
-    empresaId,
-    "backupsAutomaticos",
-    id
-  );
+    doc(db, "empresas", empresaId, "backupsAutomaticos", id);
 
   const nuvemCarregadaRef = useRef(false);
   const podeSalvarRef = useRef(false);
@@ -256,59 +251,57 @@ const docSistema = doc(
   const [aba, setAba] = useState("Dashboard");
   const [diaInicioMesFinanceiro, setDiaInicioMesFinanceiro] = useState(1);
 
-  
-
   function calcularInicioMesFinanceiro() {
-  if (historicoFechamentos.length > 0) {
-    const ultimoFechamento = [...historicoFechamentos].sort(
-      (a, b) =>
+    if (historicoFechamentos.length > 0) {
+      const ultimoFechamento = [...historicoFechamentos].sort((a, b) =>
         String(b.fim || b.dataFechamento || "").localeCompare(
           String(a.fim || a.dataFechamento || "")
         )
-    )[0];
+      )[0];
 
-    const dataFinal =
-      ultimoFechamento?.fim ||
-      ultimoFechamento?.dataFechamento;
+      const dataFinal = ultimoFechamento?.fim || ultimoFechamento?.dataFechamento;
 
-    if (dataFinal) {
-      const data = new Date(dataFinal + "T00:00:00");
-      data.setDate(data.getDate() + 1);
-      return data.toISOString().slice(0, 10);
+      if (dataFinal) {
+        const data = new Date(dataFinal + "T00:00:00");
+        data.setDate(data.getDate() + 1);
+        return data.toISOString().slice(0, 10);
+      }
     }
+
+    const hojeData = new Date();
+    const ano = hojeData.getFullYear();
+    const mes = hojeData.getMonth();
+    const diaAtual = hojeData.getDate();
+
+    const inicio =
+      diaAtual >= diaInicioMesFinanceiro
+        ? new Date(ano, mes, diaInicioMesFinanceiro)
+        : new Date(ano, mes - 1, diaInicioMesFinanceiro);
+
+    return inicio.toISOString().slice(0, 10);
   }
 
-  const hojeData = new Date();
-  const ano = hojeData.getFullYear();
-  const mes = hojeData.getMonth();
-  const diaAtual = hojeData.getDate();
+  const [inicioMes, setInicioMes] = useState(hoje);
 
-  const inicio =
-    diaAtual >= diaInicioMesFinanceiro
-      ? new Date(ano, mes, diaInicioMesFinanceiro)
-      : new Date(ano, mes - 1, diaInicioMesFinanceiro);
+  function calcularFimMesFinanceiro() {
+    const inicio = new Date(calcularInicioMesFinanceiro() + "T00:00:00");
 
-  return inicio.toISOString().slice(0, 10);
-}
+    const fim = new Date(
+      inicio.getFullYear(),
+      inicio.getMonth() + 1,
+      inicio.getDate() - 1
+    );
 
-const [inicioMes, setInicioMes] = useState(hoje);
-function calcularFimMesFinanceiro() {
-  const inicio = new Date(calcularInicioMesFinanceiro() + "T00:00:00");
+    return fim.toISOString().slice(0, 10);
+  }
 
-  const fim = new Date(
-    inicio.getFullYear(),
-    inicio.getMonth() + 1,
-    inicio.getDate() - 1
-  );
+  const [fimMes, setFimMes] = useState(hoje);
 
-  return fim.toISOString().slice(0, 10);
-}
-
-const [fimMes, setFimMes] = useState(hoje);
-
-const [metaMensal, setMetaMensal] = useState(80000);
-const [modoRibbonPadrao, setModoRibbonPadrao] = useState("2X");
-const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
+  const [metaMensal, setMetaMensal] = useState(0);
+  const [modoRibbonPadrao, setModoRibbonPadrao] = useState("2X");
+  const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
+  const [categoriasSaidaConfiguradas, setCategoriasSaidaConfiguradas] =
+    useState([]);
 
   const [textoImportacao, setTextoImportacao] = useState("");
   const [resultadoImportacao, setResultadoImportacao] = useState("");
@@ -323,7 +316,15 @@ const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
   const [clientes, setClientes] = useState([]);
   const [estoqueCompras, setEstoqueCompras] = useState([]);
   const [estoquePerdas, setEstoquePerdas] = useState([]);
-  const [produtosEstoquePersonalizados, setProdutosEstoquePersonalizados] = useState([]);
+  const [produtosEstoquePersonalizados, setProdutosEstoquePersonalizados] =
+    useState([]);
+  const [fornecedoresEstoque, setFornecedoresEstoque] = useState([]);
+  const [movimentacoesEstoque, setMovimentacoesEstoque] = useState([]);
+  const [reservasEstoque, setReservasEstoque] = useState([]);
+  const [servicosSimulacaoEstoque, setServicosSimulacaoEstoque] = useState([]);
+  const [minimosEstoqueConfigurados, setMinimosEstoqueConfigurados] = useState(
+    {}
+  );
   const [historicoRelacoes, setHistoricoRelacoes] = useState([]);
   const [historicoFechamentos, setHistoricoFechamentos] = useState([]);
   const [historicoAlteracoes, setHistoricoAlteracoes] = useState([]);
@@ -331,20 +332,20 @@ const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
   const [backupsAutomaticos, setBackupsAutomaticos] = useState([]);
   const [usuariosOnline, setUsuariosOnline] = useState([]);
   const [dadosEmpresa, setDadosEmpresa] = useState({
-  logo: "",
-  nome: "",
-  ie: "",
-  cnpj: "",
-  email: "",
-  whatsapp: "",
-  cep: "",
-  logradouro: "",
-  numero: "",
-  bairro: "",
-  cidade: "",
-  pix: "",
-codigoConvite: "",
-});
+    logo: "",
+    nome: "",
+    ie: "",
+    cnpj: "",
+    email: "",
+    whatsapp: "",
+    cep: "",
+    logradouro: "",
+    numero: "",
+    bairro: "",
+    cidade: "",
+    pix: "",
+    codigoConvite: "",
+  });
 
   useEffect(() => {
     function ajustarTela() {
@@ -362,81 +363,103 @@ codigoConvite: "",
 
       if (snapshot.exists()) {
         const dados = snapshot.data();
+
         if (!Array.isArray(dados.historicoFechamentos)) {
-  await setDoc(
-    docSistema,
-    { historicoFechamentos: [] },
-    { merge: true }
-  );
-}
+          await setDoc(docSistema, { historicoFechamentos: [] }, { merge: true });
+        }
 
         setEntradas(Array.isArray(dados.entradas) ? dados.entradas : []);
-        setDiaInicioMesFinanceiro(
-  Number(dados.diaInicioMesFinanceiro || 1)
-);
-setMetaMensal(
-  Number(dados.metaMensal || 80000)
-);
-setModoRibbonPadrao(
-  dados.modoRibbonPadrao || "2X"
-);
+        setDiaInicioMesFinanceiro(Number(dados.diaInicioMesFinanceiro || 1));
+        setMetaMensal(Number(dados.metaMensal || 0));
+        setModoRibbonPadrao(dados.modoRibbonPadrao || "2X");
+        setInicioPeriodoSalvo(dados.inicioPeriodoSalvo || "");
 
-setInicioPeriodoSalvo(
-  dados.inicioPeriodoSalvo || ""
-);
         setSaidas(Array.isArray(dados.saidas) ? dados.saidas : []);
         setContas(Array.isArray(dados.contas) ? dados.contas : []);
         setClientes(Array.isArray(dados.clientes) ? dados.clientes : []);
+
         setEstoqueCompras(
           Array.isArray(dados.estoqueCompras) ? dados.estoqueCompras : []
         );
+
         setEstoquePerdas(
           Array.isArray(dados.estoquePerdas) ? dados.estoquePerdas : []
         );
-        setProdutosEstoquePersonalizados(
-  Array.isArray(dados.produtosEstoquePersonalizados)
-    ? dados.produtosEstoquePersonalizados
-    : []
-);
+
+        setFornecedoresEstoque(
+          Array.isArray(dados.fornecedoresEstoque)
+            ? dados.fornecedoresEstoque
+            : []
+        );
+
+        setCategoriasSaidaConfiguradas(
+          Array.isArray(dados.categoriasSaidaConfiguradas)
+            ? dados.categoriasSaidaConfiguradas
+            : []
+        );
+
+        setMovimentacoesEstoque(
+          Array.isArray(dados.movimentacoesEstoque)
+            ? dados.movimentacoesEstoque
+            : []
+        );
+
+        setReservasEstoque(
+          Array.isArray(dados.reservasEstoque) ? dados.reservasEstoque : []
+        );
+
+        setServicosSimulacaoEstoque(
+          Array.isArray(dados.servicosSimulacaoEstoque)
+            ? dados.servicosSimulacaoEstoque
+            : []
+        );
+
+        setMinimosEstoqueConfigurados(dados.minimosEstoqueConfigurados || {});
+
         setHistoricoRelacoes(
           Array.isArray(dados.historicoRelacoes) ? dados.historicoRelacoes : []
         );
+
         setHistoricoFechamentos(
-  Array.isArray(dados.historicoFechamentos)
-    ? dados.historicoFechamentos
-    : []
-);
-
-
+          Array.isArray(dados.historicoFechamentos)
+            ? dados.historicoFechamentos
+            : []
+        );
       } else {
         await setDoc(docSistema, {
           entradas: [],
-          
           saidas: [],
           contas: [],
           clientes: [],
           estoqueCompras: [],
-estoquePerdas: [],
-produtosEstoquePersonalizados: [],
-historicoRelacoes: [],
+          estoquePerdas: [],
+          produtosEstoquePersonalizados: [],
+          fornecedoresEstoque: [],
+          movimentacoesEstoque: [],
+          reservasEstoque: [],
+          servicosSimulacaoEstoque: [],
+          minimosEstoqueConfigurados: {},
+          categoriasSaidaConfiguradas: [],
+          historicoRelacoes: [],
           historicoFechamentos: [],
+
           logo: "",
-nome: "",
-ie: "",
-cnpj: "",
-email: "",
-whatsapp: "",
-cep: "",
-logradouro: "",
-numero: "",
-bairro: "",
-cidade: "",
-pix: "",
-codigoConvite: "",
-          
-          metaMensal: 80000,
-modoRibbonPadrao: "2X",
-inicioPeriodoSalvo: "",
+          nome: "",
+          ie: "",
+          cnpj: "",
+          email: "",
+          whatsapp: "",
+          cep: "",
+          logradouro: "",
+          numero: "",
+          bairro: "",
+          cidade: "",
+          pix: "",
+          codigoConvite: "",
+
+          metaMensal: 0,
+          modoRibbonPadrao: "2X",
+          inicioPeriodoSalvo: "",
         });
       }
 
@@ -450,10 +473,9 @@ inicioPeriodoSalvo: "",
 
     return () => cancelar();
   }, []);
+
   useEffect(() => {
-  const cancelarDadosEmpresa = onSnapshot(
-    docSistema,
-    (snapshot) => {
+    const cancelarDadosEmpresa = onSnapshot(docSistema, (snapshot) => {
       if (!snapshot.exists()) return;
 
       const dados = snapshot.data();
@@ -471,89 +493,132 @@ inicioPeriodoSalvo: "",
         bairro: dados.bairro || "",
         cidade: dados.cidade || "",
         pix: dados.pix || "",
-        codigoConvite:
-          dados.codigoConvite || "",
+        codigoConvite: dados.codigoConvite || "",
       });
-    }
-  );
+    });
 
-  return () => cancelarDadosEmpresa();
-}, [empresaId]);
+    return () => cancelarDadosEmpresa();
+  }, [empresaId]);
+
   useEffect(() => {
-  const cancelar = onSnapshot(
-    collection(
-      db,
-      "empresas",
-      empresaId,
-      "backupsAutomaticos"
-    ),
-    (snapshot) => {
-      const lista = snapshot.docs
-        .map((docItem) => ({
+    const cancelar = onSnapshot(
+      collection(db, "empresas", empresaId, "backupsAutomaticos"),
+      (snapshot) => {
+        const lista = snapshot.docs
+          .map((docItem) => ({
+            id: docItem.id,
+            ...docItem.data(),
+          }))
+          .sort((a, b) =>
+            String(b.criadoEm || b.id).localeCompare(
+              String(a.criadoEm || a.id)
+            )
+          );
+
+        setBackupsAutomaticos(lista);
+      }
+    );
+
+    return () => cancelar();
+  }, [empresaId]);
+
+  useEffect(() => {
+    const cancelar = onSnapshot(
+      collection(db, "empresas", empresaId, "historicoAlteracoes"),
+      (snapshot) => {
+        const lista = snapshot.docs
+          .map((docItem) => ({
+            id: docItem.id,
+            ...docItem.data(),
+          }))
+          .sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
+
+        setHistoricoAlteracoes(lista);
+      }
+    );
+
+    return () => cancelar();
+  }, [empresaId]);
+
+  useEffect(() => {
+    const cancelar = onSnapshot(
+      collection(db, "empresas", empresaId, "usuariosOnline"),
+      (snapshot) => {
+        const lista = snapshot.docs.map((docItem) => ({
           id: docItem.id,
           ...docItem.data(),
-        }))
-        .sort((a, b) =>
-          String(b.criadoEm || b.id).localeCompare(
-            String(a.criadoEm || a.id)
-          )
-        );
+        }));
 
-      setBackupsAutomaticos(lista);
-    }
+        setUsuariosOnline(lista);
+      }
+    );
+
+    return () => cancelar();
+  }, [empresaId]);
+  useEffect(() => {
+  if (!usuario?.email || !empresaId) return;
+
+  const emailUsuarioOnline = usuario.email.toLowerCase();
+
+  const refUsuarioOnline = doc(
+    db,
+    "empresas",
+    empresaId,
+    "usuariosOnline",
+    emailUsuarioOnline
   );
 
-  return () => cancelar();
-}, [empresaId]);
+  async function marcarOnline() {
+    await setDoc(
+      refUsuarioOnline,
+      {
+        email: emailUsuarioOnline,
+        nome: usuario.displayName || "",
+        online: true,
+        ultimoLogin: new Date().toISOString(),
+        ultimaAtividade: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  }
 
-useEffect(() => {
-  const cancelar = onSnapshot(
-    collection(
-      db,
-      "empresas",
-      empresaId,
-      "historicoAlteracoes"
-    ),
-    (snapshot) => {
-      const lista = snapshot.docs
-        .map((docItem) => ({
-          id: docItem.id,
-          ...docItem.data(),
-        }))
-        .sort(
-          (a, b) =>
-            new Date(b.dataHora) -
-            new Date(a.dataHora)
-        );
+  async function atualizarAtividade() {
+    await setDoc(
+      refUsuarioOnline,
+      {
+        online: true,
+        ultimaAtividade: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  }
 
-      setHistoricoAlteracoes(lista);
-    }
-  );
+  async function marcarOffline() {
+    await setDoc(
+      refUsuarioOnline,
+      {
+        online: false,
+        ultimoLogout: new Date().toISOString(),
+        ultimaAtividade: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  }
 
-  return () => cancelar();
-}, [empresaId]);
-useEffect(() => {
-  const cancelar = onSnapshot(
-    collection(
-  db,
-  "empresas",
-  empresaId,
-  "usuariosOnline"
-),
-    (snapshot) => {
-      const lista = snapshot.docs.map(
-        (docItem) => ({
-          id: docItem.id,
-          ...docItem.data(),
-        })
-      );
+  marcarOnline();
 
-      setUsuariosOnline(lista);
-    }
-  );
+  const intervalo = setInterval(() => {
+    atualizarAtividade();
+  }, 30000);
 
-  return () => cancelar();
-}, []);
+  window.addEventListener("beforeunload", marcarOffline);
+
+  return () => {
+    clearInterval(intervalo);
+    window.removeEventListener("beforeunload", marcarOffline);
+    marcarOffline();
+  };
+}, [usuario, empresaId]);
 
   async function salvarNaNuvem(campo, valor) {
     if (!nuvemCarregadaRef.current) return;
@@ -567,110 +632,46 @@ useEffect(() => {
       { merge: true }
     );
   }
+
   async function salvarDadosEmpresa() {
-  try {
-    await setDoc(
-  docSistema,
-      {
-        ...dadosEmpresa,
-      },
-      { merge: true }
-    );
-    await setDoc(
-  doc(db, "empresas", empresaId),
-  {
-    empresaId,
-    nome: dadosEmpresa.nome || "",
-    codigoConvite:
-      dadosEmpresa.codigoConvite || "",
-    atualizadoEm:
-      new Date().toISOString(),
-  },
-  { merge: true }
-);
+    try {
+      await setDoc(
+        docSistema,
+        {
+          ...dadosEmpresa,
+        },
+        { merge: true }
+      );
 
-    alert(
-      "Dados da empresa salvos."
-    );
-  } catch (erro) {
-    console.error(erro);
+      await setDoc(
+        doc(db, "empresas", empresaId),
+        {
+          empresaId,
+          nome: dadosEmpresa.nome || "",
+          codigoConvite: dadosEmpresa.codigoConvite || "",
+          atualizadoEm: new Date().toISOString(),
+        },
+        { merge: true }
+      );
 
-    alert(
-      "Erro ao salvar dados da empresa."
-    );
-  }
-}
-async function criarBackupManual() {
-  try {
-    const agora = new Date();
-
-    const idBackup =
-      `manual-${agora.toISOString()}`;
-
-    const backup = {
-      criadoEm: agora.toISOString(),
-      tipo: "manual",
-
-      entradas,
-      saidas,
-      contas,
-      clientes,
-
-      estoqueCompras,
-      estoquePerdas,
-
-      historicoRelacoes,
-      historicoFechamentos,
-      historicoAlteracoes,
-
-      metaMensal,
-      inicioMes,
-      fimMes,
-    };
-
-    await setDoc(
-      docBackup(idBackup),
-      backup
-    );
-
-    alert("Backup criado com sucesso.");
-  } catch (erro) {
-    console.error(erro);
-    alert("Erro ao criar backup.");
-  }
-}
-
-  async function restaurarBackup(
-  backup
-) {
-  if (!backup) return;
-
-  const confirmar = prompt(
-    'Digite RESTAURAR para continuar'
-  );
-
-  if (
-    confirmar !== "RESTAURAR"
-  ) {
-    alert(
-      "Restauração cancelada."
-    );
-    return;
+      alert("Dados da empresa salvos.");
+    } catch (erro) {
+      console.error(erro);
+      alert("Erro ao salvar dados da empresa.");
+    }
   }
 
-  try {
-    const backupSegurancaId =
-      `ANTES-RESTAURAR-${Date.now()}`;
+  async function criarBackupManual() {
+    if (!podeGerenciarBackups) return;
 
-    await setDoc(
-      docBackup(
-        backupSegurancaId
-      ),
-      {
-        criadoEm:
-          new Date().toISOString(),
-        tipo:
-          "backup-seguranca-restauracao",
+    try {
+      const agora = new Date();
+
+      const idBackup = `manual-${agora.toISOString()}`;
+
+      const backup = {
+        criadoEm: agora.toISOString(),
+        tipo: "manual",
 
         entradas,
         saidas,
@@ -687,80 +688,99 @@ async function criarBackupManual() {
         metaMensal,
         inicioMes,
         fimMes,
-      }
-    );
+      };
 
-    await setDoc(
-      docSistema,
-      {
-        entradas:
-          backup.entradas || [],
-        saidas:
-          backup.saidas || [],
-        contas:
-          backup.contas || [],
-        clientes:
-          backup.clientes || [],
+      await setDoc(docBackup(idBackup), backup);
 
-        estoqueCompras:
-          backup.estoqueCompras ||
-          [],
-
-        estoquePerdas:
-          backup.estoquePerdas ||
-          [],
-
-        historicoRelacoes:
-          backup.historicoRelacoes ||
-          [],
-
-        historicoFechamentos:
-          backup.historicoFechamentos ||
-          [],
-
-        historicoAlteracoes:
-          backup.historicoAlteracoes ||
-          [],
-
-        metaMensal:
-          backup.metaMensal ||
-          80000,
-
-        inicioPeriodoSalvo:
-          backup.inicioPeriodoSalvo ||
-          "",
-      },
-      { merge: true }
-    );
-
-    registrarAlteracao({
-      tipo: "Restauração",
-      modulo: "Backups",
-      descricao: `${usuario?.email || "Usuário"} restaurou backup`,
-      valorNovo:
-        backup?.criadoEm || "",
-    });
-
-    alert(
-      "Backup restaurado com sucesso."
-    );
-  } catch (erro) {
-    console.error(erro);
-
-    alert(
-      "Erro ao restaurar backup."
-    );
+      alert("Backup criado com sucesso.");
+    } catch (erro) {
+      console.error(erro);
+      alert("Erro ao criar backup.");
+    }
   }
-}
+
+  async function restaurarBackup(backup) {
+    if (!podeGerenciarBackups) return;
+    if (!backup) return;
+
+    const confirmar = prompt("Digite RESTAURAR para continuar");
+
+    if (confirmar !== "RESTAURAR") {
+      alert("Restauração cancelada.");
+      return;
+    }
+
+    try {
+      const backupSegurancaId = `ANTES-RESTAURAR-${Date.now()}`;
+
+      await setDoc(docBackup(backupSegurancaId), {
+        criadoEm: new Date().toISOString(),
+        tipo: "backup-seguranca-restauracao",
+
+        entradas,
+        saidas,
+        contas,
+        clientes,
+
+        estoqueCompras,
+        estoquePerdas,
+
+        historicoRelacoes,
+        historicoFechamentos,
+        historicoAlteracoes,
+
+        metaMensal,
+        inicioMes,
+        fimMes,
+      });
+
+      await setDoc(
+        docSistema,
+        {
+          entradas: backup.entradas || [],
+          saidas: backup.saidas || [],
+          contas: backup.contas || [],
+          clientes: backup.clientes || [],
+
+          estoqueCompras: backup.estoqueCompras || [],
+          estoquePerdas: backup.estoquePerdas || [],
+
+          historicoRelacoes: backup.historicoRelacoes || [],
+
+          historicoFechamentos: backup.historicoFechamentos || [],
+
+          historicoAlteracoes: backup.historicoAlteracoes || [],
+
+          metaMensal: backup.metaMensal || 0,
+
+          inicioPeriodoSalvo: backup.inicioPeriodoSalvo || "",
+        },
+        { merge: true }
+      );
+
+      registrarAlteracao({
+        tipo: "Restauração",
+        modulo: "Backups",
+        descricao: `${usuario?.email || "Usuário"} restaurou backup`,
+        valorNovo: backup?.criadoEm || "",
+      });
+
+      alert("Backup restaurado com sucesso.");
+    } catch (erro) {
+      console.error(erro);
+      alert("Erro ao restaurar backup.");
+    }
+  }
 
   useEffect(() => {
     salvarNaNuvem("entradas", entradas);
   }, [entradas]);
- 
-useEffect(() => {
-  setInicioMes(calcularInicioMesFinanceiro());
-  setFimMes(hoje);
-}, [historicoFechamentos, hoje]);
+
+  useEffect(() => {
+    setInicioMes(calcularInicioMesFinanceiro());
+    setFimMes(hoje);
+  }, [historicoFechamentos, hoje]);
+
   useEffect(() => {
     salvarNaNuvem("saidas", saidas);
   }, [saidas]);
@@ -780,126 +800,122 @@ useEffect(() => {
   useEffect(() => {
     salvarNaNuvem("estoquePerdas", estoquePerdas);
   }, [estoquePerdas]);
+
   useEffect(() => {
-  salvarNaNuvem(
-    "produtosEstoquePersonalizados",
-    produtosEstoquePersonalizados
-  );
-}, [produtosEstoquePersonalizados]);
+    salvarNaNuvem("produtosEstoquePersonalizados", produtosEstoquePersonalizados);
+  }, [produtosEstoquePersonalizados]);
+
+  useEffect(() => {
+    salvarNaNuvem("fornecedoresEstoque", fornecedoresEstoque);
+  }, [fornecedoresEstoque]);
+
+  useEffect(() => {
+    salvarNaNuvem("movimentacoesEstoque", movimentacoesEstoque);
+  }, [movimentacoesEstoque]);
+
+  useEffect(() => {
+    salvarNaNuvem("reservasEstoque", reservasEstoque);
+  }, [reservasEstoque]);
+
+  useEffect(() => {
+    salvarNaNuvem("servicosSimulacaoEstoque", servicosSimulacaoEstoque);
+  }, [servicosSimulacaoEstoque]);
+
+  useEffect(() => {
+    salvarNaNuvem("minimosEstoqueConfigurados", minimosEstoqueConfigurados);
+  }, [minimosEstoqueConfigurados]);
+
+  useEffect(() => {
+    salvarNaNuvem("categoriasSaidaConfiguradas", categoriasSaidaConfiguradas);
+  }, [categoriasSaidaConfiguradas]);
 
   useEffect(() => {
     salvarNaNuvem("historicoRelacoes", historicoRelacoes);
   }, [historicoRelacoes]);
-  useEffect(() => {
-  salvarNaNuvem(
-    "historicoFechamentos",
-    historicoFechamentos
-  );
-}, [historicoFechamentos]);
-
-useEffect(() => {
-  salvarNaNuvem(
-    "metaMensal",
-    metaMensal
-  );
-}, [metaMensal]);
-
-useEffect(() => {
-  salvarNaNuvem(
-    "modoRibbonPadrao",
-    modoRibbonPadrao
-  );
-}, [modoRibbonPadrao]);
 
   useEffect(() => {
-  if (!nuvemCarregada) return;
+    salvarNaNuvem("historicoFechamentos", historicoFechamentos);
+  }, [historicoFechamentos]);
 
-  async function gerarBackupAutomatico() {
-    const agora = new Date();
+  useEffect(() => {
+    salvarNaNuvem("metaMensal", metaMensal);
+  }, [metaMensal]);
 
-    const dataBackup =
-      agora.toISOString().slice(0, 10);
+  useEffect(() => {
+    salvarNaNuvem("modoRibbonPadrao", modoRibbonPadrao);
+  }, [modoRibbonPadrao]);
 
-    const hora = agora.getHours();
+  useEffect(() => {
+    if (!nuvemCarregada) return;
 
-    const backupJaFeitoHoje =
-      localStorage.getItem(
-        "backupAutomaticoDia"
-      );
+    async function gerarBackupAutomatico() {
+      const agora = new Date();
 
-    if (
-      backupJaFeitoHoje === dataBackup
-    ) {
-      return;
+      const dataBackup = agora.toISOString().slice(0, 10);
+
+      const hora = agora.getHours();
+
+      const backupJaFeitoHoje = localStorage.getItem("backupAutomaticoDia");
+
+      if (backupJaFeitoHoje === dataBackup) {
+        return;
+      }
+
+      if (hora < 23) {
+        return;
+      }
+
+      const backup = {
+        criadoEm: agora.toISOString(),
+
+        entradas,
+        saidas,
+        contas,
+        clientes,
+
+        estoqueCompras,
+        estoquePerdas,
+
+        historicoRelacoes,
+        historicoFechamentos,
+        historicoAlteracoes,
+
+        metaMensal,
+        inicioMes,
+        fimMes,
+      };
+
+      await setDoc(docBackup(dataBackup), backup);
+
+      localStorage.setItem("backupAutomaticoDia", dataBackup);
+
+      console.log("✅ Backup automático criado");
     }
 
-    if (hora < 23) {
-  return;
-}
+    gerarBackupAutomatico();
+  }, [
+    nuvemCarregada,
 
-    const backup = {
-      criadoEm:
-        agora.toISOString(),
+    entradas,
+    saidas,
+    contas,
+    clientes,
 
-      entradas,
-      saidas,
-      contas,
-      clientes,
+    estoqueCompras,
+    estoquePerdas,
 
-      estoqueCompras,
-      estoquePerdas,
+    historicoRelacoes,
+    historicoFechamentos,
+    historicoAlteracoes,
 
-      historicoRelacoes,
-      historicoFechamentos,
-      historicoAlteracoes,
+    metaMensal,
+    inicioMes,
+    fimMes,
+  ]);
 
-      metaMensal,
-      inicioMes,
-      fimMes,
-    };
+  const chavePix = dadosEmpresa.pix || "";
 
-    await setDoc(
-      docBackup(dataBackup),
-      backup
-    );
-
-    localStorage.setItem(
-      "backupAutomaticoDia",
-      dataBackup
-    );
-
-    console.log(
-      "✅ Backup automático criado"
-    );
-  }
-
-  gerarBackupAutomatico();
-}, [
-  nuvemCarregada,
-
-  entradas,
-  saidas,
-  contas,
-  clientes,
-
-  estoqueCompras,
-  estoquePerdas,
-
-  historicoRelacoes,
-  historicoFechamentos,
-  historicoAlteracoes,
-
-  metaMensal,
-  inicioMes,
-  fimMes,
-]);
-
-
-
-  const chavePix =
-  dadosEmpresa.pix || "";
-
- const dadosEmpresaTexto = `IE: ${dadosEmpresa.ie || ""}
+  const dadosEmpresaTexto = `IE: ${dadosEmpresa.ie || ""}
 CNPJ: ${dadosEmpresa.cnpj || ""}
 E-MAIL: ${dadosEmpresa.email || ""}
 WhatsApp: ${dadosEmpresa.whatsapp || ""}
@@ -914,7 +930,7 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
     currency: "BRL",
   });
 
-  const formasPagamento = [
+  const formasPagamentoPadrao = [
     "Pix",
     "Débito",
     "Crédito",
@@ -924,16 +940,18 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
     "Nota / Faturado",
   ];
 
+  const formasPagamento = formasPagamentoPadrao;
+
   const produtosEstoque = [
-  "VEICULAR PADRÃO",
-  "VEICULAR PRETA",
-  "VEICULAR MINI",
-  "VEICULAR MINI-MINI",
-  "MOTO PADRÃO",
-  "MOTO PRETA",
-  "MOTO MINI",
-  "SUPORTE",
-];
+    "VEICULAR PADRÃO",
+    "VEICULAR PRETA",
+    "VEICULAR MINI",
+    "VEICULAR MINI-MINI",
+    "MOTO PADRÃO",
+    "MOTO PRETA",
+    "MOTO MINI",
+    "SUPORTE",
+  ];
 
   const entradaVazia = {
     data: hoje,
@@ -967,46 +985,47 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
     vencimento: hoje,
     valor: "",
     formaPagamento: "Pix",
-dataPagamento: "",
-saidaGeradaId: "",
+    dataPagamento: "",
+    saidaGeradaId: "",
     status: "Pendente",
   };
 
-const clienteVazio = {
-  nome: "",
-  tipoCliente: "",
+  const clienteVazio = {
+    nome: "",
+    tipoCliente: "",
 
-  precoParVeicular: "",
-  precoMoto: "",
-  precoReboque: "",
-  precoPlacaPreta: "",
-  precoMini: "",
+    precoParVeicular: "",
+    precoMoto: "",
+    precoReboque: "",
+    precoPlacaPreta: "",
+    precoMini: "",
 
-  precoSuporteTriangulo: "",
-  precoSuporteResinaMoto: "",
-  precoSuporteResinaCarro: "",
+    precoSuporteTriangulo: "",
+    precoSuporteResinaMoto: "",
+    precoSuporteResinaCarro: "",
 
-  precoRibbonCarro1x: "",
-  precoRibbonCarro2x: "",
-  precoRibbonMoto1x: "",
-  precoRibbonMoto2x: "",
+    precoRibbonCarro1x: "",
+    precoRibbonCarro2x: "",
+    precoRibbonMoto1x: "",
+    precoRibbonMoto2x: "",
 
-  telefone: "",
-  email: "",
-  observacao: "",
-};
+    telefone: "",
+    email: "",
+    observacao: "",
+  };
 
   const compraEstoqueVazia = {
-  data: hoje,
-  produto: "Placa Carro",
-  quantidade: "",
+    data: hoje,
+    produto: "Placa Carro",
+    quantidade: "",
 
-  larguraRibbon: "",
-  metragemRibbon: "",
+    larguraRibbon: "",
+    metragemRibbon: "",
 
-  custoTotal: "",
-  observacao: "",
-};
+    custoTotal: "",
+    observacao: "",
+  };
+
   const perdaEstoqueVazia = {
     data: hoje,
     produto: "Placa Carro",
@@ -1026,119 +1045,117 @@ const clienteVazio = {
     tipo: null,
     id: null,
   });
+
   function compararAlteracoes(antigo, novo, campos) {
-  if (!antigo || !novo) return [];
+    if (!antigo || !novo) return [];
 
-  return campos
-    .filter((campo) => String(antigo[campo] ?? "") !== String(novo[campo] ?? ""))
-    .map((campo) => ({
-      campo,
-      valorAntigo: antigo[campo] ?? "",
-      valorNovo: novo[campo] ?? "",
-    }));
-}
-function calcularRiscoAlteracao({ tipo = "", modulo = "", detalhes = [] }) {
-  const tipoNormalizado = normalizar(tipo);
-  const moduloNormalizado = normalizar(modulo);
-
-  const camposCriticos = [
-    "valor",
-    "status",
-    "formaPagamento",
-    "diaPago",
-    "dataPagamento",
-    "saidaGeradaId",
-  ];
-
-  if (
-    tipoNormalizado.includes("EXCLUSAO") ||
-    tipoNormalizado.includes("RESTAURACAO") ||
-    tipoNormalizado.includes("LIMPAR")
-  ) {
-    return "ALTO";
+    return campos
+      .filter((campo) => String(antigo[campo] ?? "") !== String(novo[campo] ?? ""))
+      .map((campo) => ({
+        campo,
+        valorAntigo: antigo[campo] ?? "",
+        valorNovo: novo[campo] ?? "",
+      }));
   }
 
-  if (
-    moduloNormalizado.includes("ENTRADAS") ||
-    moduloNormalizado.includes("SAIDAS") ||
-    moduloNormalizado.includes("CONTAS") ||
-    moduloNormalizado.includes("PENDENCIAS")
-  ) {
-    const mexeuCampoCritico = detalhes.some((item) =>
-      camposCriticos.includes(item.campo)
-    );
+  function calcularRiscoAlteracao({ tipo = "", modulo = "", detalhes = [] }) {
+    const tipoNormalizado = normalizar(tipo);
+    const moduloNormalizado = normalizar(modulo);
 
-    if (mexeuCampoCritico) return "ALTO";
+    const camposCriticos = [
+      "valor",
+      "status",
+      "formaPagamento",
+      "diaPago",
+      "dataPagamento",
+      "saidaGeradaId",
+    ];
 
-    return "MÉDIO";
+    if (
+      tipoNormalizado.includes("EXCLUSAO") ||
+      tipoNormalizado.includes("RESTAURACAO") ||
+      tipoNormalizado.includes("LIMPAR")
+    ) {
+      return "ALTO";
+    }
+
+    if (
+      moduloNormalizado.includes("ENTRADAS") ||
+      moduloNormalizado.includes("SAIDAS") ||
+      moduloNormalizado.includes("CONTAS") ||
+      moduloNormalizado.includes("PENDENCIAS")
+    ) {
+      const mexeuCampoCritico = detalhes.some((item) =>
+        camposCriticos.includes(item.campo)
+      );
+
+      if (mexeuCampoCritico) return "ALTO";
+
+      return "MÉDIO";
+    }
+
+    return "NORMAL";
   }
 
-  return "NORMAL";
-}
+  function registrarAlteracao({
+    tipo = "",
+    modulo = "",
+    descricao = "",
+    valorAntigo = "",
+    valorNovo = "",
+    itemId = "",
+    detalhes = [],
+  }) {
+    const risco = calcularRiscoAlteracao({
+      tipo,
+      modulo,
+      detalhes,
+    });
 
-function registrarAlteracao({
-  tipo = "",
-  modulo = "",
-  descricao = "",
-  valorAntigo = "",
-  valorNovo = "",
-  itemId = "",
-  detalhes = [],
-}) {
-  if (usuario?.email === "matymidy.mmm@gmail.com") {
-    return;
+    const novoRegistro = {
+      id: Date.now(),
+      usuario: usuario?.email || "Usuário não identificado",
+      nivelUsuario: nivelAcesso,
+      tipo,
+      modulo,
+      descricao,
+      valorAntigo:
+        typeof valorAntigo === "object"
+          ? JSON.stringify(valorAntigo)
+          : String(valorAntigo || ""),
+      valorNovo:
+        typeof valorNovo === "object"
+          ? JSON.stringify(valorNovo)
+          : String(valorNovo || ""),
+      itemId,
+      detalhes: Array.isArray(detalhes) ? detalhes : [],
+      risco,
+      dataHora: new Date().toISOString(),
+    };
+
+    addDoc(collection(db, "empresas", empresaId, "historicoAlteracoes"), novoRegistro);
   }
 
-  const risco = calcularRiscoAlteracao({
-    tipo,
-    modulo,
-    detalhes,
-  });
+  useEffect(() => {
+    if (!usuario?.email) {
+      loginRegistradoRef.current = false;
+      return;
+    }
 
-  const novoRegistro = {
-    id: Date.now(),
-    usuario: usuario?.email || "Usuário não identificado",
-    tipo,
-    modulo,
-    descricao,
-    valorAntigo:
-      typeof valorAntigo === "object"
-        ? JSON.stringify(valorAntigo)
-        : String(valorAntigo || ""),
-    valorNovo:
-      typeof valorNovo === "object"
-        ? JSON.stringify(valorNovo)
-        : String(valorNovo || ""),
-    itemId,
-    detalhes: Array.isArray(detalhes) ? detalhes : [],
-    risco,
-    dataHora: new Date().toISOString(),
-  };
+    if (loginRegistradoRef.current) {
+      return;
+    }
 
-  addDoc(
-    collection(db, "empresas", empresaId, "historicoAlteracoes"),
-    novoRegistro
-  );
-}
-useEffect(() => {
-  if (!usuario?.email) {
-    loginRegistradoRef.current = false;
-    return;
-  }
+    loginRegistradoRef.current = true;
 
-  if (loginRegistradoRef.current) {
-    return;
-  }
+    registrarAlteracao({
+      tipo: "Login",
+      modulo: "Autenticação",
+      descricao: `${usuario.email} entrou no sistema`,
+      itemId: usuario.uid,
+    });
+  }, [usuario]);
 
-  loginRegistradoRef.current = true;
-
-  registrarAlteracao({
-    tipo: "Login",
-    modulo: "Autenticação",
-    descricao: `${usuario.email} entrou no sistema`,
-    itemId: usuario.uid,
-  });
-}, [usuario]);
   function numero(valor) {
     return (
       Number(
@@ -1276,20 +1293,16 @@ useEffect(() => {
   }
 
   function destinoDinheiro(forma) {
-  const f = normalizar(forma);
+    const f = normalizar(forma);
 
-  if (f.includes("NOTA") || f.includes("FATURADO")) return "Faturado";
+    if (f.includes("NOTA") || f.includes("FATURADO")) return "Faturado";
 
-  if (
-    f.includes("DINHEIRO") ||
-    f.includes("CHEQUE") ||
-    f.includes("CAIXA")
-  ) {
-    return "Caixa";
+    if (f.includes("DINHEIRO") || f.includes("CHEQUE") || f.includes("CAIXA")) {
+      return "Caixa";
+    }
+
+    return "Banco";
   }
-
-  return "Banco";
-}
 
   function statusConta(conta) {
     if (conta.status === "Pago") return "Pago";
@@ -1318,62 +1331,66 @@ useEffect(() => {
   }
 
   function salvarEntrada() {
-  const antiga =
-    editando.tipo === "entrada"
-      ? entradas.find((x) => x.id === editando.id)
-      : null;
+    const antiga =
+      editando.tipo === "entrada"
+        ? entradas.find((x) => x.id === editando.id)
+        : null;
 
-  const nova = {
-    ...entradaForm,
-    valor: numero(entradaForm.valor),
-    diaPago: entradaForm.diaPago || "",
-    categoriaPlaca: entradaForm.categoriaPlaca || "",
-    celular: entradaForm.celular || "",
-    relacaoPagaId: entradaForm.relacaoPagaId || "",
-    id: editando.tipo === "entrada" ? editando.id : Date.now(),
-  };
+    const nova = {
+      ...entradaForm,
+      valor: numero(entradaForm.valor),
+      diaPago: entradaForm.diaPago || "",
+      categoriaPlaca: entradaForm.categoriaPlaca || "",
+      celular: entradaForm.celular || "",
+      relacaoPagaId: entradaForm.relacaoPagaId || "",
+      id: editando.tipo === "entrada" ? editando.id : Date.now(),
+    };
 
-  if (editando.tipo === "entrada") {
-    const detalhes = compararAlteracoes(antiga, nova, [
-      "data",
-      "tipo",
-      "cliente",
-      "produto",
-      "placa",
-      "renavan",
-      "formaPagamento",
-      "valor",
-      "status",
-      "processo",
-      "diaPago",
-      "celular",
-    ]);
+    if (editando.tipo === "entrada") {
+      const detalhes = compararAlteracoes(antiga, nova, [
+        "data",
+        "tipo",
+        "cliente",
+        "produto",
+        "placa",
+        "renavan",
+        "formaPagamento",
+        "valor",
+        "status",
+        "processo",
+        "diaPago",
+        "celular",
+      ]);
 
-    setEntradas((old) => old.map((x) => (x.id === editando.id ? nova : x)));
+      setEntradas((old) => old.map((x) => (x.id === editando.id ? nova : x)));
 
-    if (detalhes.length > 0) {
+      if (detalhes.length > 0) {
+        registrarAlteracao({
+          tipo: "Alteração",
+          modulo: "Entradas",
+          descricao: `${usuario?.email || "Usuário"} alterou entrada ${
+            nova.placa || nova.cliente || nova.tipo || nova.id
+          }`,
+          itemId: nova.id,
+          detalhes,
+        });
+      }
+    } else {
+      setEntradas((old) => [nova, ...old]);
+
       registrarAlteracao({
-        tipo: "Alteração",
+        tipo: "Adição",
         modulo: "Entradas",
-        descricao: `${usuario?.email || "Usuário"} alterou entrada ${nova.placa || nova.cliente || nova.tipo || nova.id}`,
+        descricao: `${usuario?.email || "Usuário"} adicionou entrada ${
+          nova.placa || nova.cliente || nova.tipo || nova.id
+        }`,
+        valorNovo: nova,
         itemId: nova.id,
-        detalhes,
       });
     }
-  } else {
-    setEntradas((old) => [nova, ...old]);
 
-    registrarAlteracao({
-      tipo: "Adição",
-      modulo: "Entradas",
-      descricao: `${usuario?.email || "Usuário"} adicionou entrada ${nova.placa || nova.cliente || nova.tipo || nova.id}`,
-      valorNovo: nova,
-      itemId: nova.id,
-    });
+    cancelarEdicao();
   }
-
-  cancelarEdicao();
-}
 
   function salvarSaida() {
     const nova = {
@@ -1393,25 +1410,23 @@ useEffect(() => {
   }
 
   function salvarConta() {
-  const nova = {
-    ...contaForm,
-    valor: numero(contaForm.valor),
-    formaPagamento: contaForm.formaPagamento || "Pix",
-    dataPagamento: contaForm.dataPagamento || "",
-    saidaGeradaId: contaForm.saidaGeradaId || "",
-    id: editando.tipo === "conta" ? editando.id : Date.now(),
-  };
+    const nova = {
+      ...contaForm,
+      valor: numero(contaForm.valor),
+      formaPagamento: contaForm.formaPagamento || "Pix",
+      dataPagamento: contaForm.dataPagamento || "",
+      saidaGeradaId: contaForm.saidaGeradaId || "",
+      id: editando.tipo === "conta" ? editando.id : Date.now(),
+    };
 
-  if (editando.tipo === "conta") {
-    setContas((old) =>
-      old.map((x) => (x.id === editando.id ? nova : x))
-    );
-  } else {
-    setContas((old) => [nova, ...old]);
+    if (editando.tipo === "conta") {
+      setContas((old) => old.map((x) => (x.id === editando.id ? nova : x)));
+    } else {
+      setContas((old) => [nova, ...old]);
+    }
+
+    cancelarEdicao();
   }
-
-  cancelarEdicao();
-}
 
   function salvarCliente() {
     const novo = {
@@ -1429,105 +1444,108 @@ useEffect(() => {
   }
 
   function salvarRelacaoPaga(pendencia, diaPago, formaPagamento = "Pix") {
-  if (!pendencia || !diaPago) return;
+    if (!pendencia || !diaPago) return;
 
-  const idRelacao = Date.now();
-  const idsEntradas = pendencia.itens.map((item) => item.id);
+    const idRelacao = Date.now();
+    const idsEntradas = pendencia.itens.map((item) => item.id);
 
-  const novaRelacao = {
-    id: idRelacao,
-    cliente: pendencia.cliente,
-    diaPago,
-    formaPagamento,
-    dataSalvamento: hoje,
-    quantidade: pendencia.quantidade,
-    total: pendencia.total,
-    itens: pendencia.itens.map((item) => ({
-      idEntrada: item.id,
-      data: item.data,
-      tipo: item.tipo,
-      cliente: item.cliente,
-      produto: item.produto,
-      placa: item.placa,
-      renavan: item.renavan,
-      processo: item.processo,
-      formaPagamentoAnterior: item.formaPagamento,
+    const novaRelacao = {
+      id: idRelacao,
+      cliente: pendencia.cliente,
+      diaPago,
       formaPagamento,
-      valor: item.valor,
-      statusAnterior: item.status,
-    })),
-  };
+      dataSalvamento: hoje,
+      quantidade: pendencia.quantidade,
+      total: pendencia.total,
+      itens: pendencia.itens.map((item) => ({
+        idEntrada: item.id,
+        data: item.data,
+        tipo: item.tipo,
+        cliente: item.cliente,
+        produto: item.produto,
+        placa: item.placa,
+        renavan: item.renavan,
+        processo: item.processo,
+        formaPagamentoAnterior: item.formaPagamento,
+        formaPagamento,
+        valor: item.valor,
+        statusAnterior: item.status,
+      })),
+    };
 
-  setHistoricoRelacoes((old) => [novaRelacao, ...old]);
+    setHistoricoRelacoes((old) => [novaRelacao, ...old]);
 
-  setEntradas((old) =>
-    old.map((entrada) =>
-      idsEntradas.includes(entrada.id)
-        ? {
-            ...entrada,
-            status: "Pago",
-            formaPagamento,
-            diaPago,
-            relacaoPagaId: idRelacao,
-          }
-        : entrada
-    )
-  );
+    setEntradas((old) =>
+      old.map((entrada) =>
+        idsEntradas.includes(entrada.id)
+          ? {
+              ...entrada,
+              status: "Pago",
+              formaPagamento,
+              diaPago,
+              relacaoPagaId: idRelacao,
+            }
+          : entrada
+      )
+    );
 
-  registrarAlteracao({
-    tipo: "Pagamento",
-    modulo: "Pendências",
-    descricao: `${usuario?.email || "Usuário"} marcou relação de ${pendencia.cliente} como paga via ${formaPagamento}`,
-    valorNovo: `${pendencia.quantidade} serviços - ${formaPagamento} - ${diaPago}`,
-    itemId: idRelacao,
-  });
+    registrarAlteracao({
+      tipo: "Pagamento",
+      modulo: "Pendências",
+      descricao: `${usuario?.email || "Usuário"} marcou relação de ${
+        pendencia.cliente
+      } como paga via ${formaPagamento}`,
+      valorNovo: `${pendencia.quantidade} serviços - ${formaPagamento} - ${diaPago}`,
+      itemId: idRelacao,
+    });
 
-  setClientePendenciaSelecionado(null);
-}
-
-  function desfazerUltimaRelacaoPaga(idRelacao) {
-  const relacao = historicoRelacoes.find(
-    (x) => String(x.id) === String(idRelacao)
-  );
-
-  if (!relacao) {
-    alert("Relação não encontrada.");
-    return;
+    setClientePendenciaSelecionado(null);
   }
 
-  setEntradas((old) =>
-    old.map((entrada) => {
-      const itemOriginal = relacao.itens.find(
-        (x) => String(x.idEntrada) === String(entrada.id)
-      );
+  function desfazerUltimaRelacaoPaga(idRelacao) {
+    const relacao = historicoRelacoes.find(
+      (x) => String(x.id) === String(idRelacao)
+    );
 
-      if (!itemOriginal) return entrada;
+    if (!relacao) {
+      alert("Relação não encontrada.");
+      return;
+    }
 
-      return {
-        ...entrada,
-        status: itemOriginal.statusAnterior || "Pago",
-        formaPagamento:
-          itemOriginal.formaPagamentoAnterior || "Nota / Faturado",
-        diaPago: "",
-        relacaoPagaId: "",
-      };
-    })
-  );
+    setEntradas((old) =>
+      old.map((entrada) => {
+        const itemOriginal = relacao.itens.find(
+          (x) => String(x.idEntrada) === String(entrada.id)
+        );
 
-  setHistoricoRelacoes((old) =>
-    old.filter((x) => String(x.id) !== String(idRelacao))
-  );
+        if (!itemOriginal) return entrada;
 
-  registrarAlteracao({
-    tipo: "Desfazer pagamento",
-    modulo: "Pendências",
-    descricao: `${usuario?.email || "Usuário"} desfez pagamento da relação ${relacao.cliente}`,
-    valorNovo: relacao.cliente,
-    itemId: idRelacao,
-  });
+        return {
+          ...entrada,
+          status: itemOriginal.statusAnterior || "Pago",
+          formaPagamento: itemOriginal.formaPagamentoAnterior || "Nota / Faturado",
+          diaPago: "",
+          relacaoPagaId: "",
+        };
+      })
+    );
 
-  alert("Pagamento desfeito com sucesso.");
-}
+    setHistoricoRelacoes((old) =>
+      old.filter((x) => String(x.id) !== String(idRelacao))
+    );
+
+    registrarAlteracao({
+      tipo: "Desfazer pagamento",
+      modulo: "Pendências",
+      descricao: `${usuario?.email || "Usuário"} desfez pagamento da relação ${
+        relacao.cliente
+      }`,
+      valorNovo: relacao.cliente,
+      itemId: idRelacao,
+    });
+
+    alert("Pagamento desfeito com sucesso.");
+  }
 
   function editar(tipo, item) {
     setEditando({ tipo, id: item.id });
@@ -1555,313 +1573,263 @@ useEffect(() => {
     if (tipo === "cliente") setClienteForm(item);
   }
 
- function remover(tipo, id) {
-  let itemRemovido = null;
+  function remover(tipo, id) {
+    let itemRemovido = null;
 
-  if (tipo === "entrada") {
-    itemRemovido = entradas.find(
-      (x) => x.id === id
-    );
+    if (tipo === "entrada") {
+      itemRemovido = entradas.find((x) => x.id === id);
+      setEntradas((old) => old.filter((x) => x.id !== id));
+    }
 
-    setEntradas((old) =>
-      old.filter((x) => x.id !== id)
-    );
+    if (tipo === "saida") {
+      itemRemovido = saidas.find((x) => x.id === id);
+      setSaidas((old) => old.filter((x) => x.id !== id));
+    }
+
+    if (tipo === "conta") {
+      itemRemovido = contas.find((x) => x.id === id);
+      setContas((old) => old.filter((x) => x.id !== id));
+    }
+
+    if (tipo === "cliente") {
+      itemRemovido = clientes.find((x) => x.id === id);
+      setClientes((old) => old.filter((x) => x.id !== id));
+    }
+
+    registrarAlteracao({
+      tipo: "Exclusão",
+      modulo: tipo,
+      descricao: `${usuario?.email || "Usuário"} removeu ${
+        itemRemovido?.placa ||
+        itemRemovido?.cliente ||
+        itemRemovido?.conta ||
+        itemRemovido?.tipoSaida ||
+        itemRemovido?.produto ||
+        itemRemovido?.tipo ||
+        itemRemovido?.nome ||
+        JSON.stringify(itemRemovido).slice(0, 60)
+      }`,
+      valorAntigo: itemRemovido || {},
+      valorNovo: "Item removido",
+      itemId: id,
+    });
   }
-
-  if (tipo === "saida") {
-    itemRemovido = saidas.find(
-      (x) => x.id === id
-    );
-
-    setSaidas((old) =>
-      old.filter((x) => x.id !== id)
-    );
-  }
-
-  if (tipo === "conta") {
-    itemRemovido = contas.find(
-      (x) => x.id === id
-    );
-
-    setContas((old) =>
-      old.filter((x) => x.id !== id)
-    );
-  }
-
-  if (tipo === "cliente") {
-    itemRemovido = clientes.find(
-      (x) => x.id === id
-    );
-
-    setClientes((old) =>
-      old.filter((x) => x.id !== id)
-    );
-  }
-
-  registrarAlteracao({
-    tipo: "Exclusão",
-    modulo: tipo,
-    descricao: `${
-  usuario?.email || "Usuário"
-} removeu ${
-  itemRemovido?.placa ||
-  itemRemovido?.cliente ||
-  itemRemovido?.conta ||
-  itemRemovido?.tipoSaida ||
-  itemRemovido?.produto ||
-  itemRemovido?.tipo ||
-  itemRemovido?.nome ||
-  JSON.stringify(itemRemovido).slice(0, 60)
-}`,
-    valorAntigo: itemRemovido || {},
-    valorNovo: "Item removido",
-    itemId: id,
-  });
-}
 
   function alternarConta(id) {
-  const conta = contas.find((x) => String(x.id) === String(id));
+    const conta = contas.find((x) => String(x.id) === String(id));
 
-  if (!conta) return;
+    if (!conta) return;
 
-  const novoStatus =
-    conta.status === "Pago" ? "Pendente" : "Pago";
+    const novoStatus = conta.status === "Pago" ? "Pendente" : "Pago";
 
-  let saidaGeradaId = conta.saidaGeradaId || "";
+    let saidaGeradaId = conta.saidaGeradaId || "";
 
-  if (novoStatus === "Pago" && !saidaGeradaId) {
-    const novaSaidaId = Date.now();
+    if (novoStatus === "Pago" && !saidaGeradaId) {
+      const novaSaidaId = Date.now();
 
-    const novaSaida = {
-      id: novaSaidaId,
-      data: hoje,
-      formaPagamento: conta.formaPagamento || "Pix",
-      categoria: "Conta paga",
-      tipoSaida: "Conta a pagar",
-      conta: conta.conta,
-      valor: Number(conta.valor || 0),
-      status: "Pago",
-      origemContaId: conta.id,
-      vencimentoConta: conta.vencimento,
+      const novaSaida = {
+        id: novaSaidaId,
+        data: hoje,
+        formaPagamento: conta.formaPagamento || "Pix",
+        categoria: "Conta paga",
+        tipoSaida: "Conta a pagar",
+        conta: conta.conta,
+        valor: Number(conta.valor || 0),
+        status: "Pago",
+        origemContaId: conta.id,
+        vencimentoConta: conta.vencimento,
+      };
+
+      setSaidas((old) => [novaSaida, ...old]);
+
+      saidaGeradaId = novaSaidaId;
+    }
+
+    if (novoStatus === "Pendente" && saidaGeradaId) {
+      setSaidas((old) =>
+        old.filter((x) => String(x.id) !== String(saidaGeradaId))
+      );
+
+      saidaGeradaId = "";
+    }
+
+    setContas((old) =>
+      old.map((x) =>
+        String(x.id) === String(id)
+          ? {
+              ...x,
+              status: novoStatus,
+              dataPagamento: novoStatus === "Pago" ? hoje : "",
+              saidaGeradaId,
+            }
+          : x
+      )
+    );
+  }
+
+  const dadosPeriodo = useMemo(() => {
+    const entradasCompetencia = entradas.filter((x) => dentroDoPeriodo(x.data));
+
+    const entradasRecebidas = entradas.filter((x) => {
+      const dataRecebimento = dataRecebimentoEntrada(x);
+
+      return dataRecebimento && dentroDoPeriodo(dataRecebimento) && x.status === "Pago";
+    });
+
+    return {
+      entradas: entradasCompetencia,
+      entradasRecebidas,
+      saidas: saidas.filter((x) => dentroDoPeriodo(x.data)),
+      contas: contas.filter((x) => dentroDoPeriodo(x.vencimento)),
     };
+  }, [entradas, saidas, contas, inicioMes, fimMes]);
 
-    setSaidas((old) => [novaSaida, ...old]);
-
-    saidaGeradaId = novaSaidaId;
-  }
-
-  if (novoStatus === "Pendente" && saidaGeradaId) {
-    setSaidas((old) =>
-      old.filter((x) => String(x.id) !== String(saidaGeradaId))
+  const indicadores = useMemo(() => {
+    const entradasCompetencia = entradas.filter(
+      (x) => dentroDoPeriodo(x.data) && ehVendaReal(x)
     );
 
-    saidaGeradaId = "";
-  }
+    const vendasRecebidasPeriodo = dadosPeriodo.entradasRecebidas.filter(ehVendaReal);
 
-  setContas((old) =>
-    old.map((x) =>
-      String(x.id) === String(id)
-        ? {
-            ...x,
-            status: novoStatus,
-            dataPagamento: novoStatus === "Pago" ? hoje : "",
-            saidaGeradaId,
-          }
-        : x
-    )
-  );
-}
+    const entradasVistaTotal = entradasCompetencia
+      .filter((x) => {
+        if (x.status !== "Pago") return false;
 
- const dadosPeriodo = useMemo(() => {
-  const entradasCompetencia = entradas.filter((x) =>
-    dentroDoPeriodo(x.data)
-  );
+        if (destinoDinheiro(x.formaPagamento) === "Faturado") return false;
 
-  const entradasRecebidas = entradas.filter((x) => {
-    const dataRecebimento = dataRecebimentoEntrada(x);
+        return true;
+      })
+      .reduce((soma, x) => soma + Number(x.valor || 0), 0);
 
-    return (
-      dataRecebimento &&
-      dentroDoPeriodo(dataRecebimento) &&
-      x.status === "Pago"
+    const injecaoCaixaPeriodo = dadosPeriodo.entradasRecebidas.filter(ehInjecaoCaixa);
+
+    const injecaoLojaPeriodo = dadosPeriodo.entradasRecebidas.filter(ehInjecaoLoja);
+
+    const injecaoSociosPeriodo =
+      dadosPeriodo.entradasRecebidas.filter(ehInjecaoSocios);
+
+    const injecoesPeriodo = dadosPeriodo.entradasRecebidas.filter(ehInjecaoCapital);
+
+    const recuperacaoValesPeriodo =
+      dadosPeriodo.entradasRecebidas.filter(ehRecuperacaoVale);
+
+    const recebimentosAntigos = vendasRecebidasPeriodo.filter((x) => {
+      const dataRecebimento = dataRecebimentoEntrada(x);
+      return x.data < inicioMes && dataRecebimento >= inicioMes;
+    });
+
+    const entradaBruta = entradasCompetencia.reduce((s, x) => s + x.valor, 0);
+
+    const caixaRecebidoVendas = vendasRecebidasPeriodo.reduce(
+      (s, x) => s + x.valor,
+      0
     );
-  });
 
-  return {
-    entradas: entradasCompetencia,
-    entradasRecebidas,
-    saidas: saidas.filter((x) => dentroDoPeriodo(x.data)),
-    contas: contas.filter((x) => dentroDoPeriodo(x.vencimento)),
-  };
-}, [entradas, saidas, contas, inicioMes, fimMes]);
+    const injecaoCaixaTotal = injecaoCaixaPeriodo.reduce((s, x) => s + x.valor, 0);
 
- const indicadores = useMemo(() => {
-  const entradasCompetencia = entradas.filter(
-    (x) => dentroDoPeriodo(x.data) && ehVendaReal(x)
-  );
+    const injecaoLojaTotal = injecaoLojaPeriodo.reduce((s, x) => s + x.valor, 0);
 
-  const vendasRecebidasPeriodo =
-    dadosPeriodo.entradasRecebidas.filter(ehVendaReal);
+    const injecaoSociosTotal = injecaoSociosPeriodo.reduce(
+      (s, x) => s + x.valor,
+      0
+    );
 
-  const entradasVistaTotal = entradasCompetencia
-  .filter((x) => {
-    if (x.status !== "Pago") return false;
+    const injecaoCapitalTotal = injecoesPeriodo.reduce((s, x) => s + x.valor, 0);
 
-    if (
-      destinoDinheiro(x.formaPagamento) ===
-      "Faturado"
-    )
-      return false;
+    const recuperacaoValeTotal = recuperacaoValesPeriodo.reduce(
+      (s, x) => s + x.valor,
+      0
+    );
 
-    return true;
-  })
-  .reduce(
-    (soma, x) =>
-      soma + Number(x.valor || 0),
-    0
-  );
-    
+    const recebidoBanco = dadosPeriodo.entradasRecebidas
+      .filter((x) => {
+        if (ehInjecaoCaixa(x)) return false;
+        if (destinoDinheiro(x.formaPagamento) === "Caixa") return false;
+        return true;
+      })
+      .reduce((s, x) => s + x.valor, 0);
 
-  const injecaoCaixaPeriodo =
-    dadosPeriodo.entradasRecebidas.filter(ehInjecaoCaixa);
+    const recebidoCaixa = dadosPeriodo.entradasRecebidas
+      .filter((x) => {
+        if (ehInjecaoCaixa(x)) return true;
+        return destinoDinheiro(x.formaPagamento) === "Caixa";
+      })
+      .reduce((s, x) => s + x.valor, 0);
 
-  const injecaoLojaPeriodo =
-    dadosPeriodo.entradasRecebidas.filter(ehInjecaoLoja);
+    const notasPendentes = entradas
+      .filter(
+        (x) =>
+          dentroDoPeriodo(x.data) &&
+          ehVendaReal(x) &&
+          x.formaPagamento === "Nota / Faturado" &&
+          !x.diaPago
+      )
+      .reduce((s, x) => s + x.valor, 0);
 
-  const injecaoSociosPeriodo =
-    dadosPeriodo.entradasRecebidas.filter(ehInjecaoSocios);
+    const saidasTotal = dadosPeriodo.saidas.reduce((s, x) => s + x.valor, 0);
 
-  const injecoesPeriodo =
-    dadosPeriodo.entradasRecebidas.filter(ehInjecaoCapital);
+    const valesColaboradores = dadosPeriodo.saidas
+      .filter(ehValeColaborador)
+      .reduce((s, x) => s + x.valor, 0);
 
-  const recuperacaoValesPeriodo =
-    dadosPeriodo.entradasRecebidas.filter(ehRecuperacaoVale);
+    const contasPagas = dadosPeriodo.contas
+      .filter((x) => statusConta(x) === "Pago")
+      .reduce((s, x) => s + x.valor, 0);
 
-  const recebimentosAntigos = vendasRecebidasPeriodo.filter((x) => {
-    const dataRecebimento = dataRecebimentoEntrada(x);
-    return x.data < inicioMes && dataRecebimento >= inicioMes;
-  });
+    const saidasBanco = dadosPeriodo.saidas
+      .filter((x) => destinoDinheiro(x.formaPagamento) === "Banco")
+      .reduce((s, x) => s + x.valor, 0);
 
-  const entradaBruta = entradasCompetencia.reduce((s, x) => s + x.valor, 0);
+    const saidasCaixa = dadosPeriodo.saidas
+      .filter((x) => destinoDinheiro(x.formaPagamento) === "Caixa")
+      .reduce((s, x) => s + x.valor, 0);
 
-  const caixaRecebidoVendas = vendasRecebidasPeriodo.reduce(
-    (s, x) => s + x.valor,
-    0
-  );
+    const caixaRecebidoTotal =
+      caixaRecebidoVendas + injecaoCapitalTotal + recuperacaoValeTotal;
 
-  const injecaoCaixaTotal = injecaoCaixaPeriodo.reduce(
-    (s, x) => s + x.valor,
-    0
-  );
+    const pagos = saidasTotal;
+    const entradaLiquida = caixaRecebidoTotal - saidasTotal;
 
-  const injecaoLojaTotal = injecaoLojaPeriodo.reduce(
-    (s, x) => s + x.valor,
-    0
-  );
+    const tenhoNoBanco = recebidoBanco - saidasBanco;
+    const tenhoNoCaixa = recebidoCaixa - saidasCaixa;
 
-  const injecaoSociosTotal = injecaoSociosPeriodo.reduce(
-    (s, x) => s + x.valor,
-    0
-  );
+    const dias =
+      new Set([
+        ...entradasCompetencia.map((x) => x.data),
+        ...dadosPeriodo.saidas.map((x) => x.data),
+        ...dadosPeriodo.contas.map((x) => x.vencimento),
+      ]).size || 1;
 
-  const injecaoCapitalTotal = injecoesPeriodo.reduce(
-    (s, x) => s + x.valor,
-    0
-  );
+    return {
+      entradaBruta,
+      entradasVistaTotal,
+      faturamentoCompetencia: entradaBruta,
+      caixaRecebidoVendas,
+      caixaRecebidoTotal,
+      entradaLiquida,
+      saidasTotal,
+      contasPagas,
+      pagos,
+      faturadoEmAberto: notasPendentes,
+      notasPendentes,
+      recebidoBanco,
+      recebidoCaixa,
+      recebidoFaturado: caixaRecebidoVendas,
+      recebidoTotal: caixaRecebidoTotal,
+      recebimentosAntigos: recebimentosAntigos.reduce((s, x) => s + x.valor, 0),
+      injecaoCaixaTotal,
+      injecaoLojaTotal,
+      injecaoSociosTotal,
+      injecaoCapitalTotal,
+      aporteTotal: injecaoCapitalTotal,
+      recuperacaoValeTotal,
+      valesColaboradores,
+      mediaPorDia: entradaBruta / dias,
+      tenhoNoBanco,
+      tenhoNoCaixa,
+    };
+  }, [entradas, dadosPeriodo, inicioMes, fimMes]);
 
-  const recuperacaoValeTotal = recuperacaoValesPeriodo.reduce(
-    (s, x) => s + x.valor,
-    0
-  );
-
-  const recebidoBanco = dadosPeriodo.entradasRecebidas
-    .filter((x) => {
-      if (ehInjecaoCaixa(x)) return false;
-      if (destinoDinheiro(x.formaPagamento) === "Caixa") return false;
-      return true;
-    })
-    .reduce((s, x) => s + x.valor, 0);
-
-  const recebidoCaixa = dadosPeriodo.entradasRecebidas
-    .filter((x) => {
-      if (ehInjecaoCaixa(x)) return true;
-      return destinoDinheiro(x.formaPagamento) === "Caixa";
-    })
-    .reduce((s, x) => s + x.valor, 0);
-
-  const notasPendentes = entradas
-    .filter(
-      (x) =>
-        dentroDoPeriodo(x.data) &&
-        ehVendaReal(x) &&
-        x.formaPagamento === "Nota / Faturado" &&
-        !x.diaPago
-    )
-    .reduce((s, x) => s + x.valor, 0);
-
-  const saidasTotal = dadosPeriodo.saidas.reduce((s, x) => s + x.valor, 0);
-
-  const valesColaboradores = dadosPeriodo.saidas
-    .filter(ehValeColaborador)
-    .reduce((s, x) => s + x.valor, 0);
-
-  const contasPagas = dadosPeriodo.contas
-    .filter((x) => statusConta(x) === "Pago")
-    .reduce((s, x) => s + x.valor, 0);
-
-  const saidasBanco = dadosPeriodo.saidas
-    .filter((x) => destinoDinheiro(x.formaPagamento) === "Banco")
-    .reduce((s, x) => s + x.valor, 0);
-
-  const saidasCaixa = dadosPeriodo.saidas
-    .filter((x) => destinoDinheiro(x.formaPagamento) === "Caixa")
-    .reduce((s, x) => s + x.valor, 0);
-
-  const caixaRecebidoTotal =
-    caixaRecebidoVendas + injecaoCapitalTotal + recuperacaoValeTotal;
-
-  const pagos = saidasTotal;
-const entradaLiquida = caixaRecebidoTotal - saidasTotal;
-
-  const tenhoNoBanco = recebidoBanco - saidasBanco;
-  const tenhoNoCaixa = recebidoCaixa - saidasCaixa;
-
-  const dias =
-    new Set([
-      ...entradasCompetencia.map((x) => x.data),
-      ...dadosPeriodo.saidas.map((x) => x.data),
-      ...dadosPeriodo.contas.map((x) => x.vencimento),
-    ]).size || 1;
-
-  return {
-    entradaBruta,
-    entradasVistaTotal,
-    faturamentoCompetencia: entradaBruta,
-    caixaRecebidoVendas,
-    caixaRecebidoTotal,
-    entradaLiquida,
-    saidasTotal,
-    contasPagas,
-    pagos,
-    faturadoEmAberto: notasPendentes,
-    notasPendentes,
-    recebidoBanco,
-    recebidoCaixa,
-    recebidoFaturado: caixaRecebidoVendas,
-    recebidoTotal: caixaRecebidoTotal,
-    recebimentosAntigos: recebimentosAntigos.reduce((s, x) => s + x.valor, 0),
-    injecaoCaixaTotal,
-    injecaoLojaTotal,
-    injecaoSociosTotal,
-    injecaoCapitalTotal,
-    aporteTotal: injecaoCapitalTotal,
-    recuperacaoValeTotal,
-    valesColaboradores,
-    mediaPorDia: entradaBruta / dias,
-    tenhoNoBanco,
-    tenhoNoCaixa,
-  };
-}, [entradas, dadosPeriodo, inicioMes, fimMes]);
   const vendasPorDia = useMemo(() => {
     const mapa = {};
 
@@ -1928,135 +1896,126 @@ const entradaLiquida = caixaRecebidoTotal - saidasTotal;
       .map(([cliente, valor]) => ({ cliente, valor }))
       .sort((a, b) => b.valor - a.valor);
   }, [dadosPeriodo]);
-function fecharMesFinanceiro() {
-  const fechamento = {
-  id: Date.now(),
 
-  inicio: inicioMes,
-  fim: hoje,
+  function fecharMesFinanceiro() {
+    const fechamento = {
+      id: Date.now(),
 
-  dataFechamento: hoje,
+      inicio: inicioMes,
+      fim: hoje,
 
-  faturamento:
-    indicadores.faturamentoCompetencia || 0,
+      dataFechamento: hoje,
 
-  recebido:
-    indicadores.caixaRecebidoTotal || 0,
+      faturamento: indicadores.faturamentoCompetencia || 0,
 
-  recebidoBanco:
-    indicadores.tenhoNoBanco || 0,
+      recebido: indicadores.caixaRecebidoTotal || 0,
 
-  recebidoCaixa:
-    indicadores.tenhoNoCaixa || 0,
+      recebidoBanco: indicadores.tenhoNoBanco || 0,
 
-  bancoEsperado:
-    indicadores.tenhoNoBanco || 0,
+      recebidoCaixa: indicadores.tenhoNoCaixa || 0,
 
-  caixaEsperado:
-    indicadores.tenhoNoCaixa || 0,
+      bancoEsperado: indicadores.tenhoNoBanco || 0,
 
-  saldoTotal:
-    (indicadores.tenhoNoBanco || 0) +
-    (indicadores.tenhoNoCaixa || 0),
+      caixaEsperado: indicadores.tenhoNoCaixa || 0,
 
-  faturadoEmAberto:
-    indicadores.faturadoEmAberto || 0,
+      saldoTotal: (indicadores.tenhoNoBanco || 0) + (indicadores.tenhoNoCaixa || 0),
 
-  saidas:
-    indicadores.saidasTotal || 0,
+      faturadoEmAberto: indicadores.faturadoEmAberto || 0,
 
-  lucro:
-    indicadores.entradaLiquida || 0,
+      saidas: indicadores.saidasTotal || 0,
 
-  entradasVista:
-    indicadores.entradasVistaTotal || 0,
+      lucro: indicadores.entradaLiquida || 0,
 
-  recebimentosAntigos:
-    indicadores.recebimentosAntigos || 0,
+      entradasVista: indicadores.entradasVistaTotal || 0,
 
-  servicosRealizados:
-    dadosPeriodo.entradas.filter(ehVendaReal)
-      .length || 0,
+      recebimentosAntigos: indicadores.recebimentosAntigos || 0,
 
-  quantidadeEntradas:
-    dadosPeriodo.entradas.length || 0,
+      servicosRealizados: dadosPeriodo.entradas.filter(ehVendaReal).length || 0,
 
-  quantidadeSaidas:
-    dadosPeriodo.saidas.length || 0,
+      quantidadeEntradas: dadosPeriodo.entradas.length || 0,
 
-  quantidadeNotasEmAberto:
-    entradas.filter(
-      (x) =>
-        x.data >= inicioMes &&
-        x.data <= hoje &&
-        x.formaPagamento ===
-          "Nota / Faturado" &&
-        !x.diaPago
-    ).length,
+      quantidadeSaidas: dadosPeriodo.saidas.length || 0,
 
-  notasEmAbertoDetalhadas:
-  entradas
-    .filter(
-      (x) =>
-        x.data >= inicioMes &&
-        x.data <= hoje &&
-        x.formaPagamento ===
-          "Nota / Faturado" &&
-        !x.diaPago
-    )
-    .map((x) => ({
-      id: x.id,
-      cliente: x.cliente || "",
-      placa: x.placa || "",
-      produto: x.produto || "",
-      valor: Number(x.valor || 0),
-      data: x.data || "",
-      status: x.status || "",
-      diaPago: x.diaPago || "",
-      formaPagamento: x.formaPagamento || "",
-      categoriaPlaca: x.categoriaPlaca || "",
-      processo: x.processo || "",
-    })),
+      quantidadeNotasEmAberto: entradas.filter(
+        (x) =>
+          x.data >= inicioMes &&
+          x.data <= hoje &&
+          x.formaPagamento === "Nota / Faturado" &&
+          !x.diaPago
+      ).length,
 
-  metaMensal,
+      notasEmAbertoDetalhadas: entradas
+        .filter(
+          (x) =>
+            x.data >= inicioMes &&
+            x.data <= hoje &&
+            x.formaPagamento === "Nota / Faturado" &&
+            !x.diaPago
+        )
+        .map((x) => ({
+          id: x.id,
+          cliente: x.cliente || "",
+          placa: x.placa || "",
+          produto: x.produto || "",
+          valor: Number(x.valor || 0),
+          data: x.data || "",
+          status: x.status || "",
+          diaPago: x.diaPago || "",
+          formaPagamento: x.formaPagamento || "",
+          categoriaPlaca: x.categoriaPlaca || "",
+          processo: x.processo || "",
+        })),
 
-  diaInicioMesFinanceiro,
-};
+      metaMensal,
 
-  setHistoricoFechamentos((old) => [
-    fechamento,
-    ...old,
-  ]);
+      diaInicioMesFinanceiro,
+    };
 
- 
+    setHistoricoFechamentos((old) => [fechamento, ...old]);
 
-  registrarAlteracao({
-    tipo: "Fechamento",
-    modulo: "Histórico Financeiro",
-    descricao: `${usuario?.email || "Usuário"} fechou o período financeiro de ${inicioMes} até ${hoje}`,
-    valorAntigo: inicioMes,
-    valorNovo: hoje,
-    itemId: fechamento.id,
-  });
-}
+    registrarAlteracao({
+      tipo: "Fechamento",
+      modulo: "Histórico Financeiro",
+      descricao: `${usuario?.email || "Usuário"} fechou o período financeiro de ${inicioMes} até ${hoje}`,
+      valorAntigo: inicioMes,
+      valorNovo: hoje,
+      itemId: fechamento.id,
+    });
+  }
 
- 
   const propsGlobais = {
     empresaId,
     dadosEmpresa,
-    
-setDadosEmpresa,
-salvarDadosEmpresa,
+    setDadosEmpresa,
+    salvarDadosEmpresa,
+
     hoje,
     acesso,
     usuario,
-    admin:
-  acesso?.nivel === "admin",
+
+    nivelAcesso,
+    ehSuperadmin,
+    ehAdmin,
+    ehSocio,
+    ehLojista,
+
+    admin: podeAdministrarEmpresa,
+    podeAdministrarEmpresa,
+    podeGerenciarAcessos,
+    podeConfigurarSistema,
+    podeGerenciarBackups,
+    podeLimparSistema,
+    podeEditarMeta,
+    podeVerFinanceiro,
+    podeOperarSistema,
+
     fecharMesFinanceiro,
     diaInicioMesFinanceiro,
-setDiaInicioMesFinanceiro,
+    setDiaInicioMesFinanceiro,
+
     aba,
     setAba,
+
     salvarEntrada,
     salvarSaida,
     salvarConta,
@@ -2067,17 +2026,21 @@ setDiaInicioMesFinanceiro,
     remover,
     cancelarEdicao,
     alternarConta,
+
     inicioMes,
     setInicioMes,
     fimMes,
     setFimMes,
+
     metaMensal,
     setMetaMensal,
     modoRibbonPadrao,
-setModoRibbonPadrao,
+    setModoRibbonPadrao,
+
     moeda,
     formasPagamento,
     produtosEstoque,
+
     entradas,
     setEntradas,
     saidas,
@@ -2086,12 +2049,31 @@ setModoRibbonPadrao,
     setContas,
     clientes,
     setClientes,
+
     produtosEstoquePersonalizados,
-setProdutosEstoquePersonalizados,
+    setProdutosEstoquePersonalizados,
+    fornecedoresEstoque,
+    setFornecedoresEstoque,
+
+    categoriasSaidaConfiguradas,
+    setCategoriasSaidaConfiguradas,
+
+    movimentacoesEstoque,
+    setMovimentacoesEstoque,
+    reservasEstoque,
+    setReservasEstoque,
+    servicosSimulacaoEstoque,
+    setServicosSimulacaoEstoque,
+
+    minimosEstoqueConfigurados,
+    setMinimosEstoqueConfigurados,
+    usuarioAtual: usuario,
+
     estoqueCompras,
     setEstoqueCompras,
     estoquePerdas,
     setEstoquePerdas,
+
     entradaForm,
     setEntradaForm,
     saidaForm,
@@ -2104,20 +2086,26 @@ setProdutosEstoquePersonalizados,
     setCompraEstoqueForm,
     perdaEstoqueForm,
     setPerdaEstoqueForm,
+
     editando,
     setEditando,
+
     resultadoImportacao,
     setResultadoImportacao,
     textoImportacao,
     setTextoImportacao,
+
     clientePendenciaSelecionado,
     setClientePendenciaSelecionado,
+
     chavePix,
     dadosEmpresaTexto,
     botaoCopiado,
     setBotaoCopiado,
+
     mostrarDadosEmpresa,
     setMostrarDadosEmpresa,
+
     indicadores,
     dadosPeriodo,
     vendasPorDia,
@@ -2125,13 +2113,16 @@ setProdutosEstoquePersonalizados,
     contasPorNome,
     statusContasPizza,
     rankingClientes,
+
     historicoRelacoes,
     setHistoricoRelacoes,
     historicoFechamentos,
-setHistoricoFechamentos,
-historicoAlteracoes,
-setHistoricoAlteracoes,
-registrarAlteracao,
+    setHistoricoFechamentos,
+    historicoAlteracoes,
+    setHistoricoAlteracoes,
+
+    registrarAlteracao,
+
     numero,
     texto,
     normalizar,
@@ -2139,6 +2130,7 @@ registrarAlteracao,
     statusConta,
     entradaEmAberto,
     textoMovimento,
+
     ehInjecaoCaixa,
     ehInjecaoLoja,
     ehInjecaoSocios,
@@ -2147,8 +2139,10 @@ registrarAlteracao,
     ehValeColaborador,
     ehVendaReal,
     dataRecebimentoEntrada,
+
     usuariosOnline,
-setUsuariosOnline,
+    setUsuariosOnline,
+
     nuvemCarregada,
   };
 
@@ -2204,10 +2198,11 @@ setUsuariosOnline,
         }}
       >
         {aba === "Dashboard" && <Dashboard {...propsGlobais} />}
-        
+
         {aba === "Histórico Financeiro" && (
-  <HistoricoFinanceiro {...propsGlobais} />
-)}
+          <HistoricoFinanceiro {...propsGlobais} />
+        )}
+
         {aba === "Entradas" && <Entradas {...propsGlobais} />}
         {aba === "Saídas" && <Saidas {...propsGlobais} />}
         {aba === "Contas a Pagar" && <Contas {...propsGlobais} />}
@@ -2218,110 +2213,77 @@ setUsuariosOnline,
         {aba === "Gerenciar Acessos" && <Acessos {...propsGlobais} />}
         {aba.startsWith("Importar") && <Importacao {...propsGlobais} />}
         {aba === "Atualizações" && <Atualizacoes {...propsGlobais} />}
+
         {aba === "Dados da Empresa" && (
-  <DadosEmpresa
-    {...propsGlobais}
-    admin={
-      acesso?.nivel === "admin" ||
-      usuario?.email === "matymidy.mmm@gmail.com"
-    }
-  />
-)}
+          <DadosEmpresa {...propsGlobais} admin={podeConfigurarSistema} />
+        )}
+
         {aba === "Backups" && (
-  <div style={styles.card}>
-    <h2 style={styles.titulo}>
-      Backups automáticos
-    </h2>
-    <button
-  onClick={criarBackupManual}
-  style={{
-    ...styles.botao,
-    marginBottom: 20,
-  }}
->
-  Criar Backup Agora
-</button>
+          <div style={styles.card}>
+            <h2 style={styles.titulo}>Backups automáticos</h2>
 
+            {podeGerenciarBackups && (
+              <button
+                onClick={criarBackupManual}
+                style={{
+                  ...styles.botao,
+                  marginBottom: 20,
+                }}
+              >
+                Criar Backup Agora
+              </button>
+            )}
 
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-      }}
-    >
-      {backupsAutomaticos.map(
-        (backup) => (
-          <div
-            key={backup.id}
-            style={{
-              background:
-                "#0f172a",
-              border:
-                "1px solid #334155",
-              borderRadius: 12,
-              padding: 14,
-            }}
-          >
             <div
               style={{
-                fontWeight: 700,
-                marginBottom: 8,
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
               }}
             >
-              {backup.id}
-            </div>
+              {backupsAutomaticos.map((backup) => (
+                <div
+                  key={backup.id}
+                  style={{
+                    background: "#0f172a",
+                    border: "1px solid #334155",
+                    borderRadius: 12,
+                    padding: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {backup.id}
+                  </div>
 
-            <div>
-              Entradas:{" "}
-              {
-                backup
-                  ?.entradas
-                  ?.length
-              }
-            </div>
+                  <div>Entradas: {backup?.entradas?.length}</div>
+                  <div>Saídas: {backup?.saidas?.length}</div>
+                  <div>Contas: {backup?.contas?.length}</div>
 
-            <div>
-              Saídas:{" "}
-              {
-                backup
-                  ?.saidas
-                  ?.length
-              }
+                  {podeGerenciarBackups && (
+                    <button
+                      style={{
+                        ...styles.botao,
+                        marginTop: 12,
+                      }}
+                      onClick={() => restaurarBackup(backup)}
+                    >
+                      Restaurar backup
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-
-            <div>
-              Contas:{" "}
-              {
-                backup
-                  ?.contas
-                  ?.length
-              }
-            </div>
-
-            <button
-              style={{
-                ...styles.botao,
-                marginTop: 12,
-              }}
-              onClick={() =>
-                restaurarBackup(
-                  backup
-                )
-              }
-            >
-              Restaurar backup
-            </button>
           </div>
-        )
-      )}
-    </div>
-  </div>
-)}
-        {aba === "Histórico de Alterações" && (
-  <HistoricoAlteracoes {...propsGlobais} />
-)}
+        )}
 
+        {aba === "Histórico de Alterações" && (
+          <HistoricoAlteracoes {...propsGlobais} />
+        )}
       </main>
     </div>
   );

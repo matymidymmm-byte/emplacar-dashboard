@@ -57,38 +57,30 @@ export default function Sidebar({
   setMenuMobile,
 
   usuario,
+
+  nivelAcesso = "socio",
+  ehSuperadmin = false,
+  ehAdmin = false,
+  ehSocio = false,
+  ehLojista = false,
+
+  podeGerenciarAcessos = false,
+  podeConfigurarSistema = false,
+  podeGerenciarBackups = false,
+  podeLimparSistema = false,
 }) {
-  const [mostrarFerramentas, setMostrarFerramentas] =
-    useState(false);
+  const [mostrarFerramentas, setMostrarFerramentas] = useState(false);
+  const [confirmandoLimpeza, setConfirmandoLimpeza] = useState(false);
+  const [importandoBackup, setImportandoBackup] = useState(false);
 
-  const [confirmandoLimpeza, setConfirmandoLimpeza] =
-    useState(false);
+  const [mostrarPerfil, setMostrarPerfil] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
 
-  const [importandoBackup, setImportandoBackup] =
-    useState(false);
-    const [mostrarPerfil, setMostrarPerfil] = useState(false);
-const [senhaAtual, setSenhaAtual] = useState("");
-const [novaSenha, setNovaSenha] = useState("");
-const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
+  const docSistema = doc(db, "empresas", empresaId, "sistema", "dados");
 
-  const docSistema = doc(
-  db,
-  "empresas",
-  empresaId
-);
-
-  const email =
-    usuario?.email?.toLowerCase() || "";
-
-  const nivel =
-  acesso?.nivel || "socio";
-
-const admin =
-  nivel === "admin" ||
-  nivel === "superadmin";
-
-const superadmin =
-  nivel === "superadmin";
+  const nivel = String(nivelAcesso || acesso?.nivel || "socio").toLowerCase();
 
   const menusBase = [
     "Dashboard",
@@ -104,24 +96,32 @@ const superadmin =
     "Importar Entradas",
     "Importar Saídas",
     "Importar Contas",
-    
   ];
 
+  const menusAdministrativos = [];
 
-  const menus =
-  admin
-    ? [
-        ...menusBase,
-        "Histórico de Alterações",
-        "Backups",
-        "Gerenciar Acessos",
-        "Dados da Empresa",
-      ]
-    : [
-        ...menusBase,
-        "Dados da Empresa",
-      ];
-    
+  if (ehSuperadmin || ehAdmin) {
+    menusAdministrativos.push("Histórico de Alterações");
+  }
+
+  if (podeGerenciarBackups) {
+    menusAdministrativos.push("Backups");
+  }
+
+  if (podeGerenciarAcessos) {
+    menusAdministrativos.push("Gerenciar Acessos");
+  }
+
+  if (podeConfigurarSistema) {
+    menusAdministrativos.push("Dados da Empresa");
+  }
+
+  if (!podeConfigurarSistema) {
+    menusAdministrativos.push("Dados da Empresa");
+  }
+
+  const menus = [...menusBase, ...menusAdministrativos];
+
   const botaoFerramenta = {
     width: "100%",
     padding: "12px 14px",
@@ -147,83 +147,64 @@ const superadmin =
     gap: 10,
   };
 
-  function copiarInformacao(
-    texto,
-    tipo
-  ) {
-    navigator.clipboard.writeText(
-      texto
-    );
+  function copiarInformacao(texto, tipo) {
+    navigator.clipboard.writeText(texto);
 
     setBotaoCopiado(tipo);
 
-    setTimeout(
-      () => setBotaoCopiado(""),
-      2000
-    );
+    setTimeout(() => setBotaoCopiado(""), 2000);
   }
 
   async function sair() {
     await signOut(auth);
   }
+
   async function trocarSenha() {
-  if (!senhaAtual || !novaSenha || !confirmarNovaSenha) {
-    alert("Preencha todos os campos.");
-    return;
+    if (!senhaAtual || !novaSenha || !confirmarNovaSenha) {
+      alert("Preencha todos os campos.");
+      return;
+    }
+
+    if (novaSenha !== confirmarNovaSenha) {
+      alert("A nova senha e a confirmação não conferem.");
+      return;
+    }
+
+    if (novaSenha.length < 6) {
+      alert("A nova senha precisa ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    try {
+      const credencial = EmailAuthProvider.credential(usuario.email, senhaAtual);
+
+      await reauthenticateWithCredential(auth.currentUser, credencial);
+
+      await updatePassword(auth.currentUser, novaSenha);
+
+      setSenhaAtual("");
+      setNovaSenha("");
+      setConfirmarNovaSenha("");
+
+      alert("Senha alterada com sucesso.");
+    } catch (erro) {
+      console.error(erro);
+      alert("Erro ao trocar senha. Confira a senha atual.");
+    }
   }
-
-  if (novaSenha !== confirmarNovaSenha) {
-    alert("A nova senha e a confirmação não conferem.");
-    return;
-  }
-
-  if (novaSenha.length < 6) {
-    alert("A nova senha precisa ter pelo menos 6 caracteres.");
-    return;
-  }
-
-  try {
-    const credencial = EmailAuthProvider.credential(
-      usuario.email,
-      senhaAtual
-    );
-
-    await reauthenticateWithCredential(
-      auth.currentUser,
-      credencial
-    );
-
-    await updatePassword(
-      auth.currentUser,
-      novaSenha
-    );
-
-    setSenhaAtual("");
-    setNovaSenha("");
-    setConfirmarNovaSenha("");
-
-    alert("Senha alterada com sucesso.");
-  } catch (erro) {
-    console.error(erro);
-    alert("Erro ao trocar senha. Confira a senha atual.");
-  }
-}
 
   function exportarBackup() {
-    if (!admin) return;
+    if (!podeGerenciarBackups) return;
 
     const agora = new Date();
 
-    const nomeArquivo =
-      `backup-emplacar-${agora
-        .toISOString()
-        .slice(0, 10)}.json`;
+    const nomeArquivo = `backup-nexora-${agora
+      .toISOString()
+      .slice(0, 10)}.json`;
 
     const dados = {
       versao: "3.0",
-
-      exportadoEm:
-        agora.toISOString(),
+      exportadoEm: agora.toISOString(),
 
       entradas,
       saidas,
@@ -235,40 +216,27 @@ const superadmin =
       historicoFechamentos,
     };
 
-    const blob = new Blob(
-      [JSON.stringify(dados, null, 2)],
-      {
-        type:
-          "application/json",
-      }
-    );
+    const blob = new Blob([JSON.stringify(dados, null, 2)], {
+      type: "application/json",
+    });
 
-    const url =
-      URL.createObjectURL(blob);
-
-    const a =
-      document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
 
     a.href = url;
-
     a.download = nomeArquivo;
 
     a.click();
 
     URL.revokeObjectURL(url);
 
-    alert(
-      "Backup exportado."
-    );
+    alert("Backup exportado.");
   }
 
-  async function importarBackup(
-    event
-  ) {
-    if (!admin) return;
+  async function importarBackup(event) {
+    if (!podeGerenciarBackups) return;
 
-    const arquivo =
-      event.target.files?.[0];
+    const arquivo = event.target.files?.[0];
 
     if (!arquivo) return;
 
@@ -280,84 +248,37 @@ const superadmin =
 
     setImportandoBackup(true);
 
-    const reader =
-      new FileReader();
+    const reader = new FileReader();
 
-    reader.onload = async (
-      e
-    ) => {
+    reader.onload = async (e) => {
       try {
-        const dados = JSON.parse(
-          e.target.result
-        );
+        const dados = JSON.parse(e.target.result);
 
         const novoSistema = {
-          entradas:
-            dados.entradas || [],
-          saidas:
-            dados.saidas || [],
-          contas:
-            dados.contas || [],
-          clientes:
-            dados.clientes || [],
-          estoqueCompras:
-            dados.estoqueCompras ||
-            [],
-          estoquePerdas:
-            dados.estoquePerdas ||
-            [],
-          historicoRelacoes:
-            dados.historicoRelacoes ||
-            [],
-          historicoFechamentos:
-            dados.historicoFechamentos ||
-            [],
+          entradas: dados.entradas || [],
+          saidas: dados.saidas || [],
+          contas: dados.contas || [],
+          clientes: dados.clientes || [],
+          estoqueCompras: dados.estoqueCompras || [],
+          estoquePerdas: dados.estoquePerdas || [],
+          historicoRelacoes: dados.historicoRelacoes || [],
+          historicoFechamentos: dados.historicoFechamentos || [],
         };
 
-        await setDoc(
-          docSistema,
-          novoSistema
-        );
+        await setDoc(docSistema, novoSistema, { merge: true });
 
-        setEntradas(
-          novoSistema.entradas
-        );
+        setEntradas(novoSistema.entradas);
+        setSaidas(novoSistema.saidas);
+        setContas(novoSistema.contas);
+        setClientes(novoSistema.clientes);
+        setEstoqueCompras(novoSistema.estoqueCompras);
+        setEstoquePerdas(novoSistema.estoquePerdas);
+        setHistoricoRelacoes(novoSistema.historicoRelacoes);
+        setHistoricoFechamentos(novoSistema.historicoFechamentos);
 
-        setSaidas(
-          novoSistema.saidas
-        );
-
-        setContas(
-          novoSistema.contas
-        );
-
-        setClientes(
-          novoSistema.clientes
-        );
-
-        setEstoqueCompras(
-          novoSistema.estoqueCompras
-        );
-
-        setEstoquePerdas(
-          novoSistema.estoquePerdas
-        );
-
-        setHistoricoRelacoes(
-          novoSistema.historicoRelacoes
-        );
-
-        setHistoricoFechamentos(
-          novoSistema.historicoFechamentos
-        );
-
-        alert(
-          "Backup restaurado."
-        );
+        alert("Backup restaurado.");
       } catch {
-        alert(
-          "Arquivo inválido."
-        );
+        alert("Arquivo inválido.");
       } finally {
         setImportandoBackup(false);
       }
@@ -367,39 +288,21 @@ const superadmin =
   }
 
   async function limparSistema() {
-    if (!admin) return;
+    if (!podeLimparSistema) return;
 
     if (!confirmandoLimpeza) {
-      setConfirmandoLimpeza(
-        true
-      );
+      setConfirmandoLimpeza(true);
 
-      setTimeout(
-        () =>
-          setConfirmandoLimpeza(
-            false
-          ),
-        5000
-      );
+      setTimeout(() => setConfirmandoLimpeza(false), 5000);
 
       return;
     }
 
-    const confirmar = prompt(
-      'Digite "CONFIRMAR"'
-    );
+    const confirmar = prompt('Digite "CONFIRMAR"');
 
-    if (
-      confirmar !== "CONFIRMAR"
-    ) {
-      alert(
-        "Limpeza cancelada."
-      );
-
-      setConfirmandoLimpeza(
-        false
-      );
-
+    if (confirmar !== "CONFIRMAR") {
+      alert("Limpeza cancelada.");
+      setConfirmandoLimpeza(false);
       return;
     }
 
@@ -414,10 +317,7 @@ const superadmin =
       historicoFechamentos: [],
     };
 
-    await setDoc(
-      docSistema,
-      sistemaVazio
-    );
+    await setDoc(docSistema, sistemaVazio, { merge: true });
 
     setEntradas([]);
     setSaidas([]);
@@ -430,179 +330,140 @@ const superadmin =
 
     alert("Sistema limpo.");
 
-    setConfirmandoLimpeza(
-      false
-    );
+    setConfirmandoLimpeza(false);
   }
 
   return (
     <aside
       style={{
         ...styles.sidebar,
-
-        position: mobile
-          ? "fixed"
-          : "relative",
-
-        left:
-          mobile &&
-          !menuMobile
-            ? "-100%"
-            : 0,
-
+        position: mobile ? "fixed" : "relative",
+        left: mobile && !menuMobile ? "-100%" : 0,
         top: 0,
-
         height: "100vh",
-
         zIndex: 9999,
-
-        transition:
-          "all 0.28s ease",
-
-        boxShadow: mobile
-          ? "0 0 40px rgba(0,0,0,0.55)"
-          : "none",
+        transition: "all 0.28s ease",
+        boxShadow: mobile ? "0 0 40px rgba(0,0,0,0.55)" : "none",
       }}
     >
-     <div
-  style={{
-    ...styles.logoBox,
-    cursor: "pointer",
-    flexDirection: mobile ? "column" : styles.logoBox.flexDirection,
-alignItems: "center",
-justifyContent: "center",
-gap: mobile ? 8 : styles.logoBox.gap,
-paddingTop: mobile ? 82 : styles.logoBox.paddingTop,
-paddingLeft: mobile ? 0 : styles.logoBox.paddingLeft,
-textAlign: "center",
-  }}
-  onClick={() => setMostrarPerfil(!mostrarPerfil)}
->
+      <div
+        style={{
+          ...styles.logoBox,
+          cursor: "pointer",
+          flexDirection: mobile ? "column" : styles.logoBox.flexDirection,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: mobile ? 8 : styles.logoBox.gap,
+          paddingTop: mobile ? 82 : styles.logoBox.paddingTop,
+          paddingLeft: mobile ? 0 : styles.logoBox.paddingLeft,
+          textAlign: "center",
+        }}
+        onClick={() => setMostrarPerfil(!mostrarPerfil)}
+      >
         <img
-          src={
-  dadosEmpresa?.logo || "/logo-nexora.png"
-}
+          src={dadosEmpresa?.logo || "/logo-nexora.png"}
           alt={dadosEmpresa?.nome || "Logo da Empresa"}
           style={{
-  ...styles.logoImagem,
-  width: mobile ? 76 : styles.logoImagem.width,
-  height: mobile ? 76 : styles.logoImagem.height,
-  objectFit: "contain",
-}}
+            ...styles.logoImagem,
+            width: mobile ? 76 : styles.logoImagem.width,
+            height: mobile ? 76 : styles.logoImagem.height,
+            objectFit: "contain",
+          }}
         />
 
         <div>
-          <h2 style={styles.logo}>
-            {dadosEmpresa?.nome || "Nexora"}
-          </h2>
+          <h2 style={styles.logo}>{dadosEmpresa?.nome || "Nexora"}</h2>
 
-          <p
-            style={
-              styles.logoSubtitulo
-            }
-          >
-            {nivel.toUpperCase()}
-          </p>
-                </div>
+          <p style={styles.logoSubtitulo}>{nivel.toUpperCase()}</p>
+        </div>
       </div>
 
       {mostrarPerfil && (
-  <div
-    style={{
-      background: "#020617",
-      border: "1px solid #334155",
-      borderRadius: 16,
-      padding: 12,
-      marginBottom: 14,
-      color: "#fff",
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-    }}
-  >
-    <strong>Conta logada</strong>
+        <div
+          style={{
+            background: "#020617",
+            border: "1px solid #334155",
+            borderRadius: 16,
+            padding: 12,
+            marginBottom: 14,
+            color: "#fff",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <strong>Conta logada</strong>
 
-    <div style={{ fontSize: 13, color: "#cbd5e1" }}>
-      {usuario?.email}
-    </div>
+          <div style={{ fontSize: 13, color: "#cbd5e1" }}>
+            {usuario?.email}
+          </div>
 
-    <div style={{ fontSize: 13, color: "#94a3b8" }}>
-      Nível: {nivel.toUpperCase()}
-    </div>
+          <div style={{ fontSize: 13, color: "#94a3b8" }}>
+            Nível: {nivel.toUpperCase()}
+          </div>
 
-    <input
-      type="password"
-      placeholder="Senha atual"
-      value={senhaAtual}
-      onChange={(e) => setSenhaAtual(e.target.value)}
-      style={{
-        padding: 10,
-        borderRadius: 10,
-        border: "1px solid #334155",
-        background: "#0f172a",
-        color: "#fff",
-      }}
-    />
+          <input
+            type="password"
+            placeholder="Senha atual"
+            value={senhaAtual}
+            onChange={(e) => setSenhaAtual(e.target.value)}
+            style={{
+              padding: 10,
+              borderRadius: 10,
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#fff",
+            }}
+          />
 
-    <input
-      type="password"
-      placeholder="Nova senha"
-      value={novaSenha}
-      onChange={(e) => setNovaSenha(e.target.value)}
-      style={{
-        padding: 10,
-        borderRadius: 10,
-        border: "1px solid #334155",
-        background: "#0f172a",
-        color: "#fff",
-      }}
-    />
+          <input
+            type="password"
+            placeholder="Nova senha"
+            value={novaSenha}
+            onChange={(e) => setNovaSenha(e.target.value)}
+            style={{
+              padding: 10,
+              borderRadius: 10,
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#fff",
+            }}
+          />
 
-    <input
-      type="password"
-      placeholder="Confirmar nova senha"
-      value={confirmarNovaSenha}
-      onChange={(e) => setConfirmarNovaSenha(e.target.value)}
-      style={{
-        padding: 10,
-        borderRadius: 10,
-        border: "1px solid #334155",
-        background: "#0f172a",
-        color: "#fff",
-      }}
-    />
+          <input
+            type="password"
+            placeholder="Confirmar nova senha"
+            value={confirmarNovaSenha}
+            onChange={(e) => setConfirmarNovaSenha(e.target.value)}
+            style={{
+              padding: 10,
+              borderRadius: 10,
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#fff",
+            }}
+          />
 
-    <button style={botaoFerramenta} onClick={trocarSenha}>
-      Trocar senha
-    </button>
-  </div>
-)}
+          <button style={botaoFerramenta} onClick={trocarSenha}>
+            Trocar senha
+          </button>
+        </div>
+      )}
+
       <div style={styles.menuLista}>
         {menus.map((item) => (
           <button
             key={item}
             onClick={() => {
               setAba(item);
-
-              setTextoImportacao(
-                ""
-              );
-
-              setResultadoImportacao(
-                ""
-              );
+              setTextoImportacao("");
+              setResultadoImportacao("");
 
               if (mobile) {
-                setMenuMobile(
-                  false
-                );
+                setMenuMobile(false);
               }
             }}
-            style={
-              aba === item
-                ? styles.menuAtivo
-                : styles.menu
-            }
+            style={aba === item ? styles.menuAtivo : styles.menu}
           >
             {item}
           </button>
@@ -612,146 +473,78 @@ textAlign: "center",
       <div style={styles.menuRodape}>
         <button
           style={
-            botaoCopiado ===
-            "pix"
+            botaoCopiado === "pix"
               ? styles.botaoCopiadoMenu
               : styles.botaoCopiarMenu
           }
-          onClick={() =>
-            copiarInformacao(
-              chavePix,
-              "pix"
-            )
-          }
+          onClick={() => copiarInformacao(chavePix, "pix")}
         >
-          {botaoCopiado ===
-          "pix"
-            ? "Pix copiado"
-            : "Copiar Pix"}
+          {botaoCopiado === "pix" ? "Pix copiado" : "Copiar Pix"}
         </button>
 
         <button
-          style={
-            styles.menuSecundario
-          }
-          onClick={() =>
-            setMostrarFerramentas(
-              !mostrarFerramentas
-            )
-          }
+          style={styles.menuSecundario}
+          onClick={() => setMostrarFerramentas(!mostrarFerramentas)}
         >
-          {mostrarFerramentas
-            ? "Fechar ferramentas"
-            : "Ferramentas"}
+          {mostrarFerramentas ? "Fechar ferramentas" : "Ferramentas"}
         </button>
 
         {mostrarFerramentas && (
-          <div
-            style={
-              painelFerramentas
-            }
-          >
+          <div style={painelFerramentas}>
             <button
-              style={
-                botaoFerramenta
-              }
-              onClick={() =>
-                setMostrarDadosEmpresa(
-                  !mostrarDadosEmpresa
-                )
-              }
+              style={botaoFerramenta}
+              onClick={() => setMostrarDadosEmpresa(!mostrarDadosEmpresa)}
             >
-              {mostrarDadosEmpresa
-                ? "Ocultar dados da loja"
-                : "Dados da loja"}
+              {mostrarDadosEmpresa ? "Ocultar dados da loja" : "Dados da loja"}
             </button>
 
             {mostrarDadosEmpresa && (
               <>
-                <pre
-                  style={
-                    styles.dadosEmpresaTexto
-                  }
-                >
-                  {
-                    dadosEmpresaTexto
-                  }
-                </pre>
+                <pre style={styles.dadosEmpresaTexto}>{dadosEmpresaTexto}</pre>
 
                 <button
-                  style={
-                    botaoFerramenta
-                  }
-                  onClick={() =>
-                    copiarInformacao(
-                      dadosEmpresaTexto,
-                      "dados"
-                    )
-                  }
+                  style={botaoFerramenta}
+                  onClick={() => copiarInformacao(dadosEmpresaTexto, "dados")}
                 >
                   Copiar dados
                 </button>
               </>
             )}
 
-            {admin && (
+            {podeGerenciarBackups && (
               <>
-                <button
-                  style={
-                    botaoFerramenta
-                  }
-                  onClick={
-                    exportarBackup
-                  }
-                >
+                <button style={botaoFerramenta} onClick={exportarBackup}>
                   Exportar backup
                 </button>
 
                 <label
                   style={{
                     ...botaoFerramenta,
-
-                    opacity:
-                      importandoBackup
-                        ? 0.6
-                        : 1,
+                    opacity: importandoBackup ? 0.6 : 1,
                   }}
                 >
-                  {importandoBackup
-                    ? "Importando..."
-                    : "Importar backup"}
+                  {importandoBackup ? "Importando..." : "Importar backup"}
 
                   <input
                     type="file"
                     accept=".json"
-                    onChange={
-                      importarBackup
-                    }
-                    style={{
-                      display:
-                        "none",
-                    }}
+                    onChange={importarBackup}
+                    style={{ display: "none" }}
                   />
                 </label>
-
-                <button
-                  style={{
-                    ...botaoFerramenta,
-
-                    background:
-                      confirmandoLimpeza
-                        ? "#b91c1c"
-                        : "#ef4444",
-                  }}
-                  onClick={
-                    limparSistema
-                  }
-                >
-                  {confirmandoLimpeza
-                    ? "Clique novamente"
-                    : "Limpar sistema"}
-                </button>
               </>
+            )}
+
+            {podeLimparSistema && (
+              <button
+                style={{
+                  ...botaoFerramenta,
+                  background: confirmandoLimpeza ? "#b91c1c" : "#ef4444",
+                }}
+                onClick={limparSistema}
+              >
+                {confirmandoLimpeza ? "Clique novamente" : "Limpar sistema"}
+              </button>
             )}
           </div>
         )}
@@ -759,8 +552,7 @@ textAlign: "center",
         <button
           style={{
             ...styles.menuSecundario,
-            background:
-              "#dc2626",
+            background: "#dc2626",
           }}
           onClick={sair}
         >

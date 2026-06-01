@@ -17,6 +17,7 @@ export default function Clientes({
   normalizar,
   editar,
   remover,
+  dadosEmpresa = {},
 }) {
   function limparTelefone(telefone) {
     return String(telefone || "").replace(/\D/g, "");
@@ -40,12 +41,13 @@ export default function Clientes({
     }
 
     const nome = cliente.nome || "cliente";
+    const nomeEmpresa = dadosEmpresa?.nome || "empresa"; 
 
     const mensagens = {
-      atendimento: `Olá ${nome}, tudo bem? Aqui é da Emplacar. Estou entrando em contato para falar sobre seu atendimento.`,
-      placaPronta: `Olá ${nome}, tudo bem? Sua placa já está pronta para retirada. Emplacar agradece a preferência.`,
-      cobranca: `Olá ${nome}, tudo bem? Identificamos uma pendência financeira em aberto. Poderia verificar para regularizarmos?`,
-    };
+  atendimento: `Olá ${nome}, tudo bem? Aqui é da ${nomeEmpresa}. Estou entrando em contato para falar sobre seu atendimento.`,
+  placaPronta: `Olá ${nome}, tudo bem? Sua placa já está pronta para retirada. ${nomeEmpresa} agradece a preferência.`,
+  cobranca: `Olá ${nome}, tudo bem? Identificamos uma pendência financeira em aberto. Poderia verificar para regularizarmos?`,
+};
 
     const mensagem = encodeURIComponent(mensagens[tipo]);
 
