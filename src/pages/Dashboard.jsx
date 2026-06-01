@@ -383,6 +383,8 @@ export default function Dashboard({
       "Quantidade de vendas feitas antes do período atual, mas recebidas dentro deste período financeiro.",
     "Valor de Notas Antigas":
       "Valor financeiro recebido neste período referente a vendas de períodos anteriores.",
+      "Movimentação Geral":
+  "Soma das vendas recebidas, notas em aberto e aportes realizados no período.",
   };
 
   function KpiComAjuda({ titulo, valor }) {
@@ -448,6 +450,7 @@ export default function Dashboard({
 
   const kpisSimples = [
     ["Faturamento", receitaOperacional],
+    ["Movimentação Geral", indicadores.movimentacaoGeral || 0],
     ["Caixa Real", indicadores.entradaLiquida || 0],
     ["Saídas", indicadores.saidasTotal || 0],
     ["Faturado em Aberto", indicadores.faturadoEmAberto || 0],

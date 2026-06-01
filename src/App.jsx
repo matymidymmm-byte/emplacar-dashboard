@@ -1786,6 +1786,15 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
 
     const caixaRecebidoTotal =
       caixaRecebidoVendas + injecaoCapitalTotal + recuperacaoValeTotal;
+      const recebimentosAntigosTotal = recebimentosAntigos.reduce(
+  (s, x) => s + Number(x.valor || 0),
+  0
+);
+
+const movimentacaoGeral =
+  entradaBruta +
+  recebimentosAntigosTotal +
+  injecaoCapitalTotal;
 
     const pagos = saidasTotal;
     const entradaLiquida = caixaRecebidoTotal - saidasTotal;
@@ -1806,6 +1815,7 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
       faturamentoCompetencia: entradaBruta,
       caixaRecebidoVendas,
       caixaRecebidoTotal,
+      movimentacaoGeral,
       entradaLiquida,
       saidasTotal,
       contasPagas,
@@ -1816,7 +1826,7 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
       recebidoCaixa,
       recebidoFaturado: caixaRecebidoVendas,
       recebidoTotal: caixaRecebidoTotal,
-      recebimentosAntigos: recebimentosAntigos.reduce((s, x) => s + x.valor, 0),
+      recebimentosAntigos: recebimentosAntigosTotal,
       injecaoCaixaTotal,
       injecaoLojaTotal,
       injecaoSociosTotal,
