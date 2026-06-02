@@ -300,6 +300,7 @@ function Sistema({ usuario, acesso }) {
   const [metaMensal, setMetaMensal] = useState(0);
   const [modoRibbonPadrao, setModoRibbonPadrao] = useState("2X");
   const [inicioPeriodoSalvo, setInicioPeriodoSalvo] = useState("");
+  const [fechamentoProvavel, setFechamentoProvavel] = useState("");
   const [categoriasSaidaConfiguradas, setCategoriasSaidaConfiguradas] =
     useState([]);
 
@@ -373,6 +374,7 @@ function Sistema({ usuario, acesso }) {
         setMetaMensal(Number(dados.metaMensal || 0));
         setModoRibbonPadrao(dados.modoRibbonPadrao || "2X");
         setInicioPeriodoSalvo(dados.inicioPeriodoSalvo || "");
+        setFechamentoProvavel(dados.fechamentoProvavel || "");
 
         setSaidas(Array.isArray(dados.saidas) ? dados.saidas : []);
         setContas(Array.isArray(dados.contas) ? dados.contas : []);
@@ -460,6 +462,7 @@ function Sistema({ usuario, acesso }) {
           metaMensal: 0,
           modoRibbonPadrao: "2X",
           inicioPeriodoSalvo: "",
+          fechamentoProvavel: "",
         });
       }
 
@@ -840,6 +843,9 @@ function Sistema({ usuario, acesso }) {
   useEffect(() => {
     salvarNaNuvem("metaMensal", metaMensal);
   }, [metaMensal]);
+  useEffect(() => {
+  salvarNaNuvem("fechamentoProvavel", fechamentoProvavel);
+}, [fechamentoProvavel]);
 
   useEffect(() => {
     salvarNaNuvem("modoRibbonPadrao", modoRibbonPadrao);
@@ -2041,6 +2047,8 @@ const movimentacaoGeral =
     setInicioMes,
     fimMes,
     setFimMes,
+    fechamentoProvavel,
+setFechamentoProvavel,
 
     metaMensal,
     setMetaMensal,

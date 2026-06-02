@@ -18,6 +18,8 @@ export default function Dashboard({
   setInicioMes,
   fimMes,
   setFimMes,
+  fechamentoProvavel,
+setFechamentoProvavel,
 
   indicadores,
   moeda,
@@ -49,6 +51,7 @@ export default function Dashboard({
   const [tooltipAberto, setTooltipAberto] = useState("");
   const [mostrarRecebimentosAntigos, setMostrarRecebimentosAntigos] =
     useState(false);
+    
 
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
@@ -231,8 +234,39 @@ export default function Dashboard({
   const mediaNecessaria =
     faltaMeta > 0 ? faltaMeta / Math.max(ultimoDiaMes - diaAtual, 1) : 0;
 
-  const projecaoMes =
-    diaAtual > 0 ? (receitaOperacional / diaAtual) * ultimoDiaMes : 0;
+ 
+
+const hojeReferencia = new Date().toISOString().slice(0, 10);
+
+const dataFinalDecorrida =
+  hojeReferencia > (fechamentoProvavel || fimMes)
+    ? (fechamentoProvavel || fimMes)
+    : hojeReferencia;
+
+const diasTotaisPeriodo = Math.max(
+  1,
+  Math.floor(
+    (
+      new Date((fechamentoProvavel || fimMes) + "T00:00:00") -
+      new Date(inicioMes + "T00:00:00")
+    ) /
+      (1000 * 60 * 60 * 24)
+  ) + 1
+);
+
+const diasDecorridosPeriodo = Math.max(
+  1,
+  Math.floor(
+    (
+      new Date(dataFinalDecorrida + "T00:00:00") -
+      new Date(inicioMes + "T00:00:00")
+    ) /
+      (1000 * 60 * 60 * 24)
+  ) + 1
+);
+
+const projecaoMes =
+  (receitaOperacional / diasDecorridosPeriodo) * diasTotaisPeriodo;
 
   const despesasPorCategoria = (() => {
     const mapa = {};
@@ -960,22 +994,62 @@ export default function Dashboard({
           </div>
 
           {podeEditarMeta && (
-            <input
-              type="number"
-              value={metaMensal}
-              onChange={(e) => setMetaMensal(Number(e.target.value))}
-              placeholder="Nova meta"
-              style={{
-                background: "#0f172a",
-                border: "1px solid #334155",
-                borderRadius: 12,
-                color: "#fff",
-                padding: "12px 14px",
-                minWidth: 180,
-                fontSize: 15,
-              }}
-            />
-          )}
+  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+    <input
+      type="number"
+      value={metaMensal}
+      onChange={(e) => setMetaMensal(Number(e.target.value))}
+      placeholder="Nova meta"
+      style={{
+        background: "#0f172a",
+        border: "1px solid #334155",
+        borderRadius: 12,
+        color: "#fff",
+        padding: "12px 14px",
+        minWidth: 180,
+        fontSize: 15,
+      }}
+    />
+
+    <label
+  style={{
+    color: "#94a3b8",
+    fontSize: 14,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  }}
+>
+  Data Provável de Fechamento
+  <span
+  style={{
+    color: "#64748b",
+    fontSize: 12,
+  }}
+>
+  Usada para calcular a projeção do período.
+</span>
+
+  <input
+    type="date"
+    value={fechamentoProvavel}
+    onChange={(e) => {
+  const novaData = e.target.value;
+  setFechamentoProvavel(novaData);
+}}
+    style={{
+      background: "#0f172a",
+      border: "1px solid #334155",
+      borderRadius: 12,
+      color: "#fff",
+      padding: "12px 14px",
+      minWidth: 180,
+      fontSize: 15,
+    }}
+  />
+</label>
+  </div>
+)}
         </div>
 
         <div style={styles.kpisModernos}>
