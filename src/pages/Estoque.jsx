@@ -1,10 +1,16 @@
 import { useMemo, useState } from "react";
 
+import EstoqueRapido from "../components/estoque/EstoqueRapido.jsx";
+import EstoqueMovimentacoes from "../components/estoque/EstoqueMovimentacoes.jsx";
+import EstoqueConfiguracoes from "../components/estoque/EstoqueConfiguracoes.jsx";
+import EstoqueInteligencia from "../components/estoque/EstoqueInteligencia.jsx";
+
 import Card from "../components/Card.jsx";
-import Campo from "../components/Campo.jsx";
-import Select from "../components/Select.jsx";
-import Tabela from "../components/Tabela.jsx";
-import Kpi from "../components/Kpi.jsx";
+
+
+
+import EstoqueLotes from "../components/estoque/EstoqueLotes.jsx";
+
 
 import styles from "../styles/styles.js";
 
@@ -38,28 +44,119 @@ const SERVICOS_INICIAIS_SIMULACAO = [
   "REBOQUE PADRÃO",
   "REBOQUE PRETA",
   "REBOQUE MINI",
-  "RIBBON CARRO",
-  "RIBBON MOTO",
+  "PLACA AVULSA",
+  "SUPORTE TRIÂNGULO MOTO",
+  "SUPORTE RESINA MOTO",
+  "SUPORTE RESINA CARRO",
 ];
 
-const MINIMOS_PADRAO_ESTOQUE = {
-  "VEICULAR PADRÃO": 10,
-  "VEICULAR PRETA": 5,
-  "VEICULAR MINI": 5,
-  "VEICULAR MINI-MINI": 5,
-  "MOTO PADRÃO": 10,
-  "MOTO PRETA": 5,
-  "MOTO MINI": 5,
-  "PLACA TESTE / PERSONALIZADA": 2,
-  "SUPORTE TRIÂNGULO MOTO": 10,
-  "SUPORTE RESINA MOTO": 10,
-  "SUPORTE RESINA CARRO": 10,
-  "RIBBON PRETO": 10,
-  "RIBBON VERMELHO": 5,
-  "RIBBON BRANCO": 5,
-  "RIBBON AZUL": 5,
-  "RIBBON VERDE": 5,
-};
+const REGRAS_CONSUMO_PADRAO = [
+  {
+    id: "padrao-par-veicular",
+    servico: "PAR VEICULAR PADRÃO",
+    insumo: "VEICULAR PADRÃO",
+    quantidade: 2,
+    aplicarMultiplicadorRibbon: false,
+  },
+  {
+    id: "padrao-par-veicular-ribbon",
+    servico: "PAR VEICULAR PADRÃO",
+    insumo: "RIBBON PRETO",
+    quantidade: 0.4,
+    aplicarMultiplicadorRibbon: true,
+  },
+  {
+    id: "padrao-moto",
+    servico: "MOTO PADRÃO",
+    insumo: "MOTO PADRÃO",
+    quantidade: 1,
+    aplicarMultiplicadorRibbon: false,
+  },
+  {
+    id: "padrao-moto-ribbon",
+    servico: "MOTO PADRÃO",
+    insumo: "RIBBON PRETO",
+    quantidade: 0.2,
+    aplicarMultiplicadorRibbon: true,
+  },
+  {
+    id: "padrao-reboque",
+    servico: "REBOQUE PADRÃO",
+    insumo: "VEICULAR PADRÃO",
+    quantidade: 1,
+    aplicarMultiplicadorRibbon: false,
+  },
+  {
+    id: "padrao-reboque-ribbon",
+    servico: "REBOQUE PADRÃO",
+    insumo: "RIBBON PRETO",
+    quantidade: 0.2,
+    aplicarMultiplicadorRibbon: true,
+  },
+  {
+    id: "padrao-avulsa",
+    servico: "PLACA AVULSA",
+    insumo: "VEICULAR PADRÃO",
+    quantidade: 1,
+    aplicarMultiplicadorRibbon: false,
+  },
+  {
+    id: "padrao-avulsa-ribbon",
+    servico: "PLACA AVULSA",
+    insumo: "RIBBON PRETO",
+    quantidade: 0.2,
+    aplicarMultiplicadorRibbon: true,
+  },
+  {
+    id: "padrao-par-preta",
+    servico: "PAR VEICULAR PRETA",
+    insumo: "VEICULAR PRETA",
+    quantidade: 2,
+    aplicarMultiplicadorRibbon: false,
+  },
+  {
+    id: "padrao-par-preta-ribbon",
+    servico: "PAR VEICULAR PRETA",
+    insumo: "RIBBON BRANCO",
+    quantidade: 0.4,
+    aplicarMultiplicadorRibbon: true,
+  },
+  {
+    id: "padrao-moto-preta",
+    servico: "MOTO PRETA",
+    insumo: "MOTO PRETA",
+    quantidade: 1,
+    aplicarMultiplicadorRibbon: false,
+  },
+  {
+    id: "padrao-moto-preta-ribbon",
+    servico: "MOTO PRETA",
+    insumo: "RIBBON BRANCO",
+    quantidade: 0.2,
+    aplicarMultiplicadorRibbon: true,
+  },
+  {
+    id: "padrao-suporte-triangulo",
+    servico: "SUPORTE TRIÂNGULO MOTO",
+    insumo: "SUPORTE TRIÂNGULO MOTO",
+    quantidade: 1,
+    aplicarMultiplicadorRibbon: false,
+  },
+  {
+    id: "padrao-suporte-resina-moto",
+    servico: "SUPORTE RESINA MOTO",
+    insumo: "SUPORTE RESINA MOTO",
+    quantidade: 1,
+    aplicarMultiplicadorRibbon: false,
+  },
+  {
+    id: "padrao-suporte-resina-carro",
+    servico: "SUPORTE RESINA CARRO",
+    insumo: "SUPORTE RESINA CARRO",
+    quantidade: 1,
+    aplicarMultiplicadorRibbon: false,
+  },
+];
 
 function listaUnica(lista = []) {
   return [...new Set(lista.filter(Boolean))];
@@ -121,6 +218,7 @@ export default function Estoque({
   numero,
   normalizar,
 }) {
+  const [abaEstoque, setAbaEstoque] = useState("RAPIDA");
   const [novoProdutoEstoque, setNovoProdutoEstoque] = useState("");
   const [novoServicoSimulacao, setNovoServicoSimulacao] = useState("");
   const [novoFornecedor, setNovoFornecedor] = useState("");
@@ -128,8 +226,24 @@ export default function Estoque({
   const [editandoPerdaId, setEditandoPerdaId] = useState(null);
   const [filtroDashboard, setFiltroDashboard] = useState("MÊS");
 
-  const [simulacao, setSimulacao] = useState({
-    cliente: "",
+  const [simulacao, setSimulacao] = useState({ cliente: "" });
+  const [produtoParametroSelecionado, setProdutoParametroSelecionado] =
+    useState("");
+
+  const [parametroForm, setParametroForm] = useState({
+  produto: "",
+  unidade: "un",
+
+  estoqueMinimo: "",
+
+  observacao: "",
+});
+
+  const [consumoForm, setConsumoForm] = useState({
+    servico: "",
+    insumo: "",
+    quantidade: "",
+    aplicarMultiplicadorRibbon: false,
   });
 
   const moeda = new Intl.NumberFormat("pt-BR", {
@@ -171,7 +285,6 @@ export default function Estoque({
 
   function dentroPeriodoDashboard(data) {
     if (!data) return false;
-
     if (filtroDashboard === "GERAL") return true;
 
     const inicio = dataInicioMesAtual();
@@ -199,9 +312,21 @@ export default function Estoque({
     return listaUnica(fornecedoresEstoque);
   }, [fornecedoresEstoque]);
 
+  const regrasConsumoEmpresa = useMemo(() => {
+    const salvas = minimosEstoqueConfigurados?.__regrasConsumoServicos;
+
+    if (Array.isArray(salvas) && salvas.length > 0) {
+      return salvas;
+    }
+
+    return REGRAS_CONSUMO_PADRAO;
+  }, [minimosEstoqueConfigurados]);
+
   function ehRibbon(produto) {
     return norm(produto).includes("RIBBON");
   }
+
+  
 
   function normalizarProdutoEstoque(produto) {
     const p = norm(produto || "");
@@ -229,126 +354,203 @@ export default function Estoque({
     );
   }
 
-  function minimoDoProduto(produto) {
+  function parametrosDoProduto(produto) {
     const chave = normalizarProdutoEstoque(produto);
+    const bruto = minimosEstoqueConfigurados?.[chave];
 
-    return n(
-      minimosEstoqueConfigurados?.[chave] ??
-        MINIMOS_PADRAO_ESTOQUE[chave] ??
-        0
-    );
-  }
-
-  function calcularUsoEstoque(produto) {
-    const p = norm(produto || "");
-
-    if (p.includes("SUPORTE TRIANGULO")) {
-      return { item: "SUPORTE TRIÂNGULO MOTO", quantidade: 1 };
-    }
-
-    if (p.includes("SUPORTE RESINA") && p.includes("MOTO")) {
-      return { item: "SUPORTE RESINA MOTO", quantidade: 1 };
-    }
-
-    if (p.includes("SUPORTE RESINA")) {
-      return { item: "SUPORTE RESINA CARRO", quantidade: 1 };
-    }
-
-    if (p.includes("SUPORTE")) {
-      return { item: "SUPORTE TRIÂNGULO MOTO", quantidade: 1 };
-    }
-
-    if (p.includes("TESTE") || p.includes("PERSONALIZADA")) {
-      return { item: "PLACA TESTE / PERSONALIZADA", quantidade: 1 };
-    }
-
-    const ehMoto = p.includes("MOTO");
-    const ehPreta =
-      p.includes("PRETA") ||
-      p.includes("BLACK") ||
-      p.includes("COLECAO") ||
-      p.includes("COLEÇÃO") ||
-      p.includes("COLECIONADOR");
-
-    const ehMiniMini =
-      p.includes("MINI MINI") ||
-      p.includes("MINI-MINI") ||
-      p.includes("MINIMINI");
-
-    const ehMini = p.includes("MINI") && !ehMiniMini;
-
-    const ehReboque =
-      p.includes("REBOQUE") ||
-      p.includes("DOLLY") ||
-      p.includes("CARRETINHA");
-
-    const ehAvulsa =
-      p.includes("AVULSA") ||
-      p.includes("DIANTEIRA") ||
-      p.includes("TRASEIRA");
-
-    const quantidade = ehReboque || ehAvulsa ? 1 : 2;
-
-    if (ehMoto) {
-      if (ehPreta) return { item: "MOTO PRETA", quantidade: 1 };
-      if (ehMini) return { item: "MOTO MINI", quantidade: 1 };
-      return { item: "MOTO PADRÃO", quantidade: 1 };
-    }
-
-    if (ehPreta) return { item: "VEICULAR PRETA", quantidade };
-    if (ehMiniMini) return { item: "VEICULAR MINI-MINI", quantidade };
-    if (ehMini) return { item: "VEICULAR MINI", quantidade };
-
-    return { item: "VEICULAR PADRÃO", quantidade };
-  }
-
-  function calcularConsumoSimulacao(tipo) {
-    const t = norm(tipo || "");
-
-    if (t.includes("RIBBON")) {
-      const ehMoto = t.includes("MOTO");
-      const passadas = modoRibbonPadrao === "2X" ? 2 : 1;
-      const tamanhoPlacaMetro = ehMoto ? 0.2 : 0.4;
-
+    if (typeof bruto === "object" && bruto !== null) {
       return {
-        item: "RIBBON PRETO",
-        consumo: tamanhoPlacaMetro * passadas,
-        unidade: "m",
-      };
-    }
-
-    if (t.includes("MOTO PRETA")) return { item: "MOTO PRETA", consumo: 1 };
-    if (t.includes("MOTO MINI")) return { item: "MOTO MINI", consumo: 1 };
-    if (t.includes("MOTO")) return { item: "MOTO PADRÃO", consumo: 1 };
-
-    if (t.includes("PRETA")) {
-      return {
-        item: "VEICULAR PRETA",
-        consumo: t.includes("REBOQUE") ? 1 : 2,
-      };
-    }
-
-    if (
-      t.includes("MINI-MINI") ||
-      t.includes("MINI MINI") ||
-      t.includes("MINIMINI")
-    ) {
-      return {
-        item: "VEICULAR MINI-MINI",
-        consumo: t.includes("REBOQUE") ? 1 : 2,
-      };
-    }
-
-    if (t.includes("MINI")) {
-      return {
-        item: "VEICULAR MINI",
-        consumo: t.includes("REBOQUE") ? 1 : 2,
+        tipoControle:
+          bruto.tipoControle || (ehRibbon(chave) ? "METRAGEM" : "QUANTIDADE"),
+        unidade: bruto.unidade || (ehRibbon(chave) ? "m" : "un"),
+        capacidadeTotal: 0,
+        estoqueMinimo: n(bruto.estoqueMinimo),
+        alertaBaixo: ehRibbon(chave) ? n(bruto.alertaBaixo) : 0,
+alertaCritico: ehRibbon(chave) ? n(bruto.alertaCritico) : 0,
+        observacao: bruto.observacao || "",
       };
     }
 
     return {
-      item: "VEICULAR PADRÃO",
-      consumo: t.includes("REBOQUE") ? 1 : 2,
+      tipoControle: ehRibbon(chave) ? "METRAGEM" : "QUANTIDADE",
+      unidade: ehRibbon(chave) ? "m" : "un",
+      capacidadeTotal: 0,
+      estoqueMinimo: n(bruto),
+      alertaBaixo: 0,
+      alertaCritico: 0,
+      observacao: "",
+    };
+  }
+
+  function minimoDoProduto(produto) {
+    return parametrosDoProduto(produto).estoqueMinimo;
+  }
+
+  function quantidadeCompraParaEstoque(item) {
+    const produto = normalizarProdutoEstoque(item.produto);
+
+    if (ehRibbon(produto)) {
+      const rolos = n(item.quantidade) || 1;
+      const metragem = n(item.metragemRibbon);
+
+      if (metragem > 0) return rolos * metragem;
+
+      return n(item.quantidade);
+    }
+
+    return n(item.quantidade);
+  }
+
+  function calcularPercentualEstoque(item) {
+    const parametros = parametrosDoProduto(item.produto);
+
+    if (
+      parametros.tipoControle === "PERCENTUAL" ||
+      parametros.tipoControle === "METRAGEM"
+    ) {
+      const base = item.compras > 0 ? item.compras : 0;
+
+      if (base <= 0) return 0;
+
+      return Math.max(Math.min((item.saldoDisponivel / base) * 100, 100), 0);
+    }
+
+    if (parametros.estoqueMinimo > 0) {
+      return Math.max(
+        Math.min((item.saldoDisponivel / parametros.estoqueMinimo) * 100, 100),
+        0
+      );
+    }
+
+    if (item.compras > 0) {
+      return Math.max(
+        Math.min((item.saldoDisponivel / item.compras) * 100, 100),
+        0
+      );
+    }
+
+    return item.saldoDisponivel > 0 ? 100 : 0;
+  }
+
+ function statusProduto(item) {
+  const parametros = parametrosDoProduto(item.produto);
+  const percentual = calcularPercentualEstoque(item);
+
+  if (
+  parametros.tipoControle === "PERCENTUAL" ||
+  parametros.tipoControle === "METRAGEM"
+) {
+  if (percentual <= 10) {
+    return "CRÍTICO";
+  }
+
+  if (percentual <= 25) {
+    return "BAIXO";
+  }
+
+  return "OK";
+}
+
+  const minimo = parametros.estoqueMinimo || 0;
+
+  if (item.saldoDisponivel <= 0) {
+    return "CRÍTICO";
+  }
+
+  if (minimo > 0) {
+    if (item.saldoDisponivel <= minimo) {
+      return "CRÍTICO";
+    }
+
+    if (item.saldoDisponivel <= minimo * 2) {
+      return "BAIXO";
+    }
+  }
+
+  return "OK";
+}
+
+  function textoStatus(status) {
+    if (status === "CRÍTICO") return "🔴 Crítico";
+    if (status === "BAIXO") return "🟡 Baixo";
+    return "🟢 OK";
+  }
+
+ 
+
+  function servicoCombina(servicoEntrada, servicoRegra) {
+    const entrada = norm(servicoEntrada);
+    const regra = norm(servicoRegra);
+
+    if (!entrada || !regra) return false;
+
+    return entrada.includes(regra) || regra.includes(entrada);
+  }
+
+  function regrasDoServico(produtoServico) {
+    const regras = regrasConsumoEmpresa.filter((regra) =>
+      servicoCombina(produtoServico, regra.servico)
+    );
+
+    if (regras.length > 0) return regras;
+
+    const p = norm(produtoServico);
+
+    if (p.includes("SUPORTE TRIANGULO")) {
+      return [
+        {
+          id: criarId(),
+          servico: produtoServico,
+          insumo: "SUPORTE TRIÂNGULO MOTO",
+          quantidade: 1,
+          aplicarMultiplicadorRibbon: false,
+        },
+      ];
+    }
+
+    if (p.includes("SUPORTE RESINA") && p.includes("MOTO")) {
+      return [
+        {
+          id: criarId(),
+          servico: produtoServico,
+          insumo: "SUPORTE RESINA MOTO",
+          quantidade: 1,
+          aplicarMultiplicadorRibbon: false,
+        },
+      ];
+    }
+
+    if (p.includes("SUPORTE RESINA")) {
+      return [
+        {
+          id: criarId(),
+          servico: produtoServico,
+          insumo: "SUPORTE RESINA CARRO",
+          quantidade: 1,
+          aplicarMultiplicadorRibbon: false,
+        },
+      ];
+    }
+
+    return [];
+  }
+
+  function calcularConsumoSimulacao(tipo) {
+    const regras = regrasDoServico(tipo);
+    const primeira = regras[0];
+
+    if (!primeira) return { item: "-", consumo: 0 };
+
+    const multiplicador =
+      primeira.aplicarMultiplicadorRibbon && ehRibbon(primeira.insumo)
+        ? modoRibbonPadrao === "2X"
+          ? 2
+          : 1
+        : 1;
+
+    return {
+      item: normalizarProdutoEstoque(primeira.insumo),
+      consumo: n(primeira.quantidade) * multiplicador,
     };
   }
 
@@ -356,11 +558,6 @@ export default function Estoque({
     if (!cliente) return 0;
 
     const tipo = norm(tipoServico);
-
-    if (tipo.includes("RIBBON")) {
-      if (tipo.includes("MOTO")) return lerPreco(cliente.precoMoto);
-      return lerPreco(cliente.precoParVeicular);
-    }
 
     if (tipo.includes("MOTO")) return lerPreco(cliente.precoMoto);
     if (tipo.includes("REBOQUE")) return lerPreco(cliente.precoReboque);
@@ -420,10 +617,10 @@ export default function Estoque({
 
     registrarMovimentacaoEstoque({
       tipo: "CONFIGURAÇÃO",
-      origem: "Serviço de simulação",
+      origem: "Serviço",
       produto: nome,
       quantidade: 0,
-      motivo: "Serviço criado para simulação de estoque",
+      motivo: "Serviço criado para consumo/simulação",
     });
   }
 
@@ -449,13 +646,156 @@ export default function Estoque({
     });
   }
 
+  function carregarParametroProduto(produto) {
+    const chave = normalizarProdutoEstoque(produto);
+    const parametros = parametrosDoProduto(chave);
+
+    setProdutoParametroSelecionado(chave);
+    setParametroForm({
+      produto: chave,
+      tipoControle: ehRibbon(chave) ? "METRAGEM" : "QUANTIDADE",
+      unidade: parametros.unidade,
+      
+      estoqueMinimo: String(parametros.estoqueMinimo || ""),
+      
+      observacao: parametros.observacao || "",
+    });
+  }
+
+  function salvarParametroProduto() {
+    const produto = normalizarProdutoEstoque(
+      parametroForm.produto || produtoParametroSelecionado
+    );
+
+    if (!produto) return;
+
+    const novoParametro = {
+      tipoControle: ehRibbon(produto) ? "METRAGEM" : "QUANTIDADE",
+      unidade: parametroForm.unidade || "un",
+      capacidadeTotal: 0,
+      estoqueMinimo: n(parametroForm.estoqueMinimo),
+      
+      observacao: parametroForm.observacao || "",
+    };
+
+    setMinimosEstoqueConfigurados((old) => ({
+      ...old,
+      [produto]: novoParametro,
+    }));
+
+    registrarMovimentacaoEstoque({
+      tipo: "CONFIGURAÇÃO",
+      origem: "Parâmetro de estoque",
+      produto,
+      quantidade: 0,
+      depois: novoParametro,
+      motivo: "Parâmetros do produto atualizados",
+    });
+
+    alert("Parâmetro salvo.");
+  }
+
+  function adicionarRegraConsumo() {
+    if (!consumoForm.servico || !consumoForm.insumo || !consumoForm.quantidade) {
+      alert("Preencha serviço, insumo e quantidade.");
+      return;
+    }
+
+    const novaRegra = {
+      id: criarId(),
+      servico: consumoForm.servico,
+      insumo: normalizarProdutoEstoque(consumoForm.insumo),
+      quantidade: n(consumoForm.quantidade),
+      aplicarMultiplicadorRibbon:
+        ehRibbon(consumoForm.insumo) && consumoForm.aplicarMultiplicadorRibbon,
+    };
+
+    setMinimosEstoqueConfigurados((old) => ({
+      ...old,
+      __regrasConsumoServicos: [
+        ...(Array.isArray(old?.__regrasConsumoServicos)
+          ? old.__regrasConsumoServicos
+          : REGRAS_CONSUMO_PADRAO),
+        novaRegra,
+      ],
+    }));
+
+    registrarMovimentacaoEstoque({
+      tipo: "CONFIGURAÇÃO",
+      origem: "Consumo por serviço",
+      produto: novaRegra.insumo,
+      quantidade: novaRegra.quantidade,
+      depois: novaRegra,
+      motivo: `Regra criada para ${novaRegra.servico}`,
+    });
+
+    setConsumoForm({
+      servico: "",
+      insumo: "",
+      quantidade: "",
+      aplicarMultiplicadorRibbon: false,
+    });
+  }
+
+  function removerRegraConsumo(id) {
+    if (!admin) {
+      alert("Apenas administrador pode remover regras de consumo.");
+      return;
+    }
+
+    setMinimosEstoqueConfigurados((old) => ({
+      ...old,
+      __regrasConsumoServicos: regrasConsumoEmpresa.filter(
+        (regra) => regra.id !== id
+      ),
+    }));
+
+    registrarMovimentacaoEstoque({
+      tipo: "EXCLUSÃO",
+      origem: "Consumo por serviço",
+      produto: "-",
+      quantidade: 0,
+      motivo: "Regra de consumo removida",
+    });
+  }
+
+  function restaurarRegrasPadraoConsumo() {
+    if (!admin) {
+      alert("Apenas administrador pode restaurar regras.");
+      return;
+    }
+
+    if (
+      !confirm(
+        "Restaurar as regras padrão de consumo? Isso troca a lista atual pelas regras base."
+      )
+    ) {
+      return;
+    }
+
+    setMinimosEstoqueConfigurados((old) => ({
+      ...old,
+      __regrasConsumoServicos: REGRAS_CONSUMO_PADRAO,
+    }));
+
+    registrarMovimentacaoEstoque({
+      tipo: "CONFIGURAÇÃO",
+      origem: "Consumo por serviço",
+      produto: "-",
+      quantidade: 0,
+      motivo: "Regras padrão restauradas",
+    });
+  }
+
   function salvarCompraEstoque() {
     if (!compraEstoqueForm.produto || !compraEstoqueForm.quantidade) return;
+
+    const produtoNormalizado = normalizarProdutoEstoque(compraEstoqueForm.produto);
 
     const item = {
       id: editandoCompraId || criarId(),
       ...compraEstoqueForm,
-      produto: normalizarProdutoEstoque(compraEstoqueForm.produto),
+      produto: produtoNormalizado,
       quantidade: n(compraEstoqueForm.quantidade),
       fornecedor: compraEstoqueForm.fornecedor || "",
       larguraRibbon: compraEstoqueForm.larguraRibbon || "",
@@ -478,7 +818,7 @@ export default function Estoque({
         tipo: "EDIÇÃO",
         origem: "Compra de estoque",
         produto: item.produto,
-        quantidade: item.quantidade,
+        quantidade: quantidadeCompraParaEstoque(item),
         antes: compraAnterior || null,
         depois: item,
         motivo: "Compra editada",
@@ -490,7 +830,7 @@ export default function Estoque({
         tipo: "ENTRADA",
         origem: "Compra de estoque",
         produto: item.produto,
-        quantidade: item.quantidade,
+        quantidade: quantidadeCompraParaEstoque(item),
         fornecedor: item.fornecedor || "-",
         custoTotal: item.custoTotal || 0,
         motivo: item.observacao || "Compra lançada",
@@ -578,6 +918,8 @@ export default function Estoque({
       criadoPor: item.criadoPor || "",
       criadoEm: item.criadoEm || "",
     });
+
+    setAbaEstoque("MOVIMENTACOES");
   }
 
   function editarPerda(item) {
@@ -593,6 +935,8 @@ export default function Estoque({
       criadoPor: item.criadoPor || "",
       criadoEm: item.criadoEm || "",
     });
+
+    setAbaEstoque("MOVIMENTACOES");
   }
 
   function cancelarEdicaoEstoque() {
@@ -634,7 +978,7 @@ export default function Estoque({
         tipo: "EXCLUSÃO",
         origem: "Compra de estoque",
         produto: item?.produto || "-",
-        quantidade: item?.quantidade || 0,
+        quantidade: item ? quantidadeCompraParaEstoque(item) : 0,
         antes: item || null,
         depois: null,
         motivo: "Compra excluída",
@@ -659,33 +1003,44 @@ export default function Estoque({
   }
 
   const usosEstoqueServicos = useMemo(() => {
-    return entradas
-      .map((entrada) => {
-        const uso = calcularUsoEstoque(entrada.produto);
-        if (!uso) return null;
+    return entradas.flatMap((entrada) => {
+      const regras = regrasDoServico(entrada.produto);
+
+      return regras.map((regra) => {
+        const insumo = normalizarProdutoEstoque(regra.insumo);
+
+        const multiplicador =
+          regra.aplicarMultiplicadorRibbon && ehRibbon(insumo)
+            ? modoRibbonPadrao === "2X"
+              ? 2
+              : 1
+            : 1;
 
         return {
-          id: entrada.id || `${entrada.data}-${entrada.cliente}-${entrada.placa}`,
+          id: `${entrada.id || `${entrada.data}-${entrada.cliente}-${entrada.placa}`}-${regra.id}`,
           data: entrada.data,
           cliente: entrada.cliente,
           produtoServico: entrada.produto,
           placa: entrada.placa,
-          itemEstoque: uso.item,
-          quantidade: uso.quantidade,
+          itemEstoque: insumo,
+          quantidade: n(regra.quantidade) * multiplicador,
           origem: "Venda / serviço",
+          tipoUso: ehRibbon(insumo) ? "RIBBON" : "INSUMO FÍSICO",
+          regraServico: regra.servico,
+          multiplicadorRibbon: multiplicador,
         };
-      })
-      .filter(Boolean);
-  }, [entradas]);
+      });
+    });
+  }, [entradas, regrasConsumoEmpresa, modoRibbonPadrao]);
 
   const estoqueResumo = useMemo(() => {
-    return produtosDisponiveisEstoque.map((produto) => {
+    const resumoBase = produtosDisponiveisEstoque.map((produto) => {
       const comprasDoProduto = estoqueCompras.filter(
         (item) => normalizarProdutoEstoque(item.produto) === produto
       );
 
       const compras = comprasDoProduto.reduce(
-        (soma, item) => soma + n(item.quantidade),
+        (soma, item) => soma + quantidadeCompraParaEstoque(item),
         0
       );
 
@@ -724,12 +1079,7 @@ export default function Estoque({
           ? 999
           : 0;
 
-      const status =
-        saldoDisponivel <= 0
-          ? "CRÍTICO"
-          : saldoDisponivel <= estoqueMinimo
-          ? "BAIXO"
-          : "OK";
+      const parametros = parametrosDoProduto(produto);
 
       return {
         produto,
@@ -745,15 +1095,116 @@ export default function Estoque({
         valorAtual,
         mediaConsumoDiario,
         diasRestantes,
-        status,
+        parametros,
+        unidade: parametros.unidade || (ehRibbon(produto) ? "m" : "un"),
       };
     });
+
+    return resumoBase.map((item) => ({
+      ...item,
+      percentual: calcularPercentualEstoque(item),
+      status: statusProduto(item),
+    }));
   }, [
     produtosDisponiveisEstoque,
     estoqueCompras,
     estoquePerdas,
     reservasEstoque,
     usosEstoqueServicos,
+    minimosEstoqueConfigurados,
+  ]);
+
+  const lotesEstoque = useMemo(() => {
+    return estoqueCompras
+      .map((compra, index) => {
+        const produto = normalizarProdutoEstoque(compra.produto);
+        const qtdEntrada = quantidadeCompraParaEstoque(compra);
+
+        const parametros = parametrosDoProduto(produto);
+
+        const consumoTotalProduto =
+          usosEstoqueServicos
+            .filter((uso) => uso.itemEstoque === produto)
+            .reduce((soma, uso) => soma + n(uso.quantidade), 0) +
+          estoquePerdas
+            .filter(
+              (perda) => normalizarProdutoEstoque(perda.produto) === produto
+            )
+            .reduce((soma, perda) => soma + n(perda.quantidade), 0);
+
+        const comprasOrdenadas = estoqueCompras
+          .filter((item) => normalizarProdutoEstoque(item.produto) === produto)
+          .sort((a, b) =>
+            String(a.data || "").localeCompare(String(b.data || ""))
+          );
+
+        let consumoRestante = consumoTotalProduto;
+        let saldoLote = qtdEntrada;
+
+        for (const item of comprasOrdenadas) {
+          const qtdLote = quantidadeCompraParaEstoque(item);
+
+          if (item.id === compra.id) {
+            saldoLote = Math.max(qtdLote - consumoRestante, 0);
+            break;
+          }
+
+          consumoRestante = Math.max(consumoRestante - qtdLote, 0);
+        }
+
+        const percentual =
+          qtdEntrada > 0
+            ? Math.max(Math.min((saldoLote / qtdEntrada) * 100, 100), 0)
+            : 0;
+
+        let status = "OK";
+
+        if (
+          parametros.tipoControle === "PERCENTUAL" ||
+          parametros.tipoControle === "METRAGEM"
+        ) {
+          if (
+            parametros.alertaCritico > 0 &&
+            percentual <= parametros.alertaCritico
+          ) {
+            status = "CRÍTICO";
+          } else if (
+            parametros.alertaBaixo > 0 &&
+            percentual <= parametros.alertaBaixo
+          ) {
+            status = "BAIXO";
+          }
+        } else {
+          if (saldoLote <= 0) status = "CRÍTICO";
+          else if (
+            parametros.estoqueMinimo > 0 &&
+            saldoLote <= parametros.estoqueMinimo
+          ) {
+            status = "BAIXO";
+          }
+        }
+
+        return {
+          id: compra.id,
+          lote: compra.lote || `Lote ${index + 1}`,
+          data: compra.data || "-",
+          fornecedor: compra.fornecedor || "-",
+          produto,
+          entrada: qtdEntrada,
+          saldo: saldoLote,
+          percentual,
+          status,
+          unidade: parametros.unidade || (ehRibbon(produto) ? "m" : "un"),
+          custoTotal: n(compra.custoTotal),
+          observacao: compra.observacao || "-",
+        };
+      })
+      .sort((a, b) => String(a.produto).localeCompare(String(b.produto)));
+  }, [
+    estoqueCompras,
+    estoqueResumo,
+    usosEstoqueServicos,
+    estoquePerdas,
     minimosEstoqueConfigurados,
   ]);
 
@@ -764,7 +1215,7 @@ export default function Estoque({
       tipo: "ENTRADA",
       origem: "Compra",
       produto: normalizarProdutoEstoque(item.produto),
-      quantidade: n(item.quantidade),
+      quantidade: quantidadeCompraParaEstoque(item),
       valor: n(item.custoTotal),
       fornecedor: item.fornecedor || "-",
       usuario: item.atualizadoPor || item.criadoPor || "-",
@@ -775,13 +1226,15 @@ export default function Estoque({
       id: `venda-${item.id}`,
       data: item.data,
       tipo: "SAÍDA",
-      origem: "Venda / serviço",
+      origem: item.tipoUso || "Venda / serviço",
       produto: item.itemEstoque,
       quantidade: n(item.quantidade),
       valor: 0,
       fornecedor: "-",
       usuario: "-",
-      observacao: `${item.cliente || "-"} | ${item.placa || "-"}`,
+      observacao: `${item.cliente || "-"} | ${item.placa || "-"} | ${
+        item.regraServico || "-"
+      }`,
     }));
 
     const perdas = estoquePerdas.map((item) => ({
@@ -871,21 +1324,30 @@ export default function Estoque({
     (soma, item) => soma + item.perdas * item.custoMedio,
     0
   );
-  const itensCriticos = estoqueResumo.filter((item) => item.status === "CRÍTICO").length;
-  const itensBaixos = estoqueResumo.filter((item) => item.status === "BAIXO").length;
+
+  const itensCriticos = estoqueResumo.filter(
+    (item) => item.status === "CRÍTICO"
+  ).length;
+
+  const itensBaixos = estoqueResumo.filter(
+    (item) => item.status === "BAIXO"
+  ).length;
 
   const comprasMesQuantidade = comprasPeriodo.reduce(
     (soma, item) => soma + n(item.quantidade),
     0
   );
+
   const comprasMesValor = comprasPeriodo.reduce(
     (soma, item) => soma + n(item.valor),
     0
   );
+
   const consumoMesQuantidade = consumoPeriodo.reduce(
     (soma, item) => soma + n(item.quantidade),
     0
   );
+
   const perdasMesQuantidade = perdasPeriodo.reduce(
     (soma, item) => soma + n(item.quantidade),
     0
@@ -968,581 +1430,185 @@ export default function Estoque({
       norm(simulacao.cliente).includes(norm(c.nome))
   );
 
+  const agrupadosRapidos = estoqueResumo
+    .filter(
+      (item) =>
+        item.compras > 0 ||
+        item.usadoEmServicos > 0 ||
+        item.saldoDisponivel !== 0
+    )
+    .sort((a, b) => {
+      const peso = { CRÍTICO: 0, BAIXO: 1, OK: 2 };
+      return peso[a.status] - peso[b.status];
+    });
+
+  
+
+  
+
+  function BotoesAbas() {
+    const abas = [
+      ["RAPIDA", "📦 Visão Rápida"],
+      ["MOVIMENTACOES", "🔁 Movimentações"],
+      ["LOTES", "🏷️ Lotes"],
+      ["CONFIGURACOES", "⚙️ Configurações"],
+      ["INTELIGENCIA", "📊 Inteligência"],
+    ];
+
+    return (
+      <Card titulo="Estoque">
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {abas.map(([id, titulo]) => (
+            <button
+              key={id}
+              style={{
+                ...(styles.botaoSecundario || styles.botao),
+                opacity: abaEstoque === id ? 1 : 0.55,
+                border:
+                  abaEstoque === id
+                    ? "1px solid rgba(59, 130, 246, 0.9)"
+                    : "1px solid rgba(148, 163, 184, 0.2)",
+              }}
+              onClick={() => setAbaEstoque(id)}
+            >
+              {titulo}
+            </button>
+          ))}
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <>
-      <div style={styles.kpis}>
-        <Kpi titulo="Saldo físico" valor={`${saldoFisicoTotal} un.`} />
-        <Kpi titulo="Disponível" valor={`${saldoDisponivelTotal} un.`} />
-        <Kpi titulo="Reservado" valor={`${totalReservado} un.`} />
-        <Kpi titulo="Valor em estoque" valor={moeda.format(valorTotalEstoque)} />
-        <Kpi titulo="Compras" valor={`${totalCompras} un.`} />
-        <Kpi titulo="Usado em vendas" valor={`${totalUsado} un.`} />
-        <Kpi titulo="Perdas / erros" valor={`${totalPerdas} un.`} />
-        <Kpi titulo="Itens críticos" valor={itensCriticos} />
-        <Kpi titulo="Estoque baixo" valor={itensBaixos} />
-      </div>
+      <BotoesAbas />
 
-      <Card titulo="Dashboard gerencial de estoque">
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-          <button
-            style={{
-              ...styles.botao,
-              opacity: filtroDashboard === "MÊS" ? 1 : 0.6,
-            }}
-            onClick={() => setFiltroDashboard("MÊS")}
-          >
-            Ver mês atual
-          </button>
+      {abaEstoque === "RAPIDA" && (
+  <EstoqueRapido
+    saldoFisicoTotal={saldoFisicoTotal}
+    saldoDisponivelTotal={saldoDisponivelTotal}
+    totalReservado={totalReservado}
+    valorTotalEstoque={valorTotalEstoque}
+    itensCriticos={itensCriticos}
+    itensBaixos={itensBaixos}
+    moeda={moeda}
+    agrupadosRapidos={agrupadosRapidos}
+    produtosCriticos={produtosCriticos}
+    ehRibbon={ehRibbon}
+    lotesEstoque={lotesEstoque}
+    textoStatus={textoStatus}
+  />
+)}
+      {abaEstoque === "MOVIMENTACOES" && (
+  <EstoqueMovimentacoes
+    editandoCompraId={editandoCompraId}
+    editandoPerdaId={editandoPerdaId}
+    compraEstoqueForm={compraEstoqueForm}
+    setCompraEstoqueForm={setCompraEstoqueForm}
+    perdaEstoqueForm={perdaEstoqueForm}
+    setPerdaEstoqueForm={setPerdaEstoqueForm}
+    fornecedoresDisponiveis={fornecedoresDisponiveis}
+    produtosDisponiveisEstoque={produtosDisponiveisEstoque}
+    ehRibbon={ehRibbon}
+    salvarCompraEstoque={salvarCompraEstoque}
+    salvarPerdaEstoque={salvarPerdaEstoque}
+    cancelarEdicaoEstoque={cancelarEdicaoEstoque}
+    estoqueCompras={estoqueCompras}
+    estoquePerdas={estoquePerdas}
+    movimentacoesReais={movimentacoesReais}
+    normalizarProdutoEstoque={normalizarProdutoEstoque}
+    moeda={moeda}
+    admin={admin}
+    editarCompra={editarCompra}
+    editarPerda={editarPerda}
+    removerMovimentoEstoque={removerMovimentoEstoque}
+  />
+)}
+      {abaEstoque === "LOTES" && (
+  <EstoqueLotes
+    lotesEstoque={lotesEstoque}
+    usosEstoqueServicos={usosEstoqueServicos}
+    ehRibbon={ehRibbon}
+    textoStatus={textoStatus}
+    moeda={moeda}
+  />
+)}
 
-          <button
-            style={{
-              ...styles.botao,
-              opacity: filtroDashboard === "GERAL" ? 1 : 0.6,
-            }}
-            onClick={() => setFiltroDashboard("GERAL")}
-          >
-            Ver geral
-          </button>
-        </div>
+      {abaEstoque === "CONFIGURACOES" && (
+  <EstoqueConfiguracoes
+    novoProdutoEstoque={novoProdutoEstoque}
+    setNovoProdutoEstoque={setNovoProdutoEstoque}
+    adicionarProdutoPersonalizado={adicionarProdutoPersonalizado}
 
-        <div style={styles.kpis}>
-          <Kpi titulo="Compras do período" valor={`${comprasMesQuantidade} un.`} />
-          <Kpi titulo="Valor comprado" valor={moeda.format(comprasMesValor)} />
-          <Kpi titulo="Consumo do período" valor={`${consumoMesQuantidade} un.`} />
-          <Kpi titulo="Perdas do período" valor={`${perdasMesQuantidade} un.`} />
-          <Kpi titulo="Valor perdas geral" valor={moeda.format(valorPerdasGeral)} />
-        </div>
-      </Card>
+    novoFornecedor={novoFornecedor}
+    setNovoFornecedor={setNovoFornecedor}
+    adicionarFornecedor={adicionarFornecedor}
 
-      <div style={styles.grid2}>
-        <Card titulo="Pareto de consumo">
-          <Tabela
-            colunas={[
-              "Produto",
-              "Qtd consumida",
-              "% do consumo",
-              "% acumulado",
-            ]}
-            dados={paretoConsumo.map((item) => [
-              item.produto,
-              item.quantidade,
-              `${item.percentual.toFixed(1)}%`,
-              `${item.acumulado.toFixed(1)}%`,
-            ])}
-          />
-        </Card>
+    novoServicoSimulacao={novoServicoSimulacao}
+    setNovoServicoSimulacao={setNovoServicoSimulacao}
+    adicionarServicoSimulacao={adicionarServicoSimulacao}
 
-        <Card titulo="Top perdas por produto">
-          <Tabela
-            colunas={["Produto", "Qtd perdida", "Valor estimado"]}
-            dados={perdasPorProduto.map((item) => [
-              item.produto,
-              item.quantidade,
-              moeda.format(item.valor || 0),
-            ])}
-          />
-        </Card>
-      </div>
+    modoRibbonPadrao={modoRibbonPadrao}
+    setModoRibbonPadrao={setModoRibbonPadrao}
 
-      <Card titulo="Tabela gerencial de estoque">
-        <Tabela
-          colunas={[
-            "Produto",
-            "Físico",
-            "Reservado",
-            "Disponível",
-            "Mínimo",
-            "Custo médio",
-            "Valor atual",
-            "Consumo médio/dia",
-            "Dias restantes",
-            "Status",
-          ]}
-          dados={tabelaGerencialEstoque.map((item) => [
-            item.produto,
-            item.saldoFisico,
-            item.reservado,
-            item.saldoDisponivel,
-            item.estoqueMinimo,
-            moeda.format(item.custoMedio || 0),
-            moeda.format(item.valorAtual || 0),
-            item.mediaConsumoDiario.toFixed(2),
-            item.diasTexto,
-            item.status,
-          ])}
-        />
-      </Card>
+    parametroForm={parametroForm}
+    setParametroForm={setParametroForm}
+    produtoParametroSelecionado={produtoParametroSelecionado}
+    carregarParametroProduto={carregarParametroProduto}
+    salvarParametroProduto={salvarParametroProduto}
 
-      <Card titulo="Produtos em atenção">
-        <Tabela
-          colunas={[
-            "Produto",
-            "Disponível",
-            "Mínimo",
-            "Faltam para mínimo",
-            "Status",
-          ]}
-          dados={produtosCriticos.map((item) => [
-            item.produto,
-            item.saldoDisponivel,
-            item.estoqueMinimo,
-            Math.max(item.estoqueMinimo - item.saldoDisponivel, 0),
-            item.status,
-          ])}
-        />
-      </Card>
+    produtosDisponiveisEstoque={produtosDisponiveisEstoque}
 
-      <Card titulo="Configuração SaaS do estoque">
-        <div style={styles.formGrid}>
-          <Campo
-            label="Novo produto configurável da empresa"
-            valor={novoProdutoEstoque}
-            mudar={setNovoProdutoEstoque}
-          />
+    consumoForm={consumoForm}
+    setConsumoForm={setConsumoForm}
+    tiposSimulacaoDisponiveis={tiposSimulacaoDisponiveis}
+    ehRibbon={ehRibbon}
+    adicionarRegraConsumo={adicionarRegraConsumo}
 
-          <button
-            style={styles.botaoSecundario || styles.botao}
-            onClick={adicionarProdutoPersonalizado}
-          >
-            Adicionar produto
-          </button>
+    admin={admin}
+    restaurarRegrasPadraoConsumo={restaurarRegrasPadraoConsumo}
+    regrasConsumoEmpresa={regrasConsumoEmpresa}
+    removerRegraConsumo={removerRegraConsumo}
 
-          <Campo
-            label="Novo fornecedor"
-            valor={novoFornecedor}
-            mudar={setNovoFornecedor}
-          />
+    parametrosDoProduto={parametrosDoProduto}
+  />
+)}
 
-          <button
-            style={styles.botaoSecundario || styles.botao}
-            onClick={adicionarFornecedor}
-          >
-            Adicionar fornecedor
-          </button>
+      {abaEstoque === "INTELIGENCIA" && (
+  <EstoqueInteligencia
+    filtroDashboard={filtroDashboard}
+    setFiltroDashboard={setFiltroDashboard}
 
-          <Campo
-            label="Novo serviço para simulação"
-            valor={novoServicoSimulacao}
-            mudar={setNovoServicoSimulacao}
-          />
+    comprasMesQuantidade={comprasMesQuantidade}
+    comprasMesValor={comprasMesValor}
+    consumoMesQuantidade={consumoMesQuantidade}
+    perdasMesQuantidade={perdasMesQuantidade}
+    valorPerdasGeral={valorPerdasGeral}
+    totalCompras={totalCompras}
+    totalUsado={totalUsado}
+    totalPerdas={totalPerdas}
 
-          <button
-            style={styles.botaoSecundario || styles.botao}
-            onClick={adicionarServicoSimulacao}
-          >
-            Adicionar serviço
-          </button>
-        </div>
+    paretoConsumo={paretoConsumo}
+    perdasPorProduto={perdasPorProduto}
+    tabelaGerencialEstoque={tabelaGerencialEstoque}
 
-        <p style={{ color: "#94a3b8", marginTop: 12 }}>
-          Regra SaaS: produtos, fornecedores, serviços e mínimos devem ser
-          configuráveis por empresa.
-        </p>
-      </Card>
+    moeda={moeda}
+    ehRibbon={ehRibbon}
+    textoStatus={textoStatus}
 
-      <Card titulo="Configuração industrial do ribbon">
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <button
-            style={{ ...styles.botao, opacity: modoRibbonPadrao === "1X" ? 1 : 0.6 }}
-            onClick={() => setModoRibbonPadrao("1X")}
-          >
-            Ribbon padrão 1X
-          </button>
+    simulacao={simulacao}
+    setSimulacao={setSimulacao}
+    clientes={clientes}
 
-          <button
-            style={{ ...styles.botao, opacity: modoRibbonPadrao === "2X" ? 1 : 0.6 }}
-            onClick={() => setModoRibbonPadrao("2X")}
-          >
-            Ribbon padrão 2X
-          </button>
+    tiposSimulacaoDisponiveis={tiposSimulacaoDisponiveis}
+    calcularConsumoSimulacao={calcularConsumoSimulacao}
+    estoqueResumo={estoqueResumo}
+    precoClientePorServico={precoClientePorServico}
+    clienteSelecionado={clienteSelecionado}
 
-          <strong style={{ color: "#fff" }}>Modo atual: {modoRibbonPadrao}</strong>
-        </div>
-      </Card>
-
-      <Card titulo="Projeção de faturamento pelo estoque disponível">
-        <div style={styles.formGrid}>
-          <Select
-            label="Cliente"
-            valor={simulacao.cliente}
-            mudar={(v) => setSimulacao({ ...simulacao, cliente: v })}
-            opcoes={clientes.map((cliente) => cliente.nome)}
-          />
-        </div>
-
-        <Tabela
-          colunas={[
-            "Serviço",
-            "Produto físico",
-            "Consumo",
-            "Saldo físico",
-            "Reservado",
-            "Disponível",
-            "Qtd possível",
-            "Preço",
-            "Custo projetado",
-            "Lucro projetado",
-            "Faturamento projetado",
-          ]}
-          dados={tiposSimulacaoDisponiveis.map((tipoServico) => {
-            const regra = calcularConsumoSimulacao(tipoServico);
-            const itemEstoque = estoqueResumo.find(
-              (item) => item.produto === regra.item
-            );
-
-            const saldoFisico = itemEstoque?.saldoFisico || 0;
-            const reservado = itemEstoque?.reservado || 0;
-            const saldoDisponivel = itemEstoque?.saldoDisponivel || 0;
-
-            const qtdPossivel = Math.max(
-              Math.floor(saldoDisponivel / regra.consumo),
-              0
-            );
-
-            const preco = precoClientePorServico(clienteSelecionado, tipoServico);
-            const custoProjetado =
-              qtdPossivel * regra.consumo * (itemEstoque?.custoMedio || 0);
-            const faturamentoProjetado = qtdPossivel * preco;
-            const lucroProjetado = faturamentoProjetado - custoProjetado;
-
-            return [
-              tipoServico,
-              regra.item,
-              regra.consumo,
-              saldoFisico,
-              reservado,
-              saldoDisponivel,
-              qtdPossivel,
-              moeda.format(preco),
-              moeda.format(custoProjetado),
-              moeda.format(lucroProjetado),
-              moeda.format(faturamentoProjetado),
-            ];
-          })}
-        />
-      </Card>
-
-      <Card titulo="Resumo profissional do estoque">
-        <Tabela
-          colunas={[
-            "Produto físico",
-            "Compras",
-            "Custo total",
-            "Custo médio",
-            "Usado em serviços",
-            "Perdas",
-            "Reservado",
-            "Físico",
-            "Disponível",
-            "Mínimo",
-            "Status",
-          ]}
-          dados={estoqueResumo.map((item) => [
-            item.produto,
-            item.compras,
-            moeda.format(item.custoTotal || 0),
-            moeda.format(item.custoMedio || 0),
-            item.usadoEmServicos,
-            item.perdas,
-            item.reservado,
-            item.saldoFisico,
-            item.saldoDisponivel,
-            item.estoqueMinimo,
-            item.status,
-          ])}
-        />
-      </Card>
-
-      <div style={styles.grid2}>
-        <Card titulo={editandoCompraId ? "Editando compra de estoque" : "Adicionar compra de estoque"}>
-          <div style={styles.formGrid}>
-            <Campo
-              label="Data"
-              tipo="date"
-              valor={compraEstoqueForm.data || ""}
-              mudar={(v) => setCompraEstoqueForm({ ...compraEstoqueForm, data: v })}
-            />
-
-            <Select
-              label="Fornecedor"
-              valor={compraEstoqueForm.fornecedor || ""}
-              mudar={(v) =>
-                setCompraEstoqueForm({ ...compraEstoqueForm, fornecedor: v })
-              }
-              opcoes={fornecedoresDisponiveis}
-            />
-
-            <Select
-              label="Produto físico"
-              valor={compraEstoqueForm.produto || ""}
-              mudar={(v) =>
-                setCompraEstoqueForm({ ...compraEstoqueForm, produto: v })
-              }
-              opcoes={produtosDisponiveisEstoque}
-            />
-
-            <Campo
-              label="Quantidade"
-              tipo="number"
-              valor={compraEstoqueForm.quantidade || ""}
-              mudar={(v) =>
-                setCompraEstoqueForm({ ...compraEstoqueForm, quantidade: v })
-              }
-            />
-
-            {ehRibbon(compraEstoqueForm.produto) && (
-              <>
-                <Campo
-                  label="Largura do ribbon (mm)"
-                  tipo="number"
-                  valor={compraEstoqueForm.larguraRibbon || ""}
-                  mudar={(v) =>
-                    setCompraEstoqueForm({
-                      ...compraEstoqueForm,
-                      larguraRibbon: v,
-                    })
-                  }
-                />
-
-                <Campo
-                  label="Metragem do rolo (m)"
-                  tipo="number"
-                  valor={compraEstoqueForm.metragemRibbon || ""}
-                  mudar={(v) =>
-                    setCompraEstoqueForm({
-                      ...compraEstoqueForm,
-                      metragemRibbon: v,
-                    })
-                  }
-                />
-              </>
-            )}
-
-            <Campo
-              label="Custo total da compra"
-              tipo="number"
-              valor={compraEstoqueForm.custoTotal || ""}
-              mudar={(v) =>
-                setCompraEstoqueForm({ ...compraEstoqueForm, custoTotal: v })
-              }
-            />
-
-            <Campo
-              label="Observação"
-              valor={compraEstoqueForm.observacao || ""}
-              mudar={(v) =>
-                setCompraEstoqueForm({ ...compraEstoqueForm, observacao: v })
-              }
-            />
-
-            <button style={styles.botao} onClick={salvarCompraEstoque}>
-              {editandoCompraId ? "Salvar edição" : "Adicionar compra"}
-            </button>
-
-            {editandoCompraId && (
-              <button style={styles.botaoCinza} onClick={cancelarEdicaoEstoque}>
-                Cancelar edição
-              </button>
-            )}
-          </div>
-        </Card>
-
-        <Card titulo={editandoPerdaId ? "Editando perda de estoque" : "Lançar perda / placa errada"}>
-          <div style={styles.formGrid}>
-            <Campo
-              label="Data"
-              tipo="date"
-              valor={perdaEstoqueForm.data || ""}
-              mudar={(v) => setPerdaEstoqueForm({ ...perdaEstoqueForm, data: v })}
-            />
-
-            <Select
-              label="Produto físico"
-              valor={perdaEstoqueForm.produto || ""}
-              mudar={(v) =>
-                setPerdaEstoqueForm({ ...perdaEstoqueForm, produto: v })
-              }
-              opcoes={produtosDisponiveisEstoque}
-            />
-
-            <Campo
-              label="Quantidade"
-              tipo="number"
-              valor={perdaEstoqueForm.quantidade || ""}
-              mudar={(v) =>
-                setPerdaEstoqueForm({ ...perdaEstoqueForm, quantidade: v })
-              }
-            />
-
-            <Campo
-              label="Motivo"
-              valor={perdaEstoqueForm.motivo || ""}
-              mudar={(v) => setPerdaEstoqueForm({ ...perdaEstoqueForm, motivo: v })}
-            />
-
-            <button style={styles.botao} onClick={salvarPerdaEstoque}>
-              {editandoPerdaId ? "Salvar edição" : "Lançar perda"}
-            </button>
-
-            {editandoPerdaId && (
-              <button style={styles.botaoCinza} onClick={cancelarEdicaoEstoque}>
-                Cancelar edição
-              </button>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <div style={styles.grid2}>
-        <Card titulo="Histórico de compras">
-          <Tabela
-            colunas={[
-              "Data",
-              "Fornecedor",
-              "Produto",
-              "Qtd",
-              "Largura",
-              "Metragem",
-              "Custo total",
-              "Custo médio",
-              "Usuário",
-              "Observação",
-              "Ações",
-            ]}
-            dados={estoqueCompras.map((item) => [
-              item.data,
-              item.fornecedor || "-",
-              normalizarProdutoEstoque(item.produto),
-              item.quantidade,
-              item.larguraRibbon ? `${item.larguraRibbon} mm` : "-",
-              item.metragemRibbon ? `${item.metragemRibbon} m` : "-",
-              moeda.format(item.custoTotal || 0),
-              moeda.format(
-                (item.custoTotal || 0) /
-                  ((item.quantidade || 1) === 0 ? 1 : item.quantidade || 1)
-              ),
-              item.atualizadoPor || item.criadoPor || "-",
-              item.observacao || "-",
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {admin && (
-                  <button style={styles.detalhes} onClick={() => editarCompra(item)}>
-                    Editar
-                  </button>
-                )}
-
-                {admin && (
-                  <button
-                    style={styles.excluir}
-                    onClick={() => removerMovimentoEstoque("compra", item.id)}
-                  >
-                    Excluir
-                  </button>
-                )}
-              </div>,
-            ])}
-          />
-        </Card>
-
-        <Card titulo="Histórico de perdas / placas erradas">
-          <Tabela
-            colunas={["Data", "Produto", "Quantidade", "Motivo", "Usuário", "Ações"]}
-            dados={estoquePerdas.map((item) => [
-              item.data,
-              normalizarProdutoEstoque(item.produto),
-              item.quantidade,
-              item.motivo || "-",
-              item.atualizadoPor || item.criadoPor || "-",
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {admin && (
-                  <button style={styles.detalhes} onClick={() => editarPerda(item)}>
-                    Editar
-                  </button>
-                )}
-
-                {admin && (
-                  <button
-                    style={styles.excluir}
-                    onClick={() => removerMovimentoEstoque("perda", item.id)}
-                  >
-                    Excluir
-                  </button>
-                )}
-              </div>,
-            ])}
-          />
-        </Card>
-      </div>
-
-      <Card titulo="Livro de movimentações do estoque">
-        <Tabela
-          colunas={[
-            "Data",
-            "Tipo",
-            "Origem",
-            "Produto",
-            "Quantidade",
-            "Valor",
-            "Fornecedor",
-            "Usuário",
-            "Observação",
-          ]}
-          dados={movimentacoesReais.map((item) => [
-            item.data || "-",
-            item.tipo || "-",
-            item.origem || "-",
-            item.produto || "-",
-            item.quantidade || 0,
-            item.valor ? moeda.format(item.valor) : "-",
-            item.fornecedor || "-",
-            item.usuario || "-",
-            item.observacao || "-",
-          ])}
-        />
-      </Card>
-
-      <Card titulo="Auditoria do estoque">
-        <Tabela
-          colunas={[
-            "Data",
-            "Tipo",
-            "Origem",
-            "Produto",
-            "Quantidade",
-            "Usuário",
-            "Observação",
-          ]}
-          dados={auditoriaEstoque.map((item) => [
-            item.data || "-",
-            item.tipo || "-",
-            item.origem || "-",
-            item.produto || "-",
-            item.quantidade || 0,
-            item.usuario || "-",
-            item.observacao || "-",
-          ])}
-        />
-      </Card>
-
-      <Card titulo="Baixa automática pelas vendas antigas e atuais">
-        <Tabela
-          colunas={[
-            "Data",
-            "Cliente",
-            "Serviço vendido",
-            "Placa",
-            "Produto físico baixado",
-            "Quantidade",
-          ]}
-          dados={usosEstoqueServicos.map((item) => [
-            item.data,
-            item.cliente,
-            item.produtoServico,
-            item.placa,
-            item.itemEstoque,
-            item.quantidade,
-          ])}
-        />
-      </Card>
+    auditoriaEstoque={auditoriaEstoque}
+  />
+)}
     </>
   );
 }
