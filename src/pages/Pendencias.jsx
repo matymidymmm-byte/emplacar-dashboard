@@ -405,7 +405,60 @@ Após o pagamento, nos envie o comprovante, por favor.`;
 
     doc.save(`relacao-aberta-${nomeArquivo(pendencia.cliente)}.pdf`);
   }
+function desenharCarimboPago(doc, relacao, horizontal) {
+  const larguraPagina = doc.internal.pageSize.getWidth();
+  const alturaPagina = doc.internal.pageSize.getHeight();
 
+  doc.saveGraphicsState();
+
+  // Vermelho suave estilo carimbo transparente
+  doc.setTextColor(248, 113, 113);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(horizontal ? 82 : 68);
+
+  doc.text(
+    "PAGO",
+    larguraPagina / 2,
+    alturaPagina / 2 + 40,
+    {
+      align: "center",
+      angle: -22,
+    }
+  );
+
+  doc.restoreGraphicsState();
+
+  // Informações discretas no canto inferior direito
+  doc.setTextColor(100, 116, 139);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(horizontal ? 6.5 : 6);
+
+  const margem = 12;
+  const infoX = larguraPagina - margem;
+  const infoY = alturaPagina - 10;
+
+  doc.text(
+    `Pago em: ${dataBR(relacao.diaPago)}`,
+    infoX,
+    infoY - 8,
+    { align: "right" }
+  );
+
+  doc.text(
+    `Forma: ${String(relacao.formaPagamento || "-").toUpperCase()}`,
+    infoX,
+    infoY - 4,
+    { align: "right" }
+  );
+
+  doc.text(
+    `Valor: ${moeda.format(Number(relacao.total || 0))}`,
+    infoX,
+    infoY,
+    { align: "right" }
+  );
+}
   async function gerarPdfRelacaoPaga(relacao) {
     if (!relacao) return;
 
@@ -441,8 +494,8 @@ Após o pagamento, nos envie o comprovante, por favor.`;
     }
 
     desenharTabelaServicos(doc, itens, horizontal, y);
-    desenharRodape(doc, horizontal);
-
+desenharCarimboPago(doc, relacao, horizontal);
+desenharRodape(doc, horizontal);
     doc.save(`comprovante-pago-${nomeArquivo(relacao.cliente)}.pdf`);
   }
 
