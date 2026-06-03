@@ -1,4 +1,23 @@
 import { useState } from "react";
+import {
+  LayoutDashboard,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  ReceiptText,
+  Users,
+  AlertTriangle,
+  Boxes,
+  CalendarDays,
+  LineChart,
+  Bell,
+  FileDown,
+  FileUp,
+  FileText,
+  ShieldCheck,
+  DatabaseBackup,
+  UserCog,
+  Building2,
+} from "lucide-react";
 import { doc, setDoc } from "firebase/firestore";
 import {
   signOut,
@@ -121,6 +140,25 @@ export default function Sidebar({
   }
 
   const menus = [...menusBase, ...menusAdministrativos];
+  const iconesMenu = {
+  Dashboard: LayoutDashboard,
+  Entradas: ArrowDownCircle,
+  Saídas: ArrowUpCircle,
+  "Contas a Pagar": ReceiptText,
+  Clientes: Users,
+  "Pendências de Clientes": AlertTriangle,
+  "Controle de Estoque": Boxes,
+  "Relatório Diário": CalendarDays,
+  "Histórico Financeiro": LineChart,
+  Atualizações: Bell,
+  "Importar Entradas": FileDown,
+  "Importar Saídas": FileUp,
+  "Importar Contas": FileText,
+  "Histórico de Alterações": ShieldCheck,
+  Backups: DatabaseBackup,
+  "Gerenciar Acessos": UserCog,
+  "Dados da Empresa": Building2,
+};
 
   const botaoFerramenta = {
     width: "100%",
@@ -465,7 +503,21 @@ export default function Sidebar({
             }}
             style={aba === item ? styles.menuAtivo : styles.menu}
           >
-            {item}
+            <span
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  }}
+>
+  {(() => {
+    const Icone = iconesMenu[item];
+
+    return Icone ? <Icone size={19} strokeWidth={2.2} /> : null;
+  })()}
+
+  <span>{item}</span>
+</span>
           </button>
         ))}
       </div>
