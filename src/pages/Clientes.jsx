@@ -1,9 +1,23 @@
+import { useMemo, useState } from "react";
+
 import Card from "../components/Card.jsx";
 import Campo from "../components/Campo.jsx";
 import Tabela from "../components/Tabela.jsx";
 import Acoes from "../components/Acoes.jsx";
 
 import styles from "../styles/styles.js";
+
+const SERVICOS_PADRAO_CLIENTE = [
+  "PAR VEICULAR PADRÃO",
+  "MOTO PADRÃO",
+  "REBOQUE PADRÃO",
+  "PLACA AVULSA",
+  "PAR VEICULAR PRETA",
+  "PAR VEICULAR MINI",
+  "SUPORTE TRIÂNGULO MOTO",
+  "SUPORTE RESINA MOTO",
+  "SUPORTE RESINA CARRO",
+];
 
 export default function Clientes({
   clienteForm,
@@ -19,16 +33,17 @@ export default function Clientes({
   remover,
   dadosEmpresa = {},
 }) {
+  const [novoServico, setNovoServico] = useState("");
+  const [novoPreco, setNovoPreco] = useState("");
+
   function limparTelefone(telefone) {
     return String(telefone || "").replace(/\D/g, "");
   }
 
   function telefoneWhatsApp(telefone) {
     const numero = limparTelefone(telefone);
-
     if (!numero) return "";
     if (numero.startsWith("55")) return numero;
-
     return `55${numero}`;
   }
 
@@ -41,17 +56,109 @@ export default function Clientes({
     }
 
     const nome = cliente.nome || "cliente";
-    const nomeEmpresa = dadosEmpresa?.nome || "empresa"; 
+    const nomeEmpresa = dadosEmpresa?.nome || "empresa";
 
     const mensagens = {
-  atendimento: `Olá ${nome}, tudo bem? Aqui é da ${nomeEmpresa}. Estou entrando em contato para falar sobre seu atendimento.`,
-  placaPronta: `Olá ${nome}, tudo bem? Sua placa já está pronta para retirada. ${nomeEmpresa} agradece a preferência.`,
-  cobranca: `Olá ${nome}, tudo bem? Identificamos uma pendência financeira em aberto. Poderia verificar para regularizarmos?`,
-};
+      atendimento: `Olá ${nome}, tudo bem? Aqui é da ${nomeEmpresa}. Estou entrando em contato para falar sobre seu atendimento.`,
+      placaPronta: `Olá ${nome}, tudo bem? Sua placa já está pronta para retirada. ${nomeEmpresa} agradece a preferência.`,
+      cobranca: `Olá ${nome}, tudo bem? Identificamos uma pendência financeira em aberto. Poderia verificar para regularizarmos?`,
+    };
 
     const mensagem = encodeURIComponent(mensagens[tipo]);
-
     window.open(`https://wa.me/${telefone}?text=${mensagem}`, "_blank");
+  }
+
+  function montarPrecosServicos(cliente = {}) {
+    return {
+      ...(cliente.precosServicos || {}),
+
+      "PAR VEICULAR PADRÃO":
+        cliente.precosServicos?.["PAR VEICULAR PADRÃO"] ||
+        cliente.precoParVeicular ||
+        "",
+
+      "MOTO PADRÃO":
+        cliente.precosServicos?.["MOTO PADRÃO"] || cliente.precoMoto || "",
+
+      "REBOQUE PADRÃO":
+        cliente.precosServicos?.["REBOQUE PADRÃO"] ||
+        cliente.precoReboque ||
+        "",
+
+      "PLACA AVULSA":
+        cliente.precosServicos?.["PLACA AVULSA"] ||
+        cliente.precoReboque ||
+        "",
+
+      "PAR VEICULAR PRETA":
+        cliente.precosServicos?.["PAR VEICULAR PRETA"] ||
+        cliente.precoPlacaPreta ||
+        "",
+
+      "PAR VEICULAR MINI":
+        cliente.precosServicos?.["PAR VEICULAR MINI"] ||
+        cliente.precoMini ||
+        "",
+
+      "SUPORTE TRIÂNGULO MOTO":
+        cliente.precosServicos?.["SUPORTE TRIÂNGULO MOTO"] ||
+        cliente.precoSuporteTriangulo ||
+        "",
+
+      "SUPORTE RESINA MOTO":
+        cliente.precosServicos?.["SUPORTE RESINA MOTO"] ||
+        cliente.precoSuporteResinaMoto ||
+        "",
+
+      "SUPORTE RESINA CARRO":
+        cliente.precosServicos?.["SUPORTE RESINA CARRO"] ||
+        cliente.precoSuporteResinaCarro ||
+        "",
+    };
+  }
+
+  const precosServicosAtuais = useMemo(() => {
+    return montarPrecosServicos(clienteForm);
+  }, [clienteForm]);
+
+  function alterarPrecoServico(servico, valor) {
+    setClienteForm({
+      ...clienteForm,
+      precosServicos: {
+        ...(clienteForm.precosServicos || {}),
+        [servico]: valor,
+      },
+    });
+  }
+
+  function adicionarServicoCliente() {
+    const servico = String(novoServico || "").trim().toUpperCase();
+
+    if (!servico) {
+      alert("Informe o nome do serviço.");
+      return;
+    }
+
+    setClienteForm({
+      ...clienteForm,
+      precosServicos: {
+        ...(clienteForm.precosServicos || {}),
+        [servico]: novoPreco || "",
+      },
+    });
+
+    setNovoServico("");
+    setNovoPreco("");
+  }
+
+  function removerServicoCliente(servico) {
+    const precos = { ...(clienteForm.precosServicos || {}) };
+    delete precos[servico];
+
+    setClienteForm({
+      ...clienteForm,
+      precosServicos: precos,
+    });
   }
 
   function sincronizarClientesPelasEntradas() {
@@ -59,7 +166,6 @@ export default function Clientes({
 
     entradas.forEach((entrada) => {
       const nomeCliente = String(entrada.cliente || "").trim();
-
       if (!nomeCliente) return;
 
       const clienteExistente = clientesAtualizados.find(
@@ -72,6 +178,9 @@ export default function Clientes({
 
         clienteExistente.telefone =
           entrada.celular || clienteExistente.telefone || "";
+
+        clienteExistente.precosServicos =
+          clienteExistente.precosServicos || {};
       } else {
         clientesAtualizados.push({
           id: Date.now() + Math.random(),
@@ -88,7 +197,7 @@ export default function Clientes({
           precoSuporteResinaMoto: "",
           precoSuporteResinaCarro: "",
 
-          
+          precosServicos: {},
 
           telefone: entrada.celular || "",
           email: "",
@@ -98,14 +207,24 @@ export default function Clientes({
     });
 
     setClientes(clientesAtualizados);
-
     alert("Clientes sincronizados pelas entradas com sucesso.");
   }
 
   function formatarPreco(valor) {
     if (!valor) return "-";
-
     return `R$ ${Number(valor || 0).toFixed(2)}`;
+  }
+
+  function resumoPrecos(cliente) {
+    const precos = montarPrecosServicos(cliente);
+    const ativos = Object.entries(precos).filter(([, valor]) => valor);
+
+    if (ativos.length === 0) return "-";
+
+    return ativos
+      .slice(0, 4)
+      .map(([servico, valor]) => `${servico}: ${formatarPreco(valor)}`)
+      .join(" | ");
   }
 
   return (
@@ -152,73 +271,6 @@ export default function Clientes({
           />
 
           <Campo
-            label="Preço par veicular"
-            tipo="number"
-            valor={clienteForm.precoParVeicular}
-            mudar={(v) =>
-              setClienteForm({ ...clienteForm, precoParVeicular: v })
-            }
-          />
-
-          <Campo
-            label="Preço moto"
-            tipo="number"
-            valor={clienteForm.precoMoto}
-            mudar={(v) => setClienteForm({ ...clienteForm, precoMoto: v })}
-          />
-
-          <Campo
-            label="Preço reboque / avulsa"
-            tipo="number"
-            valor={clienteForm.precoReboque}
-            mudar={(v) => setClienteForm({ ...clienteForm, precoReboque: v })}
-          />
-
-          <Campo
-            label="Preço placa preta"
-            tipo="number"
-            valor={clienteForm.precoPlacaPreta}
-            mudar={(v) =>
-              setClienteForm({ ...clienteForm, precoPlacaPreta: v })
-            }
-          />
-
-          <Campo
-            label="Preço mini"
-            tipo="number"
-            valor={clienteForm.precoMini}
-            mudar={(v) => setClienteForm({ ...clienteForm, precoMini: v })}
-          />
-
-          <Campo
-            label="Suporte triângulo moto"
-            tipo="number"
-            valor={clienteForm.precoSuporteTriangulo}
-            mudar={(v) =>
-              setClienteForm({ ...clienteForm, precoSuporteTriangulo: v })
-            }
-          />
-
-          <Campo
-            label="Suporte resina moto"
-            tipo="number"
-            valor={clienteForm.precoSuporteResinaMoto}
-            mudar={(v) =>
-              setClienteForm({ ...clienteForm, precoSuporteResinaMoto: v })
-            }
-          />
-
-          <Campo
-            label="Suporte resina carro"
-            tipo="number"
-            valor={clienteForm.precoSuporteResinaCarro}
-            mudar={(v) =>
-              setClienteForm({ ...clienteForm, precoSuporteResinaCarro: v })
-            }
-          />
-
-          
-          <Campo
             label="Telefone"
             valor={clienteForm.telefone}
             mudar={(v) => setClienteForm({ ...clienteForm, telefone: v })}
@@ -235,7 +287,85 @@ export default function Clientes({
             valor={clienteForm.observacao}
             mudar={(v) => setClienteForm({ ...clienteForm, observacao: v })}
           />
+        </div>
 
+        <div
+          style={{
+            marginTop: 20,
+            padding: 16,
+            borderRadius: 14,
+            background: "rgba(15, 23, 42, 0.75)",
+            border: "1px solid rgba(148, 163, 184, 0.18)",
+          }}
+        >
+          <h3 style={{ marginTop: 0, marginBottom: 12 }}>
+            Preços por serviço
+          </h3>
+
+          <div style={{ display: "grid", gap: 10 }}>
+            {Object.entries(precosServicosAtuais).map(([servico, preco]) => (
+              <div
+                key={servico}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 160px 90px",
+                  gap: 10,
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>{servico}</div>
+
+                <Campo
+                  label=""
+                  tipo="number"
+                  valor={preco}
+                  mudar={(v) => alterarPrecoServico(servico, v)}
+                />
+
+                <button
+                  type="button"
+                  style={styles.excluir}
+                  onClick={() => removerServicoCliente(servico)}
+                >
+                  Remover
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 160px 110px",
+              gap: 10,
+              marginTop: 16,
+              alignItems: "end",
+            }}
+          >
+            <Campo
+              label="Novo serviço"
+              valor={novoServico}
+              mudar={setNovoServico}
+            />
+
+            <Campo
+              label="Preço"
+              tipo="number"
+              valor={novoPreco}
+              mudar={setNovoPreco}
+            />
+
+            <button
+              type="button"
+              style={styles.botao}
+              onClick={adicionarServicoCliente}
+            >
+              Adicionar
+            </button>
+          </div>
+        </div>
+
+        <div style={{ ...styles.formGrid, marginTop: 18 }}>
           <button style={styles.botao} onClick={salvarCliente}>
             {editando.tipo === "cliente" ? "Salvar edição" : "Adicionar"}
           </button>
@@ -248,28 +378,11 @@ export default function Clientes({
         </div>
 
         <Tabela
-          colunas={[
-            "Nome",
-            "Tipo",
-            "Par",
-            "Moto",
-            "Reboque",
-            "Preta",
-            "Mini",
-            
-            "Telefone",
-            "WhatsApp",
-            "Ações",
-          ]}
+          colunas={["Nome", "Tipo", "Preços", "Telefone", "WhatsApp", "Ações"]}
           dados={clientes.map((cliente) => [
             cliente.nome,
             cliente.tipoCliente,
-            formatarPreco(cliente.precoParVeicular),
-            formatarPreco(cliente.precoMoto),
-            formatarPreco(cliente.precoReboque),
-            formatarPreco(cliente.precoPlacaPreta),
-            formatarPreco(cliente.precoMini),
-            
+            resumoPrecos(cliente),
             cliente.telefone,
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <button
@@ -294,7 +407,12 @@ export default function Clientes({
               </button>
             </div>,
             <Acoes
-              editar={() => editar("cliente", cliente)}
+              editar={() =>
+                editar("cliente", {
+                  ...cliente,
+                  precosServicos: montarPrecosServicos(cliente),
+                })
+              }
               excluir={() => remover("cliente", cliente.id)}
             />,
           ])}

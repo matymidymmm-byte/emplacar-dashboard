@@ -1014,6 +1014,7 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
     precoRibbonCarro2x: "",
     precoRibbonMoto1x: "",
     precoRibbonMoto2x: "",
+    precosServicos: {},
 
     telefone: "",
     email: "",
@@ -1433,13 +1434,30 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
 
     cancelarEdicao();
   }
+function montarPrecosServicosCliente(cliente) {
+  return {
+    ...(cliente.precosServicos || {}),
 
+    "PAR VEICULAR PADRÃO": cliente.precoParVeicular || "",
+    "MOTO PADRÃO": cliente.precoMoto || "",
+    "REBOQUE PADRÃO": cliente.precoReboque || "",
+    "PLACA AVULSA": cliente.precoReboque || "",
+    "PAR VEICULAR PRETA": cliente.precoPlacaPreta || "",
+    "PAR VEICULAR MINI": cliente.precoMini || "",
+
+    "SUPORTE TRIÂNGULO MOTO": cliente.precoSuporteTriangulo || "",
+    "SUPORTE RESINA MOTO": cliente.precoSuporteResinaMoto || "",
+    "SUPORTE RESINA CARRO": cliente.precoSuporteResinaCarro || "",
+  };
+}
   function salvarCliente() {
     const novo = {
-      ...clienteForm,
-      id: editando.tipo === "cliente" ? editando.id : Date.now(),
-    };
+  ...clienteForm,
 
+ precosServicos: montarPrecosServicosCliente(clienteForm), 
+
+  id: editando.tipo === "cliente" ? editando.id : Date.now(),
+};
     if (editando.tipo === "cliente") {
       setClientes((old) => old.map((x) => (x.id === editando.id ? novo : x)));
     } else {

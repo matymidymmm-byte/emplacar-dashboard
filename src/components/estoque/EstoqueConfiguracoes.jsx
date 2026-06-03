@@ -9,6 +9,11 @@ export default function EstoqueConfiguracoes({
   novoProdutoEstoque,
   setNovoProdutoEstoque,
   adicionarProdutoPersonalizado,
+  produtosEstoquePersonalizados = [],
+removerProdutoPersonalizado,
+
+servicosSimulacaoEstoque = [],
+removerServicoSimulacao,
 
   novoFornecedor,
   setNovoFornecedor,
@@ -276,7 +281,38 @@ export default function EstoqueConfiguracoes({
           ])}
         />
       </Card>
+<Card titulo="Produtos e serviços personalizados">
+  <Tabela
+    colunas={["Tipo", "Nome", "Ações"]}
+    dados={[
+      ...produtosEstoquePersonalizados.map((produto) => [
+        "Produto",
+        produto,
+        admin && (
+          <button
+            style={styles.excluir}
+            onClick={() => removerProdutoPersonalizado(produto)}
+          >
+            Excluir
+          </button>
+        ),
+      ]),
 
+      ...servicosSimulacaoEstoque.map((servico) => [
+        "Serviço",
+        servico,
+        admin && (
+          <button
+            style={styles.excluir}
+            onClick={() => removerServicoSimulacao(servico)}
+          >
+            Excluir
+          </button>
+        ),
+      ]),
+    ]}
+  />
+</Card>
       <Card titulo="Parâmetros cadastrados">
         <Tabela
           colunas={[

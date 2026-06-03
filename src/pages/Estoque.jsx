@@ -758,6 +758,19 @@ function regrasDoServico(produtoServico) {
   function precoClientePorServico(cliente, tipoServico) {
   if (!cliente) return 0;
 
+  const servico = identificarServicoEstoque(tipoServico);
+  const precosServicos = cliente.precosServicos || {};
+
+  const precoDinamico =
+    precosServicos[servico] ||
+    precosServicos[norm(servico)] ||
+    precosServicos[tipoServico] ||
+    precosServicos[norm(tipoServico)];
+
+  if (precoDinamico) {
+    return lerPreco(precoDinamico);
+  }
+
   const tipo = norm(tipoServico);
 
   if (tipo.includes("SUPORTE TRIANGULO"))
@@ -770,7 +783,7 @@ function regrasDoServico(produtoServico) {
     return lerPreco(cliente.precoSuporteResinaCarro);
 
   if (tipo.includes("PLACA AVULSA"))
-    return lerPreco(cliente.precoPlacaAvulsa);
+    return lerPreco(cliente.precoReboque);
 
   if (tipo.includes("MOTO"))
     return lerPreco(cliente.precoMoto);
@@ -1701,7 +1714,60 @@ console.log("VALOR TOTAL:", comprasMesValor);
   
 
   
+function removerProdutoPersonalizado(produto) {
+  if (!admin) {
+    alert("Apenas administrador pode excluir produto personalizado.");
+    return;
+  }
 
+  if (!confirm(`Excluir o produto personalizado "${produto}"?`)) return;
+
+  setProdutosEstoquePersonalizados((old) =>
+    old.filter((item) => norm(item) !== norm(produto))
+  );
+
+  setMinimosEstoqueConfigurados((old) => {
+    const novo = { ...old };
+    delete novo[produto];
+    return novo;
+  });
+
+  registrarMovimentacaoEstoque({
+    tipo: "EXCLUSÃO",
+    origem: "Produto personalizado",
+    produto,
+    quantidade: 0,
+    motivo: "Produto personalizado excluído",
+  });
+}
+
+function removerServicoSimulacao(servico) {
+  if (!admin) {
+    alert("Apenas administrador pode excluir serviço personalizado.");
+    return;
+  }
+
+  if (!confirm(`Excluir o serviço personalizado "${servico}"?`)) return;
+
+  setServicosSimulacaoEstoque((old) =>
+    old.filter((item) => norm(item) !== norm(servico))
+  );
+
+  setMinimosEstoqueConfigurados((old) => ({
+    ...old,
+    __regrasConsumoServicos: regrasConsumoEmpresa.filter(
+      (regra) => norm(regra.servico) !== norm(servico)
+    ),
+  }));
+
+  registrarMovimentacaoEstoque({
+    tipo: "EXCLUSÃO",
+    origem: "Serviço personalizado",
+    produto: servico,
+    quantidade: 0,
+    motivo: "Serviço personalizado excluído",
+  });
+}
   function BotoesAbas() {
     const abas = [
       ["RAPIDA", "📦 Visão Rápida"],
@@ -1795,6 +1861,11 @@ console.log("VALOR TOTAL:", comprasMesValor);
     novoProdutoEstoque={novoProdutoEstoque}
     setNovoProdutoEstoque={setNovoProdutoEstoque}
     adicionarProdutoPersonalizado={adicionarProdutoPersonalizado}
+    produtosEstoquePersonalizados={produtosEstoquePersonalizados}
+  removerProdutoPersonalizado={removerProdutoPersonalizado}
+
+  servicosSimulacaoEstoque={servicosSimulacaoEstoque}
+  removerServicoSimulacao={removerServicoSimulacao}
 
     novoFornecedor={novoFornecedor}
     setNovoFornecedor={setNovoFornecedor}
