@@ -36,7 +36,7 @@ export default function EstoqueMovimentacoes({
 }) {
   return (
     <>
-      <div style={styles.grid2}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <Card
           titulo={
             editandoCompraId
@@ -114,8 +114,8 @@ export default function EstoqueMovimentacoes({
             )}
 
             <Campo
-              label="Custo total da compra"
-              tipo="number"
+  label="Custo total da compra"
+  tipo="text"
               valor={compraEstoqueForm.custoTotal || ""}
               mudar={(v) =>
                 setCompraEstoqueForm({ ...compraEstoqueForm, custoTotal: v })
@@ -198,7 +198,7 @@ export default function EstoqueMovimentacoes({
         </Card>
       </div>
 
-      <div style={styles.grid2}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <Card titulo="Histórico de compras">
           <Tabela
             colunas={[

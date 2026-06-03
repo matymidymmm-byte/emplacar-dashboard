@@ -31,6 +31,7 @@ const PRODUTOS_INICIAIS_ESTOQUE = [
   "RIBBON BRANCO",
   "RIBBON AZUL",
   "RIBBON VERDE",
+  "RIBBON AMARELO",
 ];
 
 const SERVICOS_INICIAIS_SIMULACAO = [
@@ -57,7 +58,43 @@ const REGRAS_CONSUMO_PADRAO = [
     insumo: "VEICULAR PADRÃO",
     quantidade: 2,
     aplicarMultiplicadorRibbon: false,
+    
   },
+  {
+  id: "padrao-par-mini",
+  servico: "PAR VEICULAR MINI",
+  insumo: "VEICULAR MINI",
+  quantidade: 2,
+  aplicarMultiplicadorRibbon: false,
+},
+{
+  id: "padrao-placa-teste-personalizada",
+  servico: "PLACA TESTE / PERSONALIZADA",
+  insumo: "PLACA TESTE / PERSONALIZADA",
+  quantidade: 1,
+  aplicarMultiplicadorRibbon: false,
+},
+{
+  id: "padrao-par-mini-ribbon",
+  servico: "PAR VEICULAR MINI",
+  insumo: "RIBBON PRETO",
+  quantidade: 0.4,
+  aplicarMultiplicadorRibbon: true,
+},
+{
+  id: "padrao-par-mini-mini",
+  servico: "PAR VEICULAR MINI-MINI",
+  insumo: "VEICULAR MINI-MINI",
+  quantidade: 2,
+  aplicarMultiplicadorRibbon: false,
+},
+{
+  id: "padrao-par-mini-mini-ribbon",
+  servico: "PAR VEICULAR MINI-MINI",
+  insumo: "RIBBON PRETO",
+  quantidade: 0.4,
+  aplicarMultiplicadorRibbon: true,
+},
   {
     id: "padrao-par-veicular-ribbon",
     servico: "PAR VEICULAR PADRÃO",
@@ -260,19 +297,20 @@ export default function Estoque({
     "Usuário não identificado";
 
   function n(valor) {
-    if (typeof numero === "function") return numero(valor);
+  if (typeof valor === "number") return valor;
 
-    return (
-      Number(
-        String(valor || "")
-          .replace("R$", "")
-          .replace(/\s/g, "")
-          .replace(/\./g, "")
-          .replace(",", ".")
-      ) || 0
-    );
-  }
+  if (typeof numero === "function") return numero(valor);
 
+  return (
+    Number(
+      String(valor || "")
+        .replace("R$", "")
+        .replace(/\s/g, "")
+        .replace(/\./g, "")
+        .replace(",", ".")
+    ) || 0
+  );
+}
   function norm(valor) {
     if (typeof normalizar === "function") return normalizar(valor || "");
 
@@ -325,7 +363,57 @@ export default function Estoque({
   function ehRibbon(produto) {
     return norm(produto).includes("RIBBON");
   }
+function categoriaParaRibbon(categoriaPlaca, produtoServico = "") {
+  const texto = norm(`${produtoServico} ${categoriaPlaca}`);
 
+  if (
+    texto.includes("COMERCIAL") ||
+    texto.includes("ALUGUEL") ||
+    texto.includes("LOCADORA") ||
+    texto.includes("RENTAL")
+  ) {
+    return "RIBBON VERMELHO";
+  }
+
+  if (
+    texto.includes("OFICIAL") ||
+    texto.includes("GOVERNO") ||
+    texto.includes("PREFEITURA") ||
+    texto.includes("ESTADO") ||
+    texto.includes("MUNICIPAL") ||
+    texto.includes("FEDERAL")
+  ) {
+    return "RIBBON AZUL";
+  }
+
+  if (
+    texto.includes("ESPECIAL") ||
+    texto.includes("PCD") ||
+    texto.includes("DEFICIENTE")
+  ) {
+    return "RIBBON VERDE";
+  }
+
+  if (
+    texto.includes("COLECIONADOR") ||
+    texto.includes("COLECAO") ||
+    texto.includes("COLEÇÃO") ||
+    texto.includes("PRETA") ||
+    texto.includes("BLACK")
+  ) {
+    return "RIBBON BRANCO";
+  }
+
+  if (
+    texto.includes("DIPLOMATICO") ||
+    texto.includes("DIPLOMÁTICO") ||
+    texto.includes("CONSULAR")
+  ) {
+    return "RIBBON AMARELO";
+  }
+
+  return "RIBBON PRETO";
+}
   
 
   function normalizarProdutoEstoque(produto) {
@@ -479,61 +567,174 @@ alertaCritico: ehRibbon(chave) ? n(bruto.alertaCritico) : 0,
  
 
   function servicoCombina(servicoEntrada, servicoRegra) {
-    const entrada = norm(servicoEntrada);
-    const regra = norm(servicoRegra);
+  const entrada = norm(servicoEntrada);
+  const regra = norm(servicoRegra);
 
-    if (!entrada || !regra) return false;
+  if (!entrada || !regra) return false;
 
-    return entrada.includes(regra) || regra.includes(entrada);
+  return entrada.includes(regra) || regra.includes(entrada);
+}
+
+function identificarServicoEstoque(produtoServico) {
+  const p = norm(produtoServico);
+
+  const ehColecao =
+    p.includes("COLECAO") ||
+    p.includes("COLEÇÃO");
+
+  const ehPreta =
+    p.includes("PRETA") ||
+    p.includes("PLACA PRETA") ||
+    ehColecao;
+
+const ehMiniMini =
+  p.includes("MINI MINI") ||
+  p.includes("MINI-MINI") ||
+  p.includes("MINIMINI") ||
+  p.includes("MINI COMPACTA") ||
+  p.includes("MINI-COMPACTA") ||
+  p.includes("COMPACTA");
+
+const ehMini =
+  (
+    p.includes("MINI") ||
+    p.includes("PLACA MINI") ||
+    p.includes("PAR MINI")
+  ) &&
+  !ehMiniMini;
+  const ehMoto =
+    p.includes("MOTO") ||
+    p.includes("MOTOCICLETA") ||
+    p.includes("MOTONETA") ||
+    p.includes("CICLOMOTOR");
+
+  const ehReboque =
+    p.includes("REBOQUE") ||
+    p.includes("CARRETINHA") ||
+    p.includes("CARRETA") ||
+    p.includes("DOLLY") ||
+    p.includes("SEMI REBOQUE") ||
+    p.includes("SEMI-REBOQUE");
+
+  const ehAvulsa =
+    p.includes("AVULSA") ||
+    p.includes("DIANTEIRA") ||
+    p.includes("TRASEIRA") ||
+    p.includes("SEGUNDA VIA") ||
+    p.includes("2 VIA") ||
+    p.includes("1 PLACA") ||
+    p.includes("UMA PLACA");
+
+  const ehParVeicular =
+    p.includes("PAR") ||
+    p.includes("CARRO") ||
+    p.includes("CAMINHAO") ||
+    p.includes("CAMINHONETE") ||
+    p.includes("UTILITARIO") ||
+    p.includes("UTILITÁRIO") ||
+    p.includes("AUTOMOVEL") ||
+    p.includes("AUTOMÓVEL") ||
+    p.includes("VEICULAR") ||
+    p.includes("MERCOSUL") ||
+    p.includes("PLACAS") ||
+    p.includes("PLACA CARRO");
+
+  if (p.includes("SUPORTE TRIANGULO") || p.includes("SUPORTE TRIÂNGULO")) {
+    return "SUPORTE TRIÂNGULO MOTO";
   }
 
-  function regrasDoServico(produtoServico) {
-    const regras = regrasConsumoEmpresa.filter((regra) =>
-      servicoCombina(produtoServico, regra.servico)
-    );
-
-    if (regras.length > 0) return regras;
-
-    const p = norm(produtoServico);
-
-    if (p.includes("SUPORTE TRIANGULO")) {
-      return [
-        {
-          id: criarId(),
-          servico: produtoServico,
-          insumo: "SUPORTE TRIÂNGULO MOTO",
-          quantidade: 1,
-          aplicarMultiplicadorRibbon: false,
-        },
-      ];
-    }
-
-    if (p.includes("SUPORTE RESINA") && p.includes("MOTO")) {
-      return [
-        {
-          id: criarId(),
-          servico: produtoServico,
-          insumo: "SUPORTE RESINA MOTO",
-          quantidade: 1,
-          aplicarMultiplicadorRibbon: false,
-        },
-      ];
-    }
-
-    if (p.includes("SUPORTE RESINA")) {
-      return [
-        {
-          id: criarId(),
-          servico: produtoServico,
-          insumo: "SUPORTE RESINA CARRO",
-          quantidade: 1,
-          aplicarMultiplicadorRibbon: false,
-        },
-      ];
-    }
-
-    return [];
+  if (p.includes("SUPORTE RESINA") && ehMoto) {
+    return "SUPORTE RESINA MOTO";
   }
+
+  if (p.includes("SUPORTE RESINA")) {
+    return "SUPORTE RESINA CARRO";
+  }
+
+  if (ehMoto) {
+    if (ehPreta) return "MOTO PRETA";
+    if (ehMini) return "MOTO MINI";
+    return "MOTO PADRÃO";
+  }
+
+  if (ehReboque) {
+    if (ehPreta) return "REBOQUE PRETA";
+    if (ehMini) return "REBOQUE MINI";
+    return "REBOQUE PADRÃO";
+  }
+
+  if (ehAvulsa) {
+    if (ehPreta) return "PAR VEICULAR PRETA";
+    return "PLACA AVULSA";
+  }
+
+ if (ehParVeicular) {
+  
+
+  if (ehPreta) return "PAR VEICULAR PRETA";
+  if (ehMiniMini) return "PAR VEICULAR MINI-MINI";
+  if (ehMini) return "PAR VEICULAR MINI";
+  return "PAR VEICULAR PADRÃO";
+}
+
+  return produtoServico;
+}
+function regrasDoServico(produtoServico) {
+  const servicoInteligente = identificarServicoEstoque(produtoServico);
+  const servicoNormalizado = norm(servicoInteligente);
+
+  const regrasExatas = regrasConsumoEmpresa.filter(
+    (regra) => norm(regra.servico) === servicoNormalizado
+  );
+
+  if (regrasExatas.length > 0) return regrasExatas;
+
+  const regras = regrasConsumoEmpresa.filter((regra) =>
+    servicoCombina(servicoInteligente, regra.servico)
+  );
+
+  if (regras.length > 0) return regras;
+
+  const p = norm(servicoInteligente);
+
+  if (p.includes("SUPORTE TRIANGULO")) {
+    return [
+      {
+        id: criarId(),
+        servico: produtoServico,
+        insumo: "SUPORTE TRIÂNGULO MOTO",
+        quantidade: 1,
+        aplicarMultiplicadorRibbon: false,
+      },
+    ];
+  }
+
+  if (p.includes("SUPORTE RESINA") && p.includes("MOTO")) {
+    return [
+      {
+        id: criarId(),
+        servico: produtoServico,
+        insumo: "SUPORTE RESINA MOTO",
+        quantidade: 1,
+        aplicarMultiplicadorRibbon: false,
+      },
+    ];
+  }
+
+  if (p.includes("SUPORTE RESINA")) {
+    return [
+      {
+        id: criarId(),
+        servico: produtoServico,
+        insumo: "SUPORTE RESINA CARRO",
+        quantidade: 1,
+        aplicarMultiplicadorRibbon: false,
+      },
+    ];
+  }
+
+  return [];
+}
 
   function calcularConsumoSimulacao(tipo) {
     const regras = regrasDoServico(tipo);
@@ -555,18 +756,36 @@ alertaCritico: ehRibbon(chave) ? n(bruto.alertaCritico) : 0,
   }
 
   function precoClientePorServico(cliente, tipoServico) {
-    if (!cliente) return 0;
+  if (!cliente) return 0;
 
-    const tipo = norm(tipoServico);
+  const tipo = norm(tipoServico);
 
-    if (tipo.includes("MOTO")) return lerPreco(cliente.precoMoto);
-    if (tipo.includes("REBOQUE")) return lerPreco(cliente.precoReboque);
-    if (tipo.includes("PRETA")) return lerPreco(cliente.precoPlacaPreta);
-    if (tipo.includes("MINI")) return lerPreco(cliente.precoMini);
+  if (tipo.includes("SUPORTE TRIANGULO"))
+    return lerPreco(cliente.precoSuporteTriangulo);
 
-    return lerPreco(cliente.precoParVeicular);
-  }
+  if (tipo.includes("SUPORTE RESINA MOTO"))
+    return lerPreco(cliente.precoSuporteResinaMoto);
 
+  if (tipo.includes("SUPORTE RESINA CARRO"))
+    return lerPreco(cliente.precoSuporteResinaCarro);
+
+  if (tipo.includes("PLACA AVULSA"))
+    return lerPreco(cliente.precoPlacaAvulsa);
+
+  if (tipo.includes("MOTO"))
+    return lerPreco(cliente.precoMoto);
+
+  if (tipo.includes("REBOQUE"))
+    return lerPreco(cliente.precoReboque);
+
+  if (tipo.includes("PRETA"))
+    return lerPreco(cliente.precoPlacaPreta);
+
+  if (tipo.includes("MINI"))
+    return lerPreco(cliente.precoMini);
+
+  return lerPreco(cliente.precoParVeicular);
+}
   function registrarMovimentacaoEstoque(movimento) {
     const item = {
       id: criarId(),
@@ -1003,35 +1222,66 @@ alertaCritico: ehRibbon(chave) ? n(bruto.alertaCritico) : 0,
   }
 
   const usosEstoqueServicos = useMemo(() => {
-    return entradas.flatMap((entrada) => {
-      const regras = regrasDoServico(entrada.produto);
+  return entradas.flatMap((entrada) => {
+    const regrasDoBlank = regrasDoServico(entrada.produto).filter(
+      (regra) => !ehRibbon(regra.insumo)
+    );
 
-      return regras.map((regra) => {
-        const insumo = normalizarProdutoEstoque(regra.insumo);
+    const regrasRibbon = regrasDoBlank
+      .filter((regra) => {
+        const insumo = norm(regra.insumo);
 
-        const multiplicador =
-          regra.aplicarMultiplicadorRibbon && ehRibbon(insumo)
-            ? modoRibbonPadrao === "2X"
-              ? 2
-              : 1
-            : 1;
+        return (
+          insumo.includes("VEICULAR") ||
+          insumo.includes("MOTO") ||
+          insumo.includes("PLACA")
+        );
+      })
+      .map((regra) => {
+        const quantidadeBlank = n(regra.quantidade);
+        const quantidadeRibbonBase = quantidadeBlank >= 2 ? 0.4 : 0.2;
 
         return {
-          id: `${entrada.id || `${entrada.data}-${entrada.cliente}-${entrada.placa}`}-${regra.id}`,
-          data: entrada.data,
-          cliente: entrada.cliente,
-          produtoServico: entrada.produto,
-          placa: entrada.placa,
-          itemEstoque: insumo,
-          quantidade: n(regra.quantidade) * multiplicador,
-          origem: "Venda / serviço",
-          tipoUso: ehRibbon(insumo) ? "RIBBON" : "INSUMO FÍSICO",
-          regraServico: regra.servico,
-          multiplicadorRibbon: multiplicador,
+          id: `${regra.id}-ribbon-categoria`,
+          servico: regra.servico,
+          insumo: categoriaParaRibbon(
+  entrada.categoriaPlaca,
+  entrada.produto
+),
+          quantidade: quantidadeRibbonBase,
+          aplicarMultiplicadorRibbon: true,
         };
       });
+
+    const regras = [...regrasDoBlank, ...regrasRibbon];
+
+    return regras.map((regra) => {
+      const insumo = normalizarProdutoEstoque(regra.insumo);
+
+      const multiplicador =
+        regra.aplicarMultiplicadorRibbon && ehRibbon(insumo)
+          ? modoRibbonPadrao === "2X"
+            ? 2
+            : 1
+          : 1;
+
+      return {
+        id: `${entrada.id || `${entrada.data}-${entrada.cliente}-${entrada.placa}`}-${regra.id}`,
+        data: entrada.data,
+        cliente: entrada.cliente,
+        produtoServico: entrada.produto,
+        categoriaPlaca: entrada.categoriaPlaca || "",
+        placa: entrada.placa,
+        itemEstoque: insumo,
+        quantidade: n(regra.quantidade) * multiplicador,
+        origem: "Venda / serviço",
+        tipoUso: ehRibbon(insumo) ? "RIBBON" : "INSUMO FÍSICO",
+        regraServico: regra.servico,
+        multiplicadorRibbon: multiplicador,
+      };
     });
-  }, [entradas, regrasConsumoEmpresa, modoRibbonPadrao]);
+  });
+}, [entradas, regrasConsumoEmpresa, modoRibbonPadrao]);
 
   const estoqueResumo = useMemo(() => {
     const resumoBase = produtosDisponiveisEstoque.map((produto) => {
@@ -1269,11 +1519,14 @@ alertaCritico: ehRibbon(chave) ? n(bruto.alertaCritico) : 0,
   }, [estoqueCompras, usosEstoqueServicos, estoquePerdas, movimentacoesEstoque]);
 
   const movimentacoesReais = livroMovimentacoes.filter(
-    (item) =>
+  (item) =>
+    !String(item.id || "").startsWith("auditoria-") &&
+    (
       item.tipo === "ENTRADA" ||
       item.tipo === "SAÍDA" ||
       item.tipo === "PERDA"
-  );
+    )
+);
 
   const auditoriaEstoque = livroMovimentacoes.filter(
     (item) =>
@@ -1342,6 +1595,9 @@ alertaCritico: ehRibbon(chave) ? n(bruto.alertaCritico) : 0,
     (soma, item) => soma + n(item.valor),
     0
   );
+  console.log("FILTRO:", filtroDashboard);
+console.log("COMPRAS PERÍODO:", comprasPeriodo);
+console.log("VALOR TOTAL:", comprasMesValor);
 
   const consumoMesQuantidade = consumoPeriodo.reduce(
     (soma, item) => soma + n(item.quantidade),

@@ -173,8 +173,8 @@ export default function CardEstoque({
             }}
           >
             {item.compras.toFixed(
-              ehRibbon(item.produto) ? 1 : 0
-            )}
+  ehRibbon(item.produto) ? 1 : 0
+)} {item.unidade}
           </div>
         </div>
 
@@ -190,8 +190,8 @@ export default function CardEstoque({
             }}
           >
             {item.usadoEmServicos.toFixed(
-              ehRibbon(item.produto) ? 1 : 0
-            )}
+  ehRibbon(item.produto) ? 1 : 0
+)} {item.unidade}
           </div>
         </div>
 

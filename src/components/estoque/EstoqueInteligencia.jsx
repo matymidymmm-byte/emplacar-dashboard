@@ -72,44 +72,47 @@ export default function EstoqueInteligencia({
 
         <div style={styles.kpis}>
           <Kpi
-            titulo="Compras do período"
-            valor={`${comprasMesQuantidade.toFixed(0)} un/m`}
-          />
+  titulo="Valor comprado"
+  valor={moeda.format(comprasMesValor)}
+/>
 
-          <Kpi
-            titulo="Valor comprado"
-            valor={moeda.format(comprasMesValor)}
-          />
+<Kpi
+  titulo="Valor atual do estoque"
+  valor={moeda.format(
+    tabelaGerencialEstoque.reduce(
+      (soma, item) => soma + (item.valorAtual || 0),
+      0
+    )
+  )}
+/>
 
-          <Kpi
-            titulo="Consumo do período"
-            valor={`${consumoMesQuantidade.toFixed(0)} un/m`}
-          />
+<Kpi
+  titulo="Produtos cadastrados"
+  valor={tabelaGerencialEstoque.length}
+/>
 
-          <Kpi
-            titulo="Perdas do período"
-            valor={`${perdasMesQuantidade.toFixed(0)} un/m`}
-          />
+<Kpi
+  titulo="Itens críticos"
+  valor={
+    tabelaGerencialEstoque.filter(
+      (item) => item.status === "CRÍTICO"
+    ).length
+  }
+/>
 
-          <Kpi
-            titulo="Valor perdas geral"
-            valor={moeda.format(valorPerdasGeral)}
-          />
+<Kpi
+  titulo="Valor perdas geral"
+  valor={moeda.format(valorPerdasGeral)}
+/>
 
-          <Kpi
-            titulo="Total comprado"
-            valor={`${totalCompras.toFixed(0)} un/m`}
-          />
-
-          <Kpi
-            titulo="Total usado"
-            valor={`${totalUsado.toFixed(0)} un/m`}
-          />
-
-          <Kpi
-            titulo="Total perdas"
-            valor={`${totalPerdas.toFixed(0)} un/m`}
-          />
+<Kpi
+  titulo="Produtos com estoque"
+  valor={
+    tabelaGerencialEstoque.filter(
+      (item) => item.saldoDisponivel > 0
+    ).length
+  }
+/>
         </div>
       </Card>
 
@@ -124,7 +127,7 @@ export default function EstoqueInteligencia({
             ]}
             dados={paretoConsumo.map((item) => [
               item.produto,
-              item.quantidade,
+              Number(item.quantidade || 0).toFixed(2),
               `${item.percentual.toFixed(1)}%`,
               `${item.acumulado.toFixed(1)}%`,
             ])}
