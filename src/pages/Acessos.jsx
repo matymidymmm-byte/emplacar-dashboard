@@ -22,6 +22,8 @@ export default function Acessos({
   usuariosOnline = [],
   empresaId,
   usuario,
+  dadosEmpresa = {},
+  setDadosEmpresa = () => {},
   nivelAcesso = "socio",
   ehSuperadmin = false,
   ehAdmin = false,
@@ -31,6 +33,8 @@ export default function Acessos({
   const [nivel, setNivel] = useState("socio");
   const [status, setStatus] = useState("aprovado");
   const [editandoEmail, setEditandoEmail] = useState("");
+  const [copiandoConvite, setCopiandoConvite] = useState(false);
+  const [gerandoConvite, setGerandoConvite] = useState(false);
 
   const podeGerenciar = ehSuperadmin || ehAdmin;
   const usuarioEmail = usuario?.email || "Usuário não identificado";
@@ -91,6 +95,87 @@ export default function Acessos({
     }
   }
 
+  function gerarCodigoConviteNovo() {
+    const caracteres = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let codigo = "NXR-";
+
+    for (let i = 0; i < 6; i++) {
+      codigo += caracteres.charAt(
+        Math.floor(Math.random() * caracteres.length)
+      );
+    }
+
+    return codigo;
+  }
+
+  async function salvarCodigoConvite(codigo) {
+    await setDoc(
+      doc(db, "empresas", empresaId),
+      {
+        empresaId,
+        nome: dadosEmpresa?.nome || "",
+        codigoConvite: codigo,
+        atualizadoEm: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    await setDoc(
+      doc(db, "empresas", empresaId, "sistema", "dados"),
+      {
+        codigoConvite: codigo,
+      },
+      { merge: true }
+    );
+
+    setDadosEmpresa((old) => ({
+      ...old,
+      codigoConvite: codigo,
+    }));
+  }
+
+  async function gerarConvite() {
+    if (!podeGerenciar) return;
+
+    try {
+      setGerandoConvite(true);
+
+      const novoCodigo = gerarCodigoConviteNovo();
+
+      await salvarCodigoConvite(novoCodigo);
+
+      await navigator.clipboard.writeText(novoCodigo);
+
+      await registrarAuditoria({
+        tipo: "CONVITE",
+        descricao: `Novo código convite gerado e copiado: ${novoCodigo}`,
+        risco: "MÉDIO",
+      });
+
+      alert(`Convite gerado e copiado: ${novoCodigo}`);
+    } catch (erro) {
+      console.error(erro);
+      alert("Erro ao gerar convite.");
+    } finally {
+      setGerandoConvite(false);
+    }
+  }
+
+  async function copiarConvite() {
+    if (!dadosEmpresa?.codigoConvite) {
+      alert("Nenhum convite gerado.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(dadosEmpresa.codigoConvite);
+
+    setCopiandoConvite(true);
+
+    setTimeout(() => {
+      setCopiandoConvite(false);
+    }, 1800);
+  }
+
   function criarExecucaoGovernanca() {
     const agora = new Date();
     const executarEm = new Date(agora.getTime() + PRAZO_GOVERNANCA_MS);
@@ -144,31 +229,14 @@ export default function Acessos({
   function podeBloquearImediato(item) {
     if (!podeGerenciar) return false;
     if (ehItemSuperadmin(item)) return false;
-
-    if (ehItemAdmin(item)) {
-      return ehSuperadmin;
-    }
-
+    if (ehItemAdmin(item)) return ehSuperadmin;
     return true;
   }
 
   function podeExcluirImediato(item) {
     if (!podeGerenciar) return false;
     if (ehItemSuperadmin(item)) return false;
-
-    if (ehItemAdmin(item)) {
-      return ehSuperadmin;
-    }
-
-    return true;
-  }
-
-  function podeSolicitarGovernancaAdmin(item) {
-    if (!ehAdmin) return false;
-    if (ehSuperadmin) return false;
-    if (!ehItemAdmin(item)) return false;
-    if (ehItemSuperadmin(item)) return false;
-
+    if (ehItemAdmin(item)) return ehSuperadmin;
     return true;
   }
 
@@ -220,32 +288,13 @@ export default function Acessos({
       { merge: true }
     );
 
-    if (acessoExistente) {
-      const alteracoes = [];
-
-      if (acessoExistente.nivel !== nivel) {
-        alteracoes.push(`Nível: ${acessoExistente.nivel} → ${nivel}`);
-      }
-
-      if (acessoExistente.status !== status) {
-        alteracoes.push(`Status: ${acessoExistente.status} → ${status}`);
-      }
-
-      await registrarAuditoria({
-        tipo: "EDIÇÃO",
-        descricao:
-          alteracoes.length > 0
-            ? `Acesso editado: ${emailLimpo} | ${alteracoes.join(" | ")}`
-            : `Acesso editado: ${emailLimpo} | sem alteração de nível/status`,
-        risco: "MÉDIO",
-      });
-    } else {
-      await registrarAuditoria({
-        tipo: "CRIAÇÃO",
-        descricao: `Novo acesso criado: ${emailLimpo} | nível: ${nivel} | status: ${status}`,
-        risco: "MÉDIO",
-      });
-    }
+    await registrarAuditoria({
+      tipo: acessoExistente ? "EDIÇÃO" : "CRIAÇÃO",
+      descricao: acessoExistente
+        ? `Acesso editado: ${emailLimpo} | nível: ${nivel} | status: ${status}`
+        : `Novo acesso criado: ${emailLimpo} | nível: ${nivel} | status: ${status}`,
+      risco: "MÉDIO",
+    });
 
     limparFormulario();
   }
@@ -258,18 +307,7 @@ export default function Acessos({
       return;
     }
 
-    if (ehItemAdmin(item) && !ehSuperadmin) {
-      await solicitarBloqueioAdmin(item);
-      return;
-    }
-
     if (!podeBloquearImediato(item)) return;
-
-    await registrarAuditoria({
-      tipo: "SEGURANÇA",
-      descricao: `Usuário bloqueado: ${emailItem}`,
-      risco: "ALTO",
-    });
 
     const dadosAtualizados = {
       ...item,
@@ -287,18 +325,18 @@ export default function Acessos({
       dadosAtualizados,
       { merge: true }
     );
+
+    await registrarAuditoria({
+      tipo: "SEGURANÇA",
+      descricao: `Usuário bloqueado: ${emailItem}`,
+      risco: "ALTO",
+    });
   }
 
   async function desbloquearAcesso(item) {
     const emailItem = item.email || item.id;
 
     if (!podeGerenciar) return;
-
-    await registrarAuditoria({
-      tipo: "SEGURANÇA",
-      descricao: `Usuário desbloqueado: ${emailItem}`,
-      risco: "MÉDIO",
-    });
 
     const dadosAtualizados = {
       ...item,
@@ -316,172 +354,12 @@ export default function Acessos({
       dadosAtualizados,
       { merge: true }
     );
-  }
-
-  async function solicitarBloqueioAdmin(item) {
-    const emailItem = item.email || item.id;
-
-    const pendencia = criarExecucaoGovernanca();
-
-    const dadosAtualizados = {
-      ...item,
-      solicitacaoBloqueioAdmin: pendencia,
-      atualizadoEm: new Date().toISOString(),
-    };
-
-    await setDoc(doc(db, "acessos", emailItem), dadosAtualizados, {
-      merge: true,
-    });
-
-    await setDoc(
-      doc(db, "empresas", empresaId, "acessos", emailItem),
-      dadosAtualizados,
-      { merge: true }
-    );
 
     await registrarAuditoria({
-      tipo: "GOVERNANÇA",
-      descricao: `Solicitação de bloqueio de Admin: ${emailItem}. Execução liberada em ${dataBR(
-        pendencia.executarEm
-      )}.`,
-      risco: "ALTO",
-    });
-
-    alert("Solicitação de bloqueio criada. Prazo de 72 horas iniciado.");
-  }
-
-  async function solicitarExclusaoAdmin(item) {
-    const emailItem = item.email || item.id;
-
-    const pendencia = criarExecucaoGovernanca();
-
-    const dadosAtualizados = {
-      ...item,
-      solicitacaoExclusaoAdmin: pendencia,
-      atualizadoEm: new Date().toISOString(),
-    };
-
-    await setDoc(doc(db, "acessos", emailItem), dadosAtualizados, {
-      merge: true,
-    });
-
-    await setDoc(
-      doc(db, "empresas", empresaId, "acessos", emailItem),
-      dadosAtualizados,
-      { merge: true }
-    );
-
-    await registrarAuditoria({
-      tipo: "GOVERNANÇA",
-      descricao: `Solicitação de exclusão de Admin: ${emailItem}. Execução liberada em ${dataBR(
-        pendencia.executarEm
-      )}.`,
-      risco: "ALTO",
-    });
-
-    alert("Solicitação de exclusão criada. Prazo de 72 horas iniciado.");
-  }
-
-  async function cancelarPendenciaAdmin(item, tipoPendencia) {
-    const emailItem = item.email || item.id;
-
-    const dadosAtualizados = {
-      ...item,
-      atualizadoEm: new Date().toISOString(),
-    };
-
-    if (tipoPendencia === "bloqueio") {
-      dadosAtualizados.solicitacaoBloqueioAdmin = null;
-    }
-
-    if (tipoPendencia === "exclusao") {
-      dadosAtualizados.solicitacaoExclusaoAdmin = null;
-    }
-
-    await setDoc(doc(db, "acessos", emailItem), dadosAtualizados, {
-      merge: true,
-    });
-
-    await setDoc(
-      doc(db, "empresas", empresaId, "acessos", emailItem),
-      dadosAtualizados,
-      { merge: true }
-    );
-
-    await registrarAuditoria({
-      tipo: "GOVERNANÇA",
-      descricao: `Pendência de ${tipoPendencia} de Admin cancelada: ${emailItem}`,
+      tipo: "SEGURANÇA",
+      descricao: `Usuário desbloqueado: ${emailItem}`,
       risco: "MÉDIO",
     });
-
-    alert("Pendência cancelada.");
-  }
-
-  async function executarBloqueioAdmin(item) {
-    const emailItem = item.email || item.id;
-
-    if (!pendenciaVencida(item.solicitacaoBloqueioAdmin)) {
-      alert("Ainda não completou o prazo de 72 horas.");
-      return;
-    }
-
-    const dadosAtualizados = {
-      ...item,
-      bloqueado: true,
-      bloqueadoEm: new Date().toISOString(),
-      solicitacaoBloqueioAdmin: null,
-      atualizadoEm: new Date().toISOString(),
-    };
-
-    await setDoc(doc(db, "acessos", emailItem), dadosAtualizados, {
-      merge: true,
-    });
-
-    await setDoc(
-      doc(db, "empresas", empresaId, "acessos", emailItem),
-      dadosAtualizados,
-      { merge: true }
-    );
-
-    await registrarAuditoria({
-      tipo: "GOVERNANÇA",
-      descricao: `Bloqueio de Admin executado após 72h: ${emailItem}`,
-      risco: "ALTO",
-    });
-
-    alert("Bloqueio executado.");
-  }
-
-  async function executarExclusaoAdmin(item) {
-    const emailItem = item.email || item.id;
-
-    if (!pendenciaVencida(item.solicitacaoExclusaoAdmin)) {
-      alert("Ainda não completou o prazo de 72 horas.");
-      return;
-    }
-
-    await registrarAuditoria({
-      tipo: "GOVERNANÇA",
-      descricao: `Exclusão de Admin executada após 72h: ${emailItem}`,
-      risco: "ALTO",
-    });
-
-    await deleteDoc(doc(db, "empresas", empresaId, "acessos", emailItem));
-    await deleteDoc(doc(db, "acessos", emailItem));
-
-    alert("Admin excluído.");
-  }
-
-  function editarAcesso(item) {
-    if (!podeEditarItem(item)) {
-      alert("Este acesso não pode ser editado por esta tela.");
-      return;
-    }
-
-    setEditandoEmail(item.email || item.id);
-    setEmail(item.email || item.id);
-    setNivel(item.nivel || "socio");
-    setStatus(item.status || "pendente");
   }
 
   async function excluirAcesso(item) {
@@ -489,11 +367,6 @@ export default function Acessos({
 
     if (ehItemSuperadmin(item)) {
       alert("Superadmin não pode ser removido pela tela.");
-      return;
-    }
-
-    if (ehItemAdmin(item) && !ehSuperadmin) {
-      await solicitarExclusaoAdmin(item);
       return;
     }
 
@@ -513,6 +386,18 @@ export default function Acessos({
 
     await deleteDoc(doc(db, "empresas", empresaId, "acessos", emailExcluir));
     await deleteDoc(doc(db, "acessos", emailExcluir));
+  }
+
+  function editarAcesso(item) {
+    if (!podeEditarItem(item)) {
+      alert("Este acesso não pode ser editado por esta tela.");
+      return;
+    }
+
+    setEditandoEmail(item.email || item.id);
+    setEmail(item.email || item.id);
+    setNivel(item.nivel || "socio");
+    setStatus(item.status || "pendente");
   }
 
   if (!podeGerenciar) {
@@ -536,6 +421,63 @@ export default function Acessos({
           </p>
         </div>
       </div>
+
+      <Card titulo="Convite da empresa">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto auto",
+            gap: 12,
+            alignItems: "center",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                color: "#94a3b8",
+                fontSize: 13,
+                marginBottom: 8,
+              }}
+            >
+              Envie este código para sócios ou lojistas solicitarem acesso à
+              empresa correta.
+            </div>
+
+            <div
+              style={{
+                background: "#050816",
+                padding: "14px 18px",
+                borderRadius: 12,
+                color: "#fff",
+                fontWeight: "bold",
+                letterSpacing: 1.5,
+                border: "1px solid #243056",
+                width: "fit-content",
+                maxWidth: "100%",
+                wordBreak: "break-word",
+              }}
+            >
+              {dadosEmpresa?.codigoConvite || "SEM CONVITE"}
+            </div>
+          </div>
+
+          <button
+            style={styles.botao}
+            onClick={copiarConvite}
+            disabled={!dadosEmpresa?.codigoConvite}
+          >
+            {copiandoConvite ? "Copiado" : "Copiar"}
+          </button>
+
+          <button
+            style={styles.botaoCinza || styles.botao}
+            onClick={gerarConvite}
+            disabled={gerandoConvite}
+          >
+            {gerandoConvite ? "Gerando..." : "Gerar novo"}
+          </button>
+        </div>
+      </Card>
 
       <Card titulo={editandoEmail ? "Editando acesso" : "Novo acesso"}>
         <div style={styles.formGrid}>
@@ -569,7 +511,14 @@ export default function Acessos({
 
       <Card titulo="Acessos cadastrados">
         <Tabela
-          colunas={["Usuário", "Nível", "Status", "Governança", "Bloqueio", "Ações"]}
+          colunas={[
+            "Usuário",
+            "Nível",
+            "Status",
+            "Governança",
+            "Bloqueio",
+            "Ações",
+          ]}
           dados={acessosComSessao.map((item) => [
             <>
               <div style={{ fontWeight: 700 }}>{item.email || item.id}</div>
@@ -598,58 +547,7 @@ export default function Acessos({
 
             item.bloqueado ? "Bloqueado" : item.status || "pendente",
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {item.solicitacaoBloqueioAdmin && (
-                <div style={{ color: "#f97316", fontSize: 12, fontWeight: 700 }}>
-                  Bloqueio pendente até{" "}
-                  {dataBR(item.solicitacaoBloqueioAdmin.executarEm)}
-                  <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                    <button
-                      style={styles.botaoCinza}
-                      onClick={() => cancelarPendenciaAdmin(item, "bloqueio")}
-                    >
-                      Cancelar
-                    </button>
-
-                    {pendenciaVencida(item.solicitacaoBloqueioAdmin) && (
-                      <button
-                        style={styles.excluir}
-                        onClick={() => executarBloqueioAdmin(item)}
-                      >
-                        Executar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {item.solicitacaoExclusaoAdmin && (
-                <div style={{ color: "#ef4444", fontSize: 12, fontWeight: 700 }}>
-                  Exclusão pendente até{" "}
-                  {dataBR(item.solicitacaoExclusaoAdmin.executarEm)}
-                  <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                    <button
-                      style={styles.botaoCinza}
-                      onClick={() => cancelarPendenciaAdmin(item, "exclusao")}
-                    >
-                      Cancelar
-                    </button>
-
-                    {pendenciaVencida(item.solicitacaoExclusaoAdmin) && (
-                      <button
-                        style={styles.excluir}
-                        onClick={() => executarExclusaoAdmin(item)}
-                      >
-                        Executar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {!item.solicitacaoBloqueioAdmin &&
-                !item.solicitacaoExclusaoAdmin && <span>-</span>}
-            </div>,
+            <span>-</span>,
 
             ehItemSuperadmin(item) ? (
               <div
@@ -662,14 +560,18 @@ export default function Acessos({
                 SUPERADMIN
               </div>
             ) : item.bloqueado ? (
-              <button style={styles.botao} onClick={() => desbloquearAcesso(item)}>
+              <button
+                style={styles.botao}
+                onClick={() => desbloquearAcesso(item)}
+              >
                 Desbloquear
               </button>
             ) : (
-              <button style={styles.botaoCinza} onClick={() => bloquearAcesso(item)}>
-                {ehItemAdmin(item) && !ehSuperadmin
-                  ? "Solicitar bloqueio"
-                  : "Bloquear"}
+              <button
+                style={styles.botaoCinza}
+                onClick={() => bloquearAcesso(item)}
+              >
+                Bloquear
               </button>
             ),
 

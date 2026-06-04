@@ -43,66 +43,81 @@ export default function Login() {
       .replace(/\s+/g, "");
   }
 
-  function gerarCodigoConvite(empresaId) {
-    const sufixo = Math.floor(100 + Math.random() * 900);
-    return `${String(empresaId || "EMPRESA").toUpperCase()}${sufixo}`;
+  function gerarCodigoConvite() {
+  const caracteres =
+    "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+  let codigo = "NXR-";
+
+  for (let i = 0; i < 6; i++) {
+    codigo += caracteres.charAt(
+      Math.floor(Math.random() * caracteres.length)
+    );
   }
 
-  async function buscarEmpresaPorCodigoConvite(codigoDigitado) {
-    const codigo = normalizarCodigo(codigoDigitado);
+  return codigo;
+}
 
-    if (!codigo) return null;
+async function buscarEmpresaPorCodigoConvite(codigoDigitado) {
+  const codigo = normalizarCodigo(codigoDigitado);
 
-    const consulta = query(
-      collection(db, "empresas"),
-      where("codigoConvite", "==", codigo)
-    );
+  if (!codigo) return null;
 
-    const resultado = await getDocs(consulta);
+  const consultaRaiz = query(
+    collection(db, "empresas"),
+    where("codigoConvite", "==", codigo)
+  );
 
-    if (!resultado.empty) {
-      const empresaDoc = resultado.docs[0];
+  const resultadoRaiz = await getDocs(consultaRaiz);
 
-      return {
-        empresaId: empresaDoc.id,
-        ...empresaDoc.data(),
-      };
-    }
+  if (!resultadoRaiz.empty) {
+    const empresaDoc = resultadoRaiz.docs[0];
 
-    // Compatibilidade com empresas antigas que ainda não têm documento raiz.
-    const empresaIdPossivel = codigo
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "")
-      .replace(/[0-9]+$/, "");
+    return {
+      empresaId: empresaDoc.id,
+      ...empresaDoc.data(),
+    };
+  }
 
-    if (!empresaIdPossivel) return null;
+  const empresasSnap = await getDocs(collection(db, "empresas"));
 
+  for (const empresaDoc of empresasSnap.docs) {
     const sistemaRef = doc(
       db,
       "empresas",
-      empresaIdPossivel,
+      empresaDoc.id,
       "sistema",
       "dados"
     );
 
     const sistemaSnap = await getDoc(sistemaRef);
 
-    if (!sistemaSnap.exists()) return null;
+    if (!sistemaSnap.exists()) continue;
 
     const dadosSistema = sistemaSnap.data();
 
-    if (
-      normalizarCodigo(dadosSistema.codigoConvite) !== codigo
-    ) {
-      return null;
-    }
+    if (normalizarCodigo(dadosSistema.codigoConvite) === codigo) {
+      await setDoc(
+        doc(db, "empresas", empresaDoc.id),
+        {
+          empresaId: empresaDoc.id,
+          nome: dadosSistema.nome || empresaDoc.data()?.nome || "",
+          codigoConvite: codigo,
+          atualizadoEm: new Date().toISOString(),
+        },
+        { merge: true }
+      );
 
-    return {
-      empresaId: empresaIdPossivel,
-      nome: dadosSistema.nome || "",
-      codigoConvite: codigo,
-    };
+      return {
+        empresaId: empresaDoc.id,
+        nome: dadosSistema.nome || empresaDoc.data()?.nome || "",
+        codigoConvite: codigo,
+      };
+    }
   }
+
+  return null;
+}
 
   async function entrar(e) {
     e.preventDefault();
