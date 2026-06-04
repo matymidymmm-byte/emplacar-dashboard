@@ -115,7 +115,36 @@ export default function HistoricoFinanceiro({
       return mesmaData && mesmoValor && (mesmaPlaca || mesmoProcesso);
     });
   }
+function dataRecebimentoEntrada(entrada) {
+  if (entrada?.diaPago) return entrada.diaPago;
 
+  if (
+    entrada?.status === "Pago" &&
+    entrada?.formaPagamento !== "Nota / Faturado"
+  ) {
+    return entrada.data;
+  }
+
+  return "";
+}
+
+function calcularRecebimentosAntigosDoFechamento(fechamento) {
+  const inicio = fechamento.inicio;
+  const fim = fechamento.fim || fechamento.dataFechamento;
+
+  if (!inicio || !fim) return 0;
+
+  return entradas
+    .filter((entrada) => {
+      const dataVenda = entrada.data;
+      const dataRecebimento = dataRecebimentoEntrada(entrada);
+
+      if (!dataVenda || !dataRecebimento) return false;
+
+      return dataVenda < inicio && dataRecebimento >= inicio && dataRecebimento <= fim;
+    })
+    .reduce((soma, entrada) => soma + Number(entrada.valor || 0), 0);
+}
   function analisarCarteira(fechamento) {
     const notas = Array.isArray(fechamento.notasEmAbertoDetalhadas)
       ? fechamento.notasEmAbertoDetalhadas
@@ -543,7 +572,7 @@ acc.notasAberto += carteira.valorOriginal;
       fechamento.quantidadeEntradas
     );
     const entradasVista = valor(fechamento, "entradasVista");
-    const recebimentosAntigos = valor(fechamento, "recebimentosAntigos");
+    const recebimentosAntigos = calcularRecebimentosAntigosDoFechamento(fechamento);
     const lucro = valor(fechamento, "lucro");
 
     const doc = new jsPDF("p", "mm", "a4");
@@ -885,10 +914,8 @@ acc.notasAberto += carteira.valorOriginal;
 
               const entradasVista = valor(fechamento, "entradasVista");
 
-              const recebimentosAntigos = valor(
-                fechamento,
-                "recebimentosAntigos"
-              );
+              const recebimentosAntigos =
+  calcularRecebimentosAntigosDoFechamento(fechamento);
 
               const qtdNotasAberto = carteira.notas.length;
               const valorNotasAberto = carteira.valorOriginal;
