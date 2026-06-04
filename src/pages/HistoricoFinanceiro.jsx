@@ -15,6 +15,7 @@ export default function HistoricoFinanceiro({
 }) {
   const [abertos, setAbertos] = useState({});
   const [observacoes, setObservacoes] = useState({});
+  const [recebimentosAbertos, setRecebimentosAbertos] = useState({});
 
   function dataBR(data) {
     if (!data || !String(data).includes("-")) return data || "";
@@ -128,11 +129,11 @@ function dataRecebimentoEntrada(entrada) {
   return "";
 }
 
-function calcularRecebimentosAntigosDoFechamento(fechamento) {
+function listarRecebimentosAntigosDoFechamento(fechamento) {
   const inicio = fechamento.inicio;
   const fim = fechamento.fim || fechamento.dataFechamento;
 
-  if (!inicio || !fim) return 0;
+  if (!inicio || !fim) return [];
 
   return entradas
     .filter((entrada) => {
@@ -143,7 +144,23 @@ function calcularRecebimentosAntigosDoFechamento(fechamento) {
 
       return dataVenda < inicio && dataRecebimento >= inicio && dataRecebimento <= fim;
     })
-    .reduce((soma, entrada) => soma + Number(entrada.valor || 0), 0);
+    .map((entrada) => ({
+      id: entrada.id,
+      cliente: entrada.cliente || "",
+      placa: entrada.placa || "",
+      produto: entrada.produto || "",
+      data: entrada.data || "",
+      diaPago: dataRecebimentoEntrada(entrada),
+      formaPagamento: entrada.formaPagamento || "",
+      valor: Number(entrada.valor || 0),
+    }));
+}
+
+function calcularRecebimentosAntigosDoFechamento(fechamento) {
+  return listarRecebimentosAntigosDoFechamento(fechamento).reduce(
+    (soma, entrada) => soma + Number(entrada.valor || 0),
+    0
+  );
 }
   function analisarCarteira(fechamento) {
     const notas = Array.isArray(fechamento.notasEmAbertoDetalhadas)
@@ -349,40 +366,42 @@ acc.notasAberto += carteira.valorOriginal;
     );
   }
 
-  function linhaValor(label, value, cor = "#f8fafc") {
-    return (
-      <div
+  function linhaValor(label, value, cor = "#f8fafc", extra = null) {
+  return (
+    <div
+      style={{
+        background: "#020617",
+        border: "1px solid #1e293b",
+        borderRadius: 14,
+        padding: 12,
+      }}
+    >
+      <p
         style={{
-          background: "#020617",
-          border: "1px solid #1e293b",
-          borderRadius: 14,
-          padding: 12,
+          color: "#94a3b8",
+          margin: 0,
+          fontSize: 12,
+          fontWeight: 700,
         }}
       >
-        <p
-          style={{
-            color: "#94a3b8",
-            margin: 0,
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          {label}
-        </p>
+        {label}
+      </p>
 
-        <strong
-          style={{
-            color: cor,
-            fontSize: 18,
-            display: "block",
-            marginTop: 5,
-          }}
-        >
-          {value}
-        </strong>
-      </div>
-    );
-  }
+      <strong
+        style={{
+          color: cor,
+          fontSize: 18,
+          display: "block",
+          marginTop: 5,
+        }}
+      >
+        {value}
+      </strong>
+
+      {extra}
+    </div>
+  );
+}
 
   function linhaComparativo(label, atual, anterior, tipo = "moeda", menorMelhor = false) {
     const variacao = calcularVariacao(atual, anterior);
@@ -889,6 +908,12 @@ acc.notasAberto += carteira.valorOriginal;
               const carteira = analisarCarteira(fechamento);
               const anterior = fechamentoAnteriorDe(fechamento);
               const carteiraAnterior = anterior ? analisarCarteira(anterior) : null;
+              const recebimentosAntigosDetalhados =
+  listarRecebimentosAntigosDoFechamento(fechamento);
+
+const qtdRecebimentosAntigos =
+  recebimentosAntigosDetalhados.length;
+
 
               const aberto = abertos[fechamento.id];
 
@@ -974,9 +999,48 @@ acc.notasAberto += carteira.valorOriginal;
                     {linhaValor("Entradas à vista", moeda.format(entradasVista))}
 
                     {linhaValor(
-                      "Recebimentos antigos",
-                      moeda.format(recebimentosAntigos)
-                    )}
+  "Recebimentos antigos",
+  moeda.format(recebimentosAntigos),
+  "#f8fafc",
+  <div
+    style={{
+      marginTop: 8,
+      display: "flex",
+      flexDirection: "column",
+      gap: 6,
+    }}
+  >
+    <span
+      style={{
+        color: "#22c55e",
+        fontSize: 12,
+        fontWeight: 700,
+      }}
+    >
+      {qtdRecebimentosAntigos} nota(s) recebida(s)
+    </span>
+    {qtdRecebimentosAntigos > 0 && (
+  <button
+    style={{
+      ...styles.botaoCinza,
+      marginTop: 2,
+      padding: "6px 10px",
+      fontSize: 12,
+    }}
+    onClick={() =>
+      setRecebimentosAbertos((old) => ({
+        ...old,
+        [fechamento.id]: !old[fechamento.id],
+      }))
+    }
+  >
+    {recebimentosAbertos[fechamento.id]
+      ? "Ocultar detalhes"
+      : "Ver detalhes"}
+  </button>
+)}
+  </div>
+)}
 
                     {linhaValor("Serviços", servicos)}
 
@@ -1016,6 +1080,66 @@ acc.notasAberto += carteira.valorOriginal;
                       padding: 14,
                     }}
                   >
+                    {recebimentosAbertos[fechamento.id] &&
+  recebimentosAntigosDetalhados.length > 0 && (
+    <div
+      style={{
+        marginTop: 12,
+        background: "#020617",
+        border: "1px solid #1e293b",
+        borderRadius: 12,
+        padding: 12,
+      }}
+    >
+      <h4
+        style={{
+          margin: "0 0 10px 0",
+          color: "#f8fafc",
+        }}
+      >
+        Recebimentos antigos detalhados
+      </h4>
+
+      <div
+        style={{
+          overflowX: "auto",
+        }}
+      >
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+          }}
+        >
+          <thead>
+            <tr>
+              <th style={styles.th}>Cliente</th>
+              <th style={styles.th}>Placa</th>
+              <th style={styles.th}>Venda</th>
+              <th style={styles.th}>Pagamento</th>
+              <th style={styles.th}>Forma</th>
+              <th style={styles.th}>Valor</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {recebimentosAntigosDetalhados.map((item) => (
+              <tr key={item.id}>
+                <td style={styles.td}>{item.cliente}</td>
+                <td style={styles.td}>{item.placa}</td>
+                <td style={styles.td}>{item.data}</td>
+                <td style={styles.td}>{item.diaPago}</td>
+                <td style={styles.td}>{item.formaPagamento}</td>
+                <td style={styles.td}>
+                  {moeda.format(item.valor)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+)}
                     <h3
                       style={{
                         color: "#f8fafc",
