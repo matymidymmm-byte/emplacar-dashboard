@@ -1113,6 +1113,9 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
     itemId = "",
     detalhes = [],
   }) {
+    if (nivelAcesso === "superadmin") {
+  return;
+}
     const risco = calcularRiscoAlteracao({
       tipo,
       modulo,
