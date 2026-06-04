@@ -508,6 +508,8 @@ const projecaoMes =
     ["Banco Real", indicadores.tenhoNoBanco || 0],
     ["Caixa Físico", indicadores.tenhoNoCaixa || 0],
     ["Recuperação Vale", indicadores.recuperacaoValeTotal || 0],
+    ["Vale Concedido", indicadores.valeConcedidoTotal || 0],
+["Vale em Aberto", indicadores.valeEmAbertoTotal || 0],
   ];
 
   const kpis = modoDetalhado ? kpisDetalhados : kpisSimples;

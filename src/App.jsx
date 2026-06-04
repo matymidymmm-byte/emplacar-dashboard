@@ -1789,6 +1789,7 @@ function montarPrecosServicosCliente(cliente) {
   }, [entradas, saidas, contas, inicioMes, fimMes]);
 
   const indicadores = useMemo(() => {
+   
     const entradasCompetencia = entradas.filter(
       (x) => dentroDoPeriodo(x.data) && ehVendaReal(x)
     );
@@ -1816,6 +1817,27 @@ function montarPrecosServicosCliente(cliente) {
 
     const recuperacaoValesPeriodo =
       dadosPeriodo.entradasRecebidas.filter(ehRecuperacaoVale);
+      const valesConcedidosPeriodo = saidas.filter((saida) => {
+  if (!dentroDoPeriodo(saida.data)) return false;
+
+  return ehValeColaborador(saida);
+});
+      
+
+const valeConcedidoTotal = valesConcedidosPeriodo.reduce(
+  (soma, item) => soma + Number(item.valor || 0),
+  0
+);
+
+const recuperacaoValeTotalParaSaldo = recuperacaoValesPeriodo.reduce(
+  (soma, item) => soma + Number(item.valor || 0),
+  0
+);
+
+const valeEmAbertoTotal =
+  valeConcedidoTotal - recuperacaoValeTotalParaSaldo;
+
+
 
     const recebimentosAntigos = recebimentosAntigosDoPeriodo(
   inicioMes,
@@ -1941,6 +1963,8 @@ const movimentacaoGeral =
       mediaPorDia: entradaBruta / dias,
       tenhoNoBanco,
       tenhoNoCaixa,
+      valeConcedidoTotal,
+valeEmAbertoTotal,
     };
   }, [entradas, dadosPeriodo, inicioMes, fimMes]);
 
