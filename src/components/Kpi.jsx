@@ -100,7 +100,7 @@ export default function Kpi({ titulo, valor }) {
               marginBottom: 8,
               fontSize: 13,
               color: "#cbd5e1",
-              fontWeight: 800,
+              fontWeight: 600,
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -110,13 +110,14 @@ export default function Kpi({ titulo, valor }) {
           </p>
 
           <strong
-            style={{
-              fontSize: 21,
-              color: tema.cor,
-              fontWeight: 900,
-              lineHeight: 1.1,
-            }}
-          >
+  style={{
+    fontSize: 19,
+    color: tema.cor,
+    fontWeight: 785,
+    lineHeight: 1.1,
+    letterSpacing: "0.2px",
+  }}
+>
             {valor}
           </strong>
         </div>

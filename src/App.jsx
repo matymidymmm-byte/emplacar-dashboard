@@ -1177,17 +1177,32 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
   }, [usuario]);
 
   function numero(valor) {
+  const textoLimpo = String(valor || "")
+    .replace("R$", "")
+    .replace(/\s/g, "")
+    .trim();
+
+  if (!textoLimpo) return 0;
+
+  const temVirgula = textoLimpo.includes(",");
+  const temPonto = textoLimpo.includes(".");
+
+  if (temVirgula) {
     return (
       Number(
-        String(valor || "")
-          .replace("R$", "")
-          .replace(/\s/g, "")
+        textoLimpo
           .replace(/\./g, "")
           .replace(",", ".")
       ) || 0
     );
   }
 
+  if (temPonto) {
+    return Number(textoLimpo) || 0;
+  }
+
+  return Number(textoLimpo) || 0;
+}
   function texto(valor) {
     return String(valor || "").trim();
   }
@@ -1239,6 +1254,7 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
   }
 
   function ehInjecaoSocios(item) {
+    if (ehInjecaoLoja(item)) return false;
     const t = textoMovimento(item);
 
     return (
@@ -1341,6 +1357,23 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
     if (!data) return false;
     return data >= inicioMes && data <= fimMes;
   }
+  function dentroDoPeriodoInformado(data, inicio, fim) {
+  if (!data || !inicio || !fim) return false;
+  return data >= inicio && data <= fim;
+}
+
+function recebimentosAntigosDoPeriodo(inicio, fim) {
+  return entradas.filter((entrada) => {
+    if (!ehVendaReal(entrada)) return false;
+
+    const dataVenda = entrada.data;
+    const dataRecebimento = dataRecebimentoEntrada(entrada);
+
+    if (!dataVenda || !dataRecebimento) return false;
+
+    return dataVenda < inicio && dentroDoPeriodoInformado(dataRecebimento, inicio, fim);
+  });
+}
 
   function cancelarEdicao() {
     setEditando({ tipo: null, id: null });
@@ -1619,30 +1652,30 @@ function montarPrecosServicosCliente(cliente) {
   }
 
   function editar(tipo, item) {
-    setEditando({ tipo, id: item.id });
+  setEditando({ tipo, id: item.id });
 
-    if (tipo === "entrada") {
-      setEntradaForm({
-        ...entradaVazia,
-        ...item,
-        valor: String(item.valor ?? ""),
-        diaPago: item.diaPago || "",
-        relacaoPagaId: item.relacaoPagaId || "",
-      });
-    }
-
-    if (tipo === "saida") {
-      setSaidaForm({
-        ...saidaVazia,
-        ...item,
-        valor: String(item.valor ?? ""),
-        categoria: item.categoria || "Outros",
-      });
-    }
-
-    if (tipo === "conta") setContaForm(item);
-    if (tipo === "cliente") setClienteForm(item);
+  if (tipo === "entrada") {
+    setEntradaForm({
+      ...entradaVazia,
+      ...item,
+      valor: String(Number(item.valor || 0).toFixed(2)),
+      diaPago: item.diaPago || "",
+      relacaoPagaId: item.relacaoPagaId || "",
+    });
   }
+
+  if (tipo === "saida") {
+    setSaidaForm({
+      ...saidaVazia,
+      ...item,
+      valor: String(item.valor ?? ""),
+      categoria: item.categoria || "Outros",
+    });
+  }
+
+  if (tipo === "conta") setContaForm(item);
+  if (tipo === "cliente") setClienteForm(item);
+}
 
   function remover(tipo, id) {
     let itemRemovido = null;
@@ -1784,10 +1817,10 @@ function montarPrecosServicosCliente(cliente) {
     const recuperacaoValesPeriodo =
       dadosPeriodo.entradasRecebidas.filter(ehRecuperacaoVale);
 
-    const recebimentosAntigos = vendasRecebidasPeriodo.filter((x) => {
-      const dataRecebimento = dataRecebimentoEntrada(x);
-      return x.data < inicioMes && dataRecebimento >= inicioMes;
-    });
+    const recebimentosAntigos = recebimentosAntigosDoPeriodo(
+  inicioMes,
+  fechamentoProvavel || fimMes
+);
 
     const entradaBruta = entradasCompetencia.reduce((s, x) => s + x.valor, 0);
 
@@ -1983,9 +2016,9 @@ const movimentacaoGeral =
       id: Date.now(),
 
       inicio: inicioMes,
-      fim: hoje,
+      fim: fechamentoProvavel || fimMes,
 
-      dataFechamento: hoje,
+dataFechamento: hoje,
 
       faturamento: indicadores.faturamentoCompetencia || 0,
 
@@ -2020,19 +2053,19 @@ const movimentacaoGeral =
       quantidadeNotasEmAberto: entradas.filter(
         (x) =>
           x.data >= inicioMes &&
-          x.data <= hoje &&
+          x.data <= (fechamentoProvavel || fimMes) &&
           x.formaPagamento === "Nota / Faturado" &&
           !x.diaPago
       ).length,
 
       notasEmAbertoDetalhadas: entradas
-        .filter(
-          (x) =>
-            x.data >= inicioMes &&
-            x.data <= hoje &&
-            x.formaPagamento === "Nota / Faturado" &&
-            !x.diaPago
-        )
+  .filter(
+    (x) =>
+      x.data >= inicioMes &&
+      x.data <= (fechamentoProvavel || fimMes) &&
+      x.formaPagamento === "Nota / Faturado" &&
+      !x.diaPago
+  )
         .map((x) => ({
           id: x.id,
           cliente: x.cliente || "",
@@ -2057,9 +2090,11 @@ const movimentacaoGeral =
     registrarAlteracao({
       tipo: "Fechamento",
       modulo: "Histórico Financeiro",
-      descricao: `${usuario?.email || "Usuário"} fechou o período financeiro de ${inicioMes} até ${hoje}`,
-      valorAntigo: inicioMes,
-      valorNovo: hoje,
+      descricao: `${usuario?.email || "Usuário"} fechou o período financeiro de ${inicioMes} até ${fechamentoProvavel || fimMes}`,
+
+valorAntigo: inicioMes,
+
+valorNovo: fechamentoProvavel || fimMes,
       itemId: fechamento.id,
     });
   }
