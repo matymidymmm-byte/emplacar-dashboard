@@ -303,6 +303,7 @@ function Sistema({ usuario, acesso }) {
   const [fechamentoProvavel, setFechamentoProvavel] = useState("");
   const [categoriasSaidaConfiguradas, setCategoriasSaidaConfiguradas] =
     useState([]);
+    const [tabelasPrecoClientes, setTabelasPrecoClientes] = useState([]);
 
   const [textoImportacao, setTextoImportacao] = useState("");
   const [resultadoImportacao, setResultadoImportacao] = useState("");
@@ -399,6 +400,11 @@ function Sistema({ usuario, acesso }) {
             ? dados.categoriasSaidaConfiguradas
             : []
         );
+        setTabelasPrecoClientes(
+  Array.isArray(dados.tabelasPrecoClientes)
+    ? dados.tabelasPrecoClientes
+    : []
+);
 
         setMovimentacoesEstoque(
           Array.isArray(dados.movimentacoesEstoque)
@@ -442,6 +448,7 @@ function Sistema({ usuario, acesso }) {
           servicosSimulacaoEstoque: [],
           minimosEstoqueConfigurados: {},
           categoriasSaidaConfiguradas: [],
+          tabelasPrecoClientes: [],
           historicoRelacoes: [],
           historicoFechamentos: [],
 
@@ -831,6 +838,9 @@ function Sistema({ usuario, acesso }) {
   useEffect(() => {
     salvarNaNuvem("categoriasSaidaConfiguradas", categoriasSaidaConfiguradas);
   }, [categoriasSaidaConfiguradas]);
+  useEffect(() => {
+  salvarNaNuvem("tabelasPrecoClientes", tabelasPrecoClientes);
+}, [tabelasPrecoClientes]);
 
   useEffect(() => {
     salvarNaNuvem("historicoRelacoes", historicoRelacoes);
@@ -1439,18 +1449,52 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
   }
 function montarPrecosServicosCliente(cliente) {
   return {
+    "PAR VEICULAR PADRÃO":
+      cliente.precosServicos?.["PAR VEICULAR PADRÃO"] ??
+      cliente.precoParVeicular ??
+      "",
+
+    "MOTO PADRÃO":
+      cliente.precosServicos?.["MOTO PADRÃO"] ??
+      cliente.precoMoto ??
+      "",
+
+    "REBOQUE PADRÃO":
+      cliente.precosServicos?.["REBOQUE PADRÃO"] ??
+      cliente.precoReboque ??
+      "",
+
+    "PLACA AVULSA":
+      cliente.precosServicos?.["PLACA AVULSA"] ??
+      cliente.precoReboque ??
+      "",
+
+    "PAR VEICULAR PRETA":
+      cliente.precosServicos?.["PAR VEICULAR PRETA"] ??
+      cliente.precoPlacaPreta ??
+      "",
+
+    "PAR VEICULAR MINI":
+      cliente.precosServicos?.["PAR VEICULAR MINI"] ??
+      cliente.precoMini ??
+      "",
+
+    "SUPORTE TRIÂNGULO MOTO":
+      cliente.precosServicos?.["SUPORTE TRIÂNGULO MOTO"] ??
+      cliente.precoSuporteTriangulo ??
+      "",
+
+    "SUPORTE RESINA MOTO":
+      cliente.precosServicos?.["SUPORTE RESINA MOTO"] ??
+      cliente.precoSuporteResinaMoto ??
+      "",
+
+    "SUPORTE RESINA CARRO":
+      cliente.precosServicos?.["SUPORTE RESINA CARRO"] ??
+      cliente.precoSuporteResinaCarro ??
+      "",
+
     ...(cliente.precosServicos || {}),
-
-    "PAR VEICULAR PADRÃO": cliente.precoParVeicular || "",
-    "MOTO PADRÃO": cliente.precoMoto || "",
-    "REBOQUE PADRÃO": cliente.precoReboque || "",
-    "PLACA AVULSA": cliente.precoReboque || "",
-    "PAR VEICULAR PRETA": cliente.precoPlacaPreta || "",
-    "PAR VEICULAR MINI": cliente.precoMini || "",
-
-    "SUPORTE TRIÂNGULO MOTO": cliente.precoSuporteTriangulo || "",
-    "SUPORTE RESINA MOTO": cliente.precoSuporteResinaMoto || "",
-    "SUPORTE RESINA CARRO": cliente.precoSuporteResinaCarro || "",
   };
 }
   function salvarCliente() {
@@ -2096,6 +2140,8 @@ setFechamentoProvavel,
 
     categoriasSaidaConfiguradas,
     setCategoriasSaidaConfiguradas,
+    tabelasPrecoClientes,
+setTabelasPrecoClientes,
 
     movimentacoesEstoque,
     setMovimentacoesEstoque,
