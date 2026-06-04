@@ -3,7 +3,7 @@ const styles = {
     width: "100%",
     minHeight: "100vh",
     display: "flex",
-    background: "#0b1020",
+    background: "#030712",
     color: "#e2e8f0",
     fontFamily: "Arial, sans-serif",
     overflow: "hidden",
@@ -22,13 +22,13 @@ const styles = {
   },
 
   main: {
-    flex: 1,
-    padding: 18,
-    overflowX: "hidden",
-    overflowY: "auto",
-    background:
-      "linear-gradient(135deg, #0b1020 0%, #121937 100%)",
-  },
+  flex: 1,
+  padding: 18,
+  overflowX: "hidden",
+  overflowY: "auto",
+  background:
+    "linear-gradient(180deg, #030712 0%, #061224 25%, #0b1730 60%, #081325 100%)",
+},
 
   logoBox: {
     display: "flex",
@@ -211,17 +211,17 @@ const styles = {
   },
 
   card: {
-    background: "#131c31",
-    borderRadius: 18,
-    padding: 14,
-    border: "1px solid #1e293b",
-    boxShadow:
-      "0 12px 30px rgba(0,0,0,0.35)",
-    marginBottom: 14,
-    overflow: "hidden",
-    width: "100%",
-    boxSizing: "border-box",
-  },
+  background: "#131c31",
+  borderRadius: 18,
+  padding: 14,
+  border: "1px solid #1e293b",
+  boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
+  marginBottom: 14,
+  overflow: "hidden",
+  width: "100%",
+  boxSizing: "border-box",
+  transition: "all 0.22s ease",
+},
 
   cardTitulo: {
     marginTop: 0,
@@ -248,8 +248,7 @@ const styles = {
   },
 
   kpi: {
-    background:
-      "linear-gradient(135deg, #1e293b 0%, #312e81 100%)",
+  background: "#131c31",
     padding: 14,
     borderRadius: 18,
     border: "1px solid #334155",
@@ -347,26 +346,27 @@ const styles = {
   },
 
   botao: {
-    padding: "10px 14px",
-    borderRadius: 12,
-    border: 0,
-    background:
-      "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
-    color: "white",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
-
+  padding: "10px 14px",
+  borderRadius: 12,
+  border: 0,
+  background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+  color: "white",
+  fontWeight: "bold",
+  cursor: "pointer",
+  boxShadow: "0 10px 24px rgba(37,99,235,0.24)",
+  transition: "all 0.22s ease",
+},
   botaoDashboard: {
-    padding: "10px 16px",
-    borderRadius: 12,
-    border: 0,
-    background:
-      "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
-    color: "white",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
+  padding: "10px 16px",
+  borderRadius: 12,
+  border: 0,
+  background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+  color: "white",
+  fontWeight: "bold",
+  cursor: "pointer",
+  boxShadow: "0 10px 24px rgba(37,99,235,0.24)",
+  transition: "all 0.22s ease",
+},
 
   botaoCinza: {
     padding: "10px 14px",

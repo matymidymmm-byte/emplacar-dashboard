@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   DollarSign,
   TrendingUp,
@@ -10,35 +11,37 @@ import {
 import styles from "../styles/styles";
 
 export default function Kpi({ titulo, valor }) {
+  const [hover, setHover] = useState(false);
+
   function pegarIcone() {
     const nome = String(titulo || "").toLowerCase();
 
-    if (nome.includes("bruta")) return <DollarSign size={22} />;
-    if (nome.includes("líquida") || nome.includes("liquida")) return <TrendingUp size={22} />;
-    if (nome.includes("saída") || nome.includes("saida")) return <TrendingDown size={22} />;
-    if (nome.includes("aberto") || nome.includes("pendente")) return <Clock size={22} />;
-    if (nome.includes("banco")) return <Building2 size={22} />;
-    if (nome.includes("caixa")) return <Wallet size={22} />;
+    if (nome.includes("bruta")) return <DollarSign size={24} />;
+    if (nome.includes("líquida") || nome.includes("liquida")) return <TrendingUp size={24} />;
+    if (nome.includes("saída") || nome.includes("saida")) return <TrendingDown size={24} />;
+    if (nome.includes("aberto") || nome.includes("pendente")) return <Clock size={24} />;
+    if (nome.includes("banco")) return <Building2 size={24} />;
+    if (nome.includes("caixa")) return <Wallet size={24} />;
 
-    return <DollarSign size={22} />;
+    return <DollarSign size={24} />;
   }
 
   function pegarTema() {
     const nome = String(titulo || "").toLowerCase();
 
-    if (nome.includes("bruta")) {
+    if (nome.includes("bruta") || nome.includes("faturamento")) {
       return { cor: "#0ea5e9", fundo: "rgba(14,165,233,0.16)" };
     }
 
-    if (nome.includes("líquida") || nome.includes("liquida")) {
+    if (nome.includes("líquida") || nome.includes("liquida") || nome.includes("resultado")) {
       return { cor: "#22c55e", fundo: "rgba(34,197,94,0.16)" };
     }
 
-    if (nome.includes("saída") || nome.includes("saida")) {
+    if (nome.includes("saída") || nome.includes("saida") || nome.includes("despesa")) {
       return { cor: "#ef4444", fundo: "rgba(239,68,68,0.16)" };
     }
 
-    if (nome.includes("aberto")) {
+    if (nome.includes("aberto") || nome.includes("pendente") || nome.includes("falta")) {
       return { cor: "#f59e0b", fundo: "rgba(245,158,11,0.16)" };
     }
 
@@ -57,37 +60,63 @@ export default function Kpi({ titulo, valor }) {
 
   return (
     <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         ...styles.kpi,
         background: "#131c31",
-        border: "1px solid #1e293b",
-        boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
+        border: hover ? `1px solid ${tema.cor}` : "1px solid #1e293b",
+        boxShadow: hover
+          ? `0 18px 40px rgba(0,0,0,0.45), 0 0 28px ${tema.cor}33`
+          : "0 12px 30px rgba(0,0,0,0.35)",
+        transform: hover ? "translateY(-3px)" : "translateY(0)",
+        transition: "all 0.22s ease",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div
           style={{
-            width: 38,
-            height: 38,
-            minWidth: 38,
-            borderRadius: 14,
+            width: 44,
+            height: 44,
+            minWidth: 44,
+            borderRadius: 16,
             background: tema.fundo,
             border: `1px solid ${tema.cor}`,
+            boxShadow: hover ? `0 0 22px ${tema.cor}44` : "none",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: tema.cor,
+            transition: "all 0.22s ease",
           }}
         >
           {pegarIcone()}
         </div>
 
-        <div>
-          <p style={{ margin: 0, marginBottom: 8, fontSize: 13, color: "#cbd5e1" }}>
+        <div style={{ minWidth: 0 }}>
+          <p
+            style={{
+              margin: 0,
+              marginBottom: 8,
+              fontSize: 13,
+              color: "#cbd5e1",
+              fontWeight: 800,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
             {titulo}
           </p>
 
-          <strong style={{ fontSize: 20, color: tema.cor }}>
+          <strong
+            style={{
+              fontSize: 21,
+              color: tema.cor,
+              fontWeight: 900,
+              lineHeight: 1.1,
+            }}
+          >
             {valor}
           </strong>
         </div>
