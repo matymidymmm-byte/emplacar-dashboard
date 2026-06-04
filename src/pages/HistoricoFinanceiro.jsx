@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import Card from "../components/Card.jsx";
+import Kpi from "../components/Kpi.jsx";
 import GraficoBarras from "../components/GraficoBarras.jsx";
 import styles from "../styles/styles.js";
 
@@ -289,7 +290,8 @@ export default function HistoricoFinanceiro({
 
     return ordenadosCrescente[indexAtual - 1];
   }
-    const dadosGraficos = useMemo(() => {
+
+  const dadosGraficos = useMemo(() => {
     return [...historicoFechamentos]
       .reverse()
       .map((item) => ({
@@ -387,7 +389,7 @@ export default function HistoricoFinanceiro({
           diaPago: entrada.diaPago || "",
           formaPagamento: entrada.formaPagamento || "",
           categoriaPlaca: entrada.categoriaPlaca || "",
-          processo: entrada.processo || "",
+                    processo: entrada.processo || "",
         })),
       };
     });
@@ -610,16 +612,21 @@ export default function HistoricoFinanceiro({
     pdfTexto(doc, "Recebido depois", formatarMoeda(carteira.valorRecuperado), 57, 48);
     pdfTexto(doc, "Ainda pendente", formatarMoeda(carteira.valorPendente), 102, 48);
     pdfTexto(doc, "Taxa", `${carteira.taxa.toFixed(1)}%`, 147, 48);
+
+    doc.save(`fechamento-${fechamento.fim || fechamento.dataFechamento}.pdf`);
   }
-    function IconBox({ children, cor = "#60a5fa" }) {
+
+  function IconBox({ children, cor = "#60a5fa", grande = false }) {
     return (
       <div
         style={{
-          width: 34,
-          height: 34,
-          borderRadius: 12,
-          background: "rgba(96, 165, 250, 0.12)",
-          border: "1px solid rgba(96, 165, 250, 0.25)",
+          width: grande ? 48 : 38,
+          height: grande ? 48 : 38,
+          minWidth: grande ? 48 : 38,
+          borderRadius: grande ? 16 : 14,
+          background: `linear-gradient(135deg, ${cor}22 0%, rgba(124,58,237,0.14) 100%)`,
+          border: `1px solid ${cor}66`,
+          boxShadow: `0 0 22px ${cor}22`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -632,137 +639,203 @@ export default function HistoricoFinanceiro({
     );
   }
 
-  function CardIndicador({
+  function CaixaPremium({ children, destaque = false }) {
+    return (
+      <div
+        style={{
+          ...styles.card,
+          marginBottom: 0,
+          padding: 16,
+          background: destaque
+            ? "linear-gradient(135deg, rgba(37,99,235,0.28) 0%, rgba(124,58,237,0.24) 55%, rgba(14,165,233,0.14) 100%)"
+            : "linear-gradient(180deg, #131c31 0%, #0f172a 100%)",
+          border: destaque
+            ? "1px solid rgba(147,197,253,0.38)"
+            : "1px solid rgba(51,65,85,0.95)",
+          boxShadow: destaque
+            ? "0 18px 46px rgba(37,99,235,0.20), 0 14px 34px rgba(0,0,0,0.35)"
+            : "0 14px 34px rgba(0,0,0,0.35)",
+        }}
+      >
+        {children}
+      </div>
+    );
+  }
+
+  function MiniKpi({
     titulo,
     valorTexto,
-    destaque = false,
     icone = null,
+    cor = "#38bdf8",
     subtitulo = "",
-    cor = "#60a5fa",
+    acao = null,
   }) {
     return (
       <div
         style={{
-          background: destaque
-            ? "linear-gradient(135deg,#1d4ed8 0%,#7c3aed 100%)"
-            : "#0f172a",
-          border: "1px solid #334155",
-          borderRadius: 18,
-          padding: 16,
-          minHeight: 104,
+          ...styles.kpi,
+          background: "#131c31",
+border: "1px solid #1e293b",
+boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
+          minHeight: 112,
           display: "flex",
           alignItems: "center",
-          gap: 12,
         }}
       >
-        {icone && <IconBox cor={destaque ? "#dbeafe" : cor}>{icone}</IconBox>}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%" }}>
+          {icone && <IconBox cor={cor}>{icone}</IconBox>}
 
-        <div>
-          <span style={{ color: destaque ? "#dbeafe" : "#94a3b8", fontSize: 13, fontWeight: 700 }}>
-            {titulo}
-          </span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p
+              style={{
+                margin: 0,
+                marginBottom: 7,
+                color: "#cbd5e1",
+                fontSize: 12,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: 0.3,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {titulo}
+            </p>
 
-          <strong style={{ color: "#fff", fontSize: 22, display: "block", marginTop: 4 }}>
-            {valorTexto}
-          </strong>
+            <strong
+              style={{
+                color: cor,
+                fontSize: "clamp(17px, 2vw, 21px)",
+                display: "block",
+                lineHeight: 1.15,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {valorTexto}
+            </strong>
 
-          {subtitulo && (
-            <span style={{ color: destaque ? "#bfdbfe" : "#64748b", fontSize: 12, fontWeight: 600 }}>
-              {subtitulo}
-            </span>
-          )}
+            {subtitulo && (
+              <span
+                style={{
+                  color: "#94a3b8",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  display: "block",
+                  marginTop: 6,
+                }}
+              >
+                {subtitulo}
+              </span>
+            )}
+
+            {acao && <div style={{ marginTop: 10 }}>{acao}</div>}
+          </div>
         </div>
       </div>
     );
   }
 
-  function linhaValor({ label, value, cor = "#f8fafc", extra = null, icone = null, iconeCor = "#60a5fa" }) {
-    return (
-      <div
-        style={{
-          background: "#020617",
-          border: "1px solid #1e293b",
-          borderRadius: 16,
-          padding: 13,
-          minHeight: 98,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          {icone && <IconBox cor={iconeCor}>{icone}</IconBox>}
-
-          <p style={{ color: "#94a3b8", margin: 0, fontSize: 12, fontWeight: 800 }}>
-            {label}
-          </p>
-        </div>
-
-        <strong style={{ color: cor, fontSize: 18, display: "block", marginTop: 5 }}>
-          {value}
-        </strong>
-
-        {extra}
-      </div>
-    );
-  }
-
-  function linhaComparativo({ label, atual, anterior, tipo = "moeda", menorMelhor = false, icone = null }) {
+  function ComparativoPremium({
+    label,
+    atual,
+    anterior,
+    tipo = "moeda",
+    menorMelhor = false,
+    icone = null,
+  }) {
     const variacao = calcularVariacao(atual, anterior);
     const positivo = menorMelhor ? variacao < 0 : variacao > 0;
     const neutro = Number(variacao || 0) === 0;
+    const cor = neutro ? "#cbd5e1" : positivo ? "#22c55e" : "#ef4444";
 
     return (
       <div
         style={{
-          background: "#020617",
-          border: "1px solid #1e293b",
-          borderRadius: 16,
-          padding: 13,
+          ...styles.kpi,
+          background:
+            "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.92) 100%)",
+          border: `1px solid ${cor}44`,
+          boxShadow: `0 12px 28px rgba(0,0,0,0.35), 0 0 24px ${cor}16`,
+          minHeight: 116,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          {icone && (
-            <IconBox cor={positivo ? "#86efac" : neutro ? "#cbd5e1" : "#fca5a5"}>
-              {icone}
-            </IconBox>
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <IconBox cor={cor}>
+            {icone || (positivo ? <TrendingUp size={20} /> : <TrendingDown size={20} />)}
+          </IconBox>
 
-          <p style={{ color: "#94a3b8", margin: 0, fontSize: 12, fontWeight: 800 }}>
-            {label}
-          </p>
+          <div style={{ minWidth: 0 }}>
+            <p
+              style={{
+                margin: 0,
+                marginBottom: 7,
+                color: "#cbd5e1",
+                fontSize: 12,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: 0.3,
+              }}
+            >
+              {label}
+            </p>
+
+            <strong style={{ color: "#f8fafc", fontSize: 18, display: "block" }}>
+              {tipo === "moeda" ? formatarMoeda(atual) : Number(atual || 0)}
+            </strong>
+
+            <span
+              style={{
+                color: cor,
+                fontSize: 13,
+                fontWeight: 900,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                marginTop: 6,
+              }}
+            >
+              {variacao >= 0 ? "▲" : "▼"} {textoVariacao(variacao)} vs anterior
+            </span>
+          </div>
         </div>
-
-        <strong style={{ color: "#f8fafc", fontSize: 16, display: "block" }}>
-          {tipo === "moeda" ? formatarMoeda(atual) : Number(atual || 0)}
-        </strong>
-
-        <span
-          style={{
-            color: corVariacao(variacao, menorMelhor),
-            fontSize: 12,
-            fontWeight: 800,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            marginTop: 4,
-          }}
-        >
-          {variacao >= 0 ? "▲" : "▼"} {textoVariacao(variacao)} vs anterior
-        </span>
       </div>
     );
   }
-
-  function TituloSecao({ icone, titulo, subtitulo = "" }) {
+    function TituloSecao({ icone, titulo, subtitulo = "" }) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        {icone && <IconBox>{icone}</IconBox>}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 14,
+        }}
+      >
+        {icone && <IconBox cor="#38bdf8" grande>{icone}</IconBox>}
 
         <div>
-          <h3 style={{ color: "#f8fafc", margin: 0, fontSize: 16 }}>
+          <h3
+            style={{
+              color: "#f8fafc",
+              margin: 0,
+              fontSize: 17,
+              fontWeight: 900,
+            }}
+          >
             {titulo}
           </h3>
 
           {subtitulo && (
-            <p style={{ color: "#64748b", margin: "4px 0 0 0", fontSize: 12, fontWeight: 600 }}>
+            <p
+              style={{
+                color: "#94a3b8",
+                margin: "5px 0 0 0",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
               {subtitulo}
             </p>
           )}
@@ -771,15 +844,24 @@ export default function HistoricoFinanceiro({
     );
   }
 
-  function BotaoSecundario({ children, onClick, perigo = false }) {
+  function BotaoSecundario({ children, onClick, perigo = false, destaque = false }) {
     return (
       <button
         style={{
-          ...styles.botaoCinza,
-          background: perigo ? "#dc2626" : styles.botaoCinza.background,
+          ...styles.botaoDashboard,
+          background: perigo
+            ? "linear-gradient(135deg,#dc2626 0%,#991b1b 100%)"
+            : destaque
+            ? "linear-gradient(135deg,#16a34a 0%,#15803d 100%)"
+            : "linear-gradient(135deg,#334155 0%,#475569 100%)",
           display: "inline-flex",
           alignItems: "center",
           gap: 7,
+          boxShadow: perigo
+            ? "0 10px 24px rgba(220,38,38,0.22)"
+            : destaque
+            ? "0 10px 24px rgba(22,163,74,0.22)"
+            : "0 10px 24px rgba(0,0,0,0.28)",
         }}
         onClick={onClick}
       >
@@ -810,6 +892,7 @@ export default function HistoricoFinanceiro({
             style={{
               ...styles.botaoDashboard,
               background: "linear-gradient(135deg,#16a34a 0%,#15803d 100%)",
+              boxShadow: "0 10px 24px rgba(22,163,74,0.22)",
             }}
             onClick={atualizarCarteirasHistoricas}
           >
@@ -820,47 +903,20 @@ export default function HistoricoFinanceiro({
 
       <Card titulo="Resumo executivo dos fechamentos">
         <div style={styles.kpisModernos}>
-          <CardIndicador
-            titulo="Fechamentos salvos"
-            valorTexto={resumoGeral.fechamentos}
-            destaque
-            icone={<ClipboardList size={18} />}
-            subtitulo="Períodos encerrados"
-          />
-
-          <CardIndicador
+          <Kpi titulo="Fechamentos salvos" valor={resumoGeral.fechamentos} />
+          <Kpi
             titulo="Faturamento acumulado"
-            valorTexto={moeda.format(resumoGeral.faturamento)}
-            icone={<TrendingUp size={18} />}
-            cor="#86efac"
+            valor={moeda.format(resumoGeral.faturamento)}
           />
-
-          <CardIndicador
+          <Kpi
             titulo="Recebimentos antigos"
-            valorTexto={moeda.format(resumoGeral.recebimentosAntigos)}
-            icone={<History size={18} />}
-            cor="#c4b5fd"
+            valor={moeda.format(resumoGeral.recebimentosAntigos)}
           />
-
-          <CardIndicador
-            titulo="Total recebido"
-            valorTexto={moeda.format(resumoGeral.recebido)}
-            icone={<CircleDollarSign size={18} />}
-            cor="#93c5fd"
-          />
-
-          <CardIndicador
-            titulo="Serviços realizados"
-            valorTexto={resumoGeral.servicos}
-            icone={<ReceiptText size={18} />}
-            cor="#facc15"
-          />
-
-          <CardIndicador
+          <Kpi titulo="Total recebido" valor={moeda.format(resumoGeral.recebido)} />
+          <Kpi titulo="Serviços realizados" valor={resumoGeral.servicos} />
+          <Kpi
             titulo="Notas em aberto"
-            valorTexto={moeda.format(resumoGeral.notasAberto)}
-            icone={<FileWarning size={18} />}
-            cor="#fca5a5"
+            valor={moeda.format(resumoGeral.notasAberto)}
           />
         </div>
       </Card>
@@ -879,191 +935,475 @@ export default function HistoricoFinanceiro({
         {fechamentosOrdenados.length === 0 ? (
           <p style={styles.vazio}>Nenhum fechamento salvo ainda.</p>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(360px,1fr))", gap: 18 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(360px,1fr))",
+              gap: 18,
+            }}
+          >
             {fechamentosOrdenados.map((fechamento) => {
               const carteira = analisarCarteira(fechamento);
               const anterior = fechamentoAnteriorDe(fechamento);
               const carteiraAnterior = anterior ? analisarCarteira(anterior) : null;
-              const recebimentosAntigosDetalhados = listarRecebimentosAntigosDoFechamento(fechamento);
+              const recebimentosAntigosDetalhados =
+                listarRecebimentosAntigosDoFechamento(fechamento);
               const qtdRecebimentosAntigos = recebimentosAntigosDetalhados.length;
               const aberto = abertos[fechamento.id];
 
-              const banco = valor(fechamento, "bancoEsperado", fechamento.recebidoBanco);
-              const caixa = valor(fechamento, "caixaEsperado", fechamento.recebidoCaixa);
+              const banco = valor(
+                fechamento,
+                "bancoEsperado",
+                fechamento.recebidoBanco
+              );
+              const caixa = valor(
+                fechamento,
+                "caixaEsperado",
+                fechamento.recebidoCaixa
+              );
               const saldo = valor(fechamento, "saldoTotal", banco + caixa);
-              const servicos = valor(fechamento, "servicosRealizados", fechamento.quantidadeEntradas);
-              const entradasVista = valor(fechamento, "entradasVista");
-              const recebimentosAntigos = calcularRecebimentosAntigosDoFechamento(fechamento);
+              const servicos = valor(
+                fechamento,
+                "servicosRealizados",
+                fechamento.quantidadeEntradas
+              );
+              const entradasVista = Math.max(
+  0,
+  valor(
+    fechamento,
+    "entradasVista",
+    valor(fechamento, "faturamento") - carteira.valorOriginal
+  )
+);
+              const recebimentosAntigos =
+                calcularRecebimentosAntigosDoFechamento(fechamento);
               const qtdNotasAberto = carteira.notas.length;
               const valorNotasAberto = carteira.valorOriginal;
-              const observacaoAtual = observacoes[fechamento.id] ?? fechamento.observacao ?? "";
+              const observacaoAtual =
+                observacoes[fechamento.id] ?? fechamento.observacao ?? "";
 
               return (
                 <div
                   key={fechamento.id}
                   style={{
-                    background: "linear-gradient(180deg,#0f172a 0%,#020617 100%)",
-                    border: "1px solid #334155",
-                    borderRadius: 24,
+                    background:
+                      "linear-gradient(180deg, rgba(19,28,49,0.98) 0%, rgba(15,23,42,0.98) 100%)",
+                    border: "1px solid rgba(147,197,253,0.25)",
+                    borderRadius: 26,
                     padding: 18,
                     display: "flex",
                     flexDirection: "column",
                     gap: 14,
+                    boxShadow:
+                      "0 18px 46px rgba(0,0,0,0.38), 0 0 34px rgba(56,189,248,0.08)",
+                    overflow: "hidden",
                   }}
                 >
-                  <div>
-                    <strong style={{ color: "#f8fafc", fontSize: 19 }}>
-                      {dataBR(fechamento.inicio)} até {dataBR(fechamento.fim)}
-                    </strong>
+                  <div
+                    style={{
+                      padding: 16,
+                      borderRadius: 22,
+                      background:
+                        "linear-gradient(135deg, rgba(37,99,235,0.30) 0%, rgba(124,58,237,0.25) 60%, rgba(14,165,233,0.14) 100%)",
+                      border: "1px solid rgba(147,197,253,0.30)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 14,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <IconBox cor="#38bdf8" grande>
+                        <ClipboardList size={24} />
+                      </IconBox>
 
-                    <p style={{ color: "#94a3b8", marginTop: 6, marginBottom: 0, fontSize: 13 }}>
-                      Fechado em {dataBR(fechamento.dataFechamento)}
-                    </p>
-                  </div>
+                      <div>
+                        <strong style={{ color: "#f8fafc", fontSize: 20 }}>
+                          {dataBR(fechamento.inicio)} até {dataBR(fechamento.fim)}
+                        </strong>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
-                    {linhaValor({ label: "Faturamento", value: moeda.format(valor(fechamento, "faturamento")), icone: <TrendingUp size={16} />, iconeCor: "#86efac" })}
-                    {linhaValor({ label: "Entradas à vista", value: moeda.format(entradasVista), icone: <Wallet size={16} />, iconeCor: "#93c5fd" })}
-
-                    {linhaValor({
-                      label: "Recebimentos antigos",
-                      value: moeda.format(recebimentosAntigos),
-                      icone: <History size={16} />,
-                      iconeCor: "#c4b5fd",
-                      extra: (
-                        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 7 }}>
-                          <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                            <ReceiptText size={13} />
-                            {qtdRecebimentosAntigos} nota(s) recebida(s)
-                          </span>
-
-                          {qtdRecebimentosAntigos > 0 && (
-                            <button
-                              style={{
-                                ...styles.botaoCinza,
-                                marginTop: 2,
-                                padding: "7px 10px",
-                                fontSize: 12,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                width: "fit-content",
-                              }}
-                              onClick={() =>
-                                setRecebimentosAbertos((old) => ({
-                                  ...old,
-                                  [fechamento.id]: !old[fechamento.id],
-                                }))
-                              }
-                            >
-                              {recebimentosAbertos[fechamento.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                              {recebimentosAbertos[fechamento.id] ? "Ocultar" : "Detalhar"}
-                            </button>
-                          )}
-                        </div>
-                      ),
-                    })}
-
-                    {linhaValor({ label: "Serviços", value: servicos, icone: <ClipboardList size={16} />, iconeCor: "#facc15" })}
-                    {linhaValor({ label: "Notas em aberto", value: moeda.format(valorNotasAberto), icone: <FileWarning size={16} />, iconeCor: "#fca5a5" })}
-                    {linhaValor({ label: "Qtd notas em aberto", value: qtdNotasAberto, icone: <ReceiptText size={16} />, iconeCor: "#fca5a5" })}
-                    {linhaValor({ label: "Saídas", value: moeda.format(valor(fechamento, "saidas")), cor: "#fca5a5", icone: <TrendingDown size={16} />, iconeCor: "#fca5a5" })}
-                    {linhaValor({ label: "Resultado líquido", value: moeda.format(valor(fechamento, "lucro")), cor: valor(fechamento, "lucro") >= 0 ? "#86efac" : "#fca5a5", icone: <Scale size={16} />, iconeCor: valor(fechamento, "lucro") >= 0 ? "#86efac" : "#fca5a5" })}
-                    {linhaValor({ label: "Banco esperado", value: moeda.format(banco), cor: "#93c5fd", icone: <Landmark size={16} />, iconeCor: "#93c5fd" })}
-                    {linhaValor({ label: "Caixa esperado", value: moeda.format(caixa), cor: "#fde68a", icone: <Banknote size={16} />, iconeCor: "#fde68a" })}
-                    {linhaValor({ label: "Saldo final", value: moeda.format(saldo), cor: "#c4b5fd", icone: <CircleDollarSign size={16} />, iconeCor: "#c4b5fd" })}
-                    {linhaValor({ label: "Meta do período", value: moeda.format(valor(fechamento, "metaMensal")), icone: <Target size={16} />, iconeCor: "#60a5fa" })}
-                  </div>
-
-                  {recebimentosAbertos[fechamento.id] && recebimentosAntigosDetalhados.length > 0 && (
-                    <div style={{ background: "#020617", border: "1px solid #1e293b", borderRadius: 18, padding: 14 }}>
-                      <TituloSecao
-                        icone={<History size={16} />}
-                        titulo="Recebimentos antigos detalhados"
-                        subtitulo="Notas antigas recebidas dentro deste fechamento"
-                      />
-
-                      <div style={{ overflowX: "auto" }}>
-                        <table style={{ ...styles.tabela, minWidth: 760 }}>
-                          <thead>
-                            <tr>
-                              <th style={styles.th}>Cliente</th>
-                              <th style={styles.th}>Placa</th>
-                              <th style={styles.th}>Venda</th>
-                              <th style={styles.th}>Pagamento</th>
-                              <th style={styles.th}>Forma</th>
-                              <th style={styles.th}>Valor</th>
-                            </tr>
-                          </thead>
-
-                          <tbody>
-                            {recebimentosAntigosDetalhados.map((item) => (
-                              <tr key={item.id}>
-                                <td style={styles.td}>{item.cliente}</td>
-                                <td style={styles.tdPlaca}>{item.placa || "-"}</td>
-                                <td style={styles.td}>{dataBR(item.data)}</td>
-                                <td style={styles.td}>{dataBR(item.diaPago)}</td>
-                                <td style={styles.td}>{item.formaPagamento || "-"}</td>
-                                <td style={styles.tdValor}>{moeda.format(item.valor)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <p
+                          style={{
+                            color: "#cbd5e1",
+                            marginTop: 6,
+                            marginBottom: 0,
+                            fontSize: 13,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Fechado em {dataBR(fechamento.dataFechamento)}
+                        </p>
                       </div>
                     </div>
-                  )}
 
-                  <div style={{ background: "#020617", border: "1px solid #1e293b", borderRadius: 18, padding: 14 }}>
+                    <div
+                      style={{
+                        background: "rgba(15,23,42,0.72)",
+                        border: "1px solid rgba(148,163,184,0.22)",
+                        borderRadius: 999,
+                        padding: "8px 12px",
+                        color: "#bfdbfe",
+                        fontSize: 12,
+                        fontWeight: 900,
+                      }}
+                    >
+                      {qtdNotasAberto} nota(s) na carteira
+                    </div>
+                  </div>
+
+                  <div style={styles.kpisModernos}>
+                    <MiniKpi
+                      titulo="Faturamento"
+                      valorTexto={moeda.format(valor(fechamento, "faturamento"))}
+                      icone={<TrendingUp size={20} />}
+                      cor="#22c55e"
+                    />
+
+                    <MiniKpi
+                      titulo="Entradas à vista"
+                      valorTexto={moeda.format(entradasVista)}
+                      icone={<Wallet size={20} />}
+                      cor="#38bdf8"
+                    />
+
+                    <MiniKpi
+                      titulo="Recebimentos antigos"
+                      valorTexto={moeda.format(recebimentosAntigos)}
+                      icone={<History size={20} />}
+                      cor="#a78bfa"
+                      subtitulo={`${qtdRecebimentosAntigos} nota(s) recebida(s)`}
+                      acao={
+                        qtdRecebimentosAntigos > 0 ? (
+                          <button
+                            style={{
+                              ...styles.botaoCinza,
+                              padding: "7px 10px",
+                              fontSize: 12,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              background:
+                                "linear-gradient(135deg,#334155 0%,#475569 100%)",
+                            }}
+                            onClick={() =>
+                              setRecebimentosAbertos((old) => ({
+                                ...old,
+                                [fechamento.id]: !old[fechamento.id],
+                              }))
+                            }
+                          >
+                            {recebimentosAbertos[fechamento.id] ? (
+                              <ChevronDown size={14} />
+                            ) : (
+                              <ChevronRight size={14} />
+                            )}
+                            {recebimentosAbertos[fechamento.id]
+                              ? "Ocultar"
+                              : "Detalhar"}
+                          </button>
+                        ) : null
+                      }
+                    />
+
+                    <MiniKpi
+                      titulo="Serviços"
+                      valorTexto={servicos}
+                      icone={<ClipboardList size={20} />}
+                      cor="#facc15"
+                    />
+
+                    <MiniKpi
+                      titulo="Notas em aberto"
+                      valorTexto={moeda.format(valorNotasAberto)}
+                      icone={<FileWarning size={20} />}
+                      cor="#f87171"
+                    />
+
+                    <MiniKpi
+                      titulo="Qtd notas em aberto"
+                      valorTexto={qtdNotasAberto}
+                      icone={<ReceiptText size={20} />}
+                      cor="#fb7185"
+                    />
+
+                    <MiniKpi
+                      titulo="Saídas"
+                      valorTexto={moeda.format(valor(fechamento, "saidas"))}
+                      icone={<TrendingDown size={20} />}
+                      cor="#ef4444"
+                    />
+
+                    <MiniKpi
+                      titulo="Resultado líquido"
+                      valorTexto={moeda.format(valor(fechamento, "lucro"))}
+                      icone={<Scale size={20} />}
+                      cor={
+                        valor(fechamento, "lucro") >= 0 ? "#22c55e" : "#ef4444"
+                      }
+                    />
+
+                    <MiniKpi
+                      titulo="Banco esperado"
+                      valorTexto={moeda.format(banco)}
+                      icone={<Landmark size={20} />}
+                      cor="#818cf8"
+                    />
+
+                    <MiniKpi
+                      titulo="Caixa esperado"
+                      valorTexto={moeda.format(caixa)}
+                      icone={<Banknote size={20} />}
+                      cor="#fbbf24"
+                    />
+
+                    <MiniKpi
+                      titulo="Saldo final"
+                      valorTexto={moeda.format(saldo)}
+                      icone={<CircleDollarSign size={20} />}
+                      cor="#c084fc"
+                    />
+
+                    <MiniKpi
+                      titulo="Meta do período"
+                      valorTexto={moeda.format(valor(fechamento, "metaMensal"))}
+                      icone={<Target size={20} />}
+                      cor="#38bdf8"
+                    />
+                  </div>
+
+                  {recebimentosAbertos[fechamento.id] &&
+                    recebimentosAntigosDetalhados.length > 0 && (
+                      <CaixaPremium>
+                        <TituloSecao
+                          icone={<History size={22} />}
+                          titulo="Recebimentos antigos detalhados"
+                          subtitulo="Notas antigas recebidas dentro deste fechamento"
+                        />
+
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ ...styles.tabela, minWidth: 760 }}>
+                            <thead>
+                              <tr>
+                                <th style={styles.th}>Cliente</th>
+                                <th style={styles.th}>Placa</th>
+                                <th style={styles.th}>Venda</th>
+                                <th style={styles.th}>Pagamento</th>
+                                <th style={styles.th}>Forma</th>
+                                <th style={styles.th}>Valor</th>
+                              </tr>
+                            </thead>
+
+                            <tbody>
+                              {recebimentosAntigosDetalhados.map((item) => (
+                                <tr key={item.id}>
+                                  <td style={styles.td}>{item.cliente}</td>
+                                  <td style={styles.tdPlaca}>{item.placa || "-"}</td>
+                                  <td style={styles.td}>{dataBR(item.data)}</td>
+                                  <td style={styles.td}>{dataBR(item.diaPago)}</td>
+                                  <td style={styles.td}>
+                                    {item.formaPagamento || "-"}
+                                  </td>
+                                  <td style={styles.tdValor}>
+                                    {moeda.format(item.valor)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </CaixaPremium>
+                    )}
+
+                  <CaixaPremium>
                     <TituloSecao
-                      icone={<TrendingUp size={16} />}
+                      icone={<TrendingUp size={22} />}
                       titulo="Comparação com fechamento anterior"
                       subtitulo="Variação dos principais indicadores"
                     />
 
                     {!anterior ? (
-                      <p style={styles.vazio}>Não existe fechamento anterior para comparar.</p>
+                      <p style={styles.vazio}>
+                        Não existe fechamento anterior para comparar.
+                      </p>
                     ) : (
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>
-                        {linhaComparativo({ label: "Faturamento", atual: valor(fechamento, "faturamento"), anterior: valor(anterior, "faturamento"), icone: <TrendingUp size={16} /> })}
-                        {linhaComparativo({ label: "Serviços", atual: servicos, anterior: valor(anterior, "servicosRealizados", anterior.quantidadeEntradas), tipo: "numero", icone: <ClipboardList size={16} /> })}
-                        {linhaComparativo({ label: "Resultado", atual: valor(fechamento, "lucro"), anterior: valor(anterior, "lucro"), icone: <Scale size={16} /> })}
-                        {linhaComparativo({ label: "Receb. antigos", atual: recebimentosAntigos, anterior: calcularRecebimentosAntigosDoFechamento(anterior), icone: <History size={16} /> })}
-                        {linhaComparativo({ label: "Notas abertas", atual: carteira.valorOriginal, anterior: carteiraAnterior?.valorOriginal || 0, tipo: "moeda", menorMelhor: true, icone: <FileWarning size={16} /> })}
+                      <div style={styles.kpisModernos}>
+                        <ComparativoPremium
+                          label="Faturamento"
+                          atual={valor(fechamento, "faturamento")}
+                          anterior={valor(anterior, "faturamento")}
+                          icone={<TrendingUp size={20} />}
+                        />
+
+                        <ComparativoPremium
+                          label="Serviços"
+                          atual={servicos}
+                          anterior={valor(
+                            anterior,
+                            "servicosRealizados",
+                            anterior.quantidadeEntradas
+                          )}
+                          tipo="numero"
+                          icone={<ClipboardList size={20} />}
+                        />
+
+                        <ComparativoPremium
+                          label="Resultado"
+                          atual={valor(fechamento, "lucro")}
+                          anterior={valor(anterior, "lucro")}
+                          icone={<Scale size={20} />}
+                        />
+
+                        <ComparativoPremium
+                          label="Receb. antigos"
+                          atual={recebimentosAntigos}
+                          anterior={calcularRecebimentosAntigosDoFechamento(
+                            anterior
+                          )}
+                          icone={<History size={20} />}
+                        />
+
+                        <ComparativoPremium
+                          label="Notas abertas"
+                          atual={carteira.valorOriginal}
+                          anterior={carteiraAnterior?.valorOriginal || 0}
+                          tipo="moeda"
+                          menorMelhor
+                          icone={<FileWarning size={20} />}
+                        />
                       </div>
                     )}
-                  </div>
+                  </CaixaPremium>
 
-                  <div style={{ background: "#020617", border: "1px solid #1e293b", borderRadius: 18, padding: 14 }}>
+                  <CaixaPremium destaque>
                     <TituloSecao
-                      icone={<ReceiptText size={16} />}
+                      icone={<ReceiptText size={22} />}
                       titulo="Recuperação da carteira"
                       subtitulo="Acompanhamento das notas que ficaram abertas no fechamento"
                     />
 
-                    <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 999, height: 10, overflow: "hidden", marginBottom: 14 }}>
-                      <div
-                        style={{
-                          width: `${Math.min(100, carteira.taxa)}%`,
-                          height: "100%",
-                          background:
-                            carteira.taxa >= 80
-                              ? "linear-gradient(90deg,#22c55e,#86efac)"
-                              : carteira.taxa >= 50
-                              ? "linear-gradient(90deg,#facc15,#fde68a)"
-                              : "linear-gradient(90deg,#ef4444,#fca5a5)",
-                        }}
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))",
+                        gap: 14,
+                        alignItems: "center",
+                        marginBottom: 16,
+                      }}
+                    >
+                      <div>
+                        <p
+                          style={{
+                            margin: 0,
+                            color: "#cbd5e1",
+                            fontSize: 13,
+                            fontWeight: 800,
+                          }}
+                        >
+                          Taxa de recuperação
+                        </p>
+
+                        <strong
+                          style={{
+                            display: "block",
+                            marginTop: 4,
+                            color:
+                              carteira.taxa >= 80
+                                ? "#86efac"
+                                : carteira.taxa >= 50
+                                ? "#fde68a"
+                                : "#fca5a5",
+                            fontSize: "clamp(34px, 5vw, 48px)",
+                            lineHeight: 1,
+                            fontWeight: 950,
+                          }}
+                        >
+                          {carteira.taxa.toFixed(1)}%
+                        </strong>
+                      </div>
+
+                      <div>
+                        <div
+                          style={{
+                            background: "rgba(15,23,42,0.88)",
+                            border: "1px solid rgba(148,163,184,0.28)",
+                            borderRadius: 999,
+                            height: 16,
+                            overflow: "hidden",
+                            boxShadow: "inset 0 0 18px rgba(0,0,0,0.35)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${Math.min(100, carteira.taxa)}%`,
+                              height: "100%",
+                              background:
+                                carteira.taxa >= 80
+                                  ? "linear-gradient(90deg,#16a34a,#86efac)"
+                                  : carteira.taxa >= 50
+                                  ? "linear-gradient(90deg,#f59e0b,#fde68a)"
+                                  : "linear-gradient(90deg,#dc2626,#fca5a5)",
+                              boxShadow:
+                                carteira.taxa >= 80
+                                  ? "0 0 26px rgba(34,197,94,0.45)"
+                                  : carteira.taxa >= 50
+                                  ? "0 0 26px rgba(250,204,21,0.35)"
+                                  : "0 0 26px rgba(239,68,68,0.45)",
+                            }}
+                          />
+                        </div>
+
+                        <p
+                          style={{
+                            margin: "8px 0 0",
+                            color: "#94a3b8",
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Quanto maior a barra, melhor a recuperação da carteira.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={styles.kpisModernos}>
+                      <MiniKpi
+                        titulo="Aberto no fechamento"
+                        valorTexto={moeda.format(carteira.valorOriginal)}
+                        icone={<FileWarning size={20} />}
+                        cor="#f87171"
+                      />
+
+                      <MiniKpi
+                        titulo="Recebido depois"
+                        valorTexto={moeda.format(carteira.valorRecuperado)}
+                        icone={<CircleDollarSign size={20} />}
+                        cor="#22c55e"
+                      />
+
+                      <MiniKpi
+                        titulo="Ainda pendente"
+                        valorTexto={moeda.format(carteira.valorPendente)}
+                        icone={<FileWarning size={20} />}
+                        cor={carteira.valorPendente > 0 ? "#ef4444" : "#22c55e"}
+                      />
+
+                      <MiniKpi
+                        titulo="Taxa recuperação"
+                        valorTexto={`${carteira.taxa.toFixed(1)}%`}
+                        icone={<TrendingUp size={20} />}
+                        cor={
+                          carteira.taxa >= 80
+                            ? "#22c55e"
+                            : carteira.taxa >= 50
+                            ? "#facc15"
+                            : "#ef4444"
+                        }
                       />
                     </div>
+                  </CaixaPremium>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 }}>
-                      {linhaValor({ label: "Aberto no fechamento", value: moeda.format(carteira.valorOriginal), icone: <FileWarning size={16} />, iconeCor: "#fca5a5" })}
-                      {linhaValor({ label: "Recebido depois", value: moeda.format(carteira.valorRecuperado), cor: "#86efac", icone: <CircleDollarSign size={16} />, iconeCor: "#86efac" })}
-                      {linhaValor({ label: "Ainda pendente", value: moeda.format(carteira.valorPendente), cor: carteira.valorPendente > 0 ? "#fca5a5" : "#86efac", icone: <FileWarning size={16} />, iconeCor: carteira.valorPendente > 0 ? "#fca5a5" : "#86efac" })}
-                      {linhaValor({ label: "Taxa recuperação", value: `${carteira.taxa.toFixed(1)}%`, cor: carteira.taxa >= 80 ? "#86efac" : carteira.taxa >= 50 ? "#fde68a" : "#fca5a5", icone: <TrendingUp size={16} /> })}
-                    </div>
-                  </div>
-
-                  <div style={{ background: "#020617", border: "1px solid #1e293b", borderRadius: 18, padding: 14 }}>
+                  <CaixaPremium>
                     <label style={{ ...styles.label, marginBottom: 8 }}>
                       Observação do fechamento
                     </label>
@@ -1077,16 +1417,33 @@ export default function HistoricoFinanceiro({
                         }))
                       }
                       placeholder="Escreva observações do fechamento, conferências, diferenças, decisões dos sócios ou pontos importantes..."
-                      style={{ ...styles.textarea, minHeight: 90, resize: "vertical" }}
+                      style={{
+                        ...styles.textarea,
+                        minHeight: 90,
+                        resize: "vertical",
+                      }}
                     />
 
-                    <button style={{ ...styles.botao, marginTop: 10 }} onClick={() => salvarObservacao(fechamento)}>
+                    <button
+                      style={{ ...styles.botao, marginTop: 10 }}
+                      onClick={() => salvarObservacao(fechamento)}
+                    >
                       Salvar observação
                     </button>
-                  </div>
+                  </CaixaPremium>
 
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
-                    <BotaoSecundario onClick={() => gerarPdfFechamento(fechamento)}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      flexWrap: "wrap",
+                      marginTop: 4,
+                    }}
+                  >
+                    <BotaoSecundario
+                      destaque
+                      onClick={() => gerarPdfFechamento(fechamento)}
+                    >
                       Baixar PDF
                     </BotaoSecundario>
 
@@ -1095,21 +1452,26 @@ export default function HistoricoFinanceiro({
                       {aberto ? "Ocultar notas" : "Ver notas"}
                     </BotaoSecundario>
 
-                    <BotaoSecundario perigo onClick={() => excluirFechamento(fechamento.id)}>
+                    <BotaoSecundario
+                      perigo
+                      onClick={() => excluirFechamento(fechamento.id)}
+                    >
                       Excluir fechamento
                     </BotaoSecundario>
                   </div>
 
                   {aberto && (
-                    <div style={{ background: "#020617", border: "1px solid #1e293b", borderRadius: 18, padding: 14, marginTop: 4 }}>
+                    <CaixaPremium>
                       <TituloSecao
-                        icone={<FileWarning size={16} />}
+                        icone={<FileWarning size={22} />}
                         titulo="Notas em aberto no fechamento"
                         subtitulo="Carteira detalhada salva no momento do fechamento"
                       />
 
                       {carteira.notas.length === 0 ? (
-                        <p style={styles.vazio}>Nenhuma nota detalhada foi salva neste fechamento.</p>
+                        <p style={styles.vazio}>
+                          Nenhuma nota detalhada foi salva neste fechamento.
+                        </p>
                       ) : (
                         <div style={{ overflowX: "auto" }}>
                           <table style={{ ...styles.tabela, minWidth: 860 }}>
@@ -1133,12 +1495,26 @@ export default function HistoricoFinanceiro({
                                   <td style={styles.tdPlaca}>{nota.placa || "-"}</td>
                                   <td style={styles.td}>{nota.produto || "-"}</td>
                                   <td style={styles.td}>{dataBR(nota.data)}</td>
-                                  <td style={styles.td}>{nota.diaPagoAtual ? dataBR(nota.diaPagoAtual) : "-"}</td>
-                                  <td style={styles.td}>{nota.formaPagamentoAtual || "-"}</td>
-                                  <td style={styles.tdValor}>{moeda.format(Number(nota.valor || 0))}</td>
                                   <td style={styles.td}>
-                                    <strong style={{ color: nota.recuperada ? "#86efac" : "#fca5a5" }}>
-                                      {nota.recuperada ? "Recebida depois" : "Ainda pendente"}
+                                    {nota.diaPagoAtual ? dataBR(nota.diaPagoAtual) : "-"}
+                                  </td>
+                                  <td style={styles.td}>
+                                    {nota.formaPagamentoAtual || "-"}
+                                  </td>
+                                  <td style={styles.tdValor}>
+                                    {moeda.format(Number(nota.valor || 0))}
+                                  </td>
+                                  <td style={styles.td}>
+                                    <strong
+                                      style={{
+                                        color: nota.recuperada
+                                          ? "#86efac"
+                                          : "#fca5a5",
+                                      }}
+                                    >
+                                      {nota.recuperada
+                                        ? "Recebida depois"
+                                        : "Ainda pendente"}
                                     </strong>
                                   </td>
                                 </tr>
@@ -1147,7 +1523,7 @@ export default function HistoricoFinanceiro({
                           </table>
                         </div>
                       )}
-                    </div>
+                    </CaixaPremium>
                   )}
                 </div>
               );
