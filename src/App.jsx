@@ -513,6 +513,22 @@ if (
             ? dados.historicoFechamentos
             : []
         );
+        setDadosEmpresa({
+  logo: dados.logo || "",
+  nome: dados.nome || "",
+  ie: dados.ie || "",
+  cnpj: dados.cnpj || "",
+  email: dados.email || "",
+  whatsapp: dados.whatsapp || "",
+  cep: dados.cep || "",
+  logradouro: dados.logradouro || "",
+  numero: dados.numero || "",
+  bairro: dados.bairro || "",
+  cidade: dados.cidade || "",
+  pix: dados.pix || "",
+  codigoConvite: dados.codigoConvite || "",
+});
+        
       } else {
         await setDoc(docSistema, {
           entradas: [],
@@ -564,71 +580,58 @@ if (
     return () => cancelar();
   }, []);
 
-  useEffect(() => {
-    const cancelarDadosEmpresa = onSnapshot(docSistema, (snapshot) => {
-      if (!snapshot.exists()) return;
-
-      const dados = snapshot.data();
-
-      setDadosEmpresa({
-        logo: dados.logo || "",
-        nome: dados.nome || "",
-        ie: dados.ie || "",
-        cnpj: dados.cnpj || "",
-        email: dados.email || "",
-        whatsapp: dados.whatsapp || "",
-        cep: dados.cep || "",
-        logradouro: dados.logradouro || "",
-        numero: dados.numero || "",
-        bairro: dados.bairro || "",
-        cidade: dados.cidade || "",
-        pix: dados.pix || "",
-        codigoConvite: dados.codigoConvite || "",
-      });
-    });
-
-    return () => cancelarDadosEmpresa();
-  }, [empresaId]);
+  
+    
 
   useEffect(() => {
-    const cancelar = onSnapshot(
-      collection(db, "empresas", empresaId, "backupsAutomaticos"),
-      (snapshot) => {
-        const lista = snapshot.docs
-          .map((docItem) => ({
-            id: docItem.id,
-            ...docItem.data(),
-          }))
-          .sort((a, b) =>
-            String(b.criadoEm || b.id).localeCompare(
-              String(a.criadoEm || a.id)
-            )
-          );
+  async function carregarBackups() {
+    try {
+      const snapshot = await getDocs(
+        collection(db, "empresas", empresaId, "backupsAutomaticos")
+      );
 
-        setBackupsAutomaticos(lista);
-      }
-    );
+      const lista = snapshot.docs
+        .map((docItem) => ({
+          id: docItem.id,
+          ...docItem.data(),
+        }))
+        .sort((a, b) =>
+          String(b.criadoEm || b.id).localeCompare(
+            String(a.criadoEm || a.id)
+          )
+        );
 
-    return () => cancelar();
-  }, [empresaId]);
+      setBackupsAutomaticos(lista);
+    } catch (erro) {
+      console.error(erro);
+    }
+  }
 
-  useEffect(() => {
-    const cancelar = onSnapshot(
-      collection(db, "empresas", empresaId, "historicoAlteracoes"),
-      (snapshot) => {
-        const lista = snapshot.docs
-          .map((docItem) => ({
-            id: docItem.id,
-            ...docItem.data(),
-          }))
-          .sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
+  carregarBackups();
+}, [empresaId]);
 
-        setHistoricoAlteracoes(lista);
-      }
-    );
+ useEffect(() => {
+  async function carregarHistoricoAlteracoes() {
+    try {
+      const snapshot = await getDocs(
+        collection(db, "empresas", empresaId, "historicoAlteracoes")
+      );
 
-    return () => cancelar();
-  }, [empresaId]);
+      const lista = snapshot.docs
+        .map((docItem) => ({
+          id: docItem.id,
+          ...docItem.data(),
+        }))
+        .sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
+
+      setHistoricoAlteracoes(lista);
+    } catch (erro) {
+      console.error(erro);
+    }
+  }
+
+  carregarHistoricoAlteracoes();
+}, [empresaId]);
 
   useEffect(() => {
     const cancelar = onSnapshot(
@@ -699,7 +702,7 @@ if (
 
   const intervalo = setInterval(() => {
     atualizarAtividade();
-  }, 30000);
+  }, 300000);
 
   window.addEventListener("beforeunload", marcarOffline);
 
