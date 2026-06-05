@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import PortalSuperadmin from "./pages/PortalSuperadmin.jsx";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
@@ -6,6 +7,7 @@ import {
   onSnapshot,
   setDoc,
   addDoc,
+  getDocs,
 } from "firebase/firestore";
 import DadosEmpresa from "./pages/DadosEmpresa.jsx";
 
@@ -34,6 +36,9 @@ export default function App() {
   const [carregandoAuth, setCarregandoAuth] = useState(true);
   const [acesso, setAcesso] = useState(null);
   const [carregandoAcesso, setCarregandoAcesso] = useState(true);
+  const [empresasPortal, setEmpresasPortal] = useState([]);
+const [empresaSelecionadaSuperadmin, setEmpresaSelecionadaSuperadmin] =
+  useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -109,7 +114,36 @@ export default function App() {
       }
     };
   }, [usuario]);
+useEffect(() => {
+  async function carregarEmpresas() {
+    if (
+      String(acesso?.nivel || "").toLowerCase() !== "superadmin"
+    ) {
+      return;
+    }
 
+    try {
+      const snapshot = await getDocs(collection(db, "empresas"));
+
+      const lista = snapshot.docs.map((docItem) => ({
+        id: docItem.id,
+        ...docItem.data(),
+      }));
+
+      lista.sort((a, b) =>
+        String(a.nome || a.id).localeCompare(
+          String(b.nome || b.id)
+        )
+      );
+
+      setEmpresasPortal(lista);
+    } catch (erro) {
+      console.error(erro);
+    }
+  }
+
+  carregarEmpresas();
+}, [acesso]);
   if (carregandoAuth) {
     return (
       <div
@@ -191,10 +225,36 @@ export default function App() {
     );
   }
 
-  return <Sistema usuario={usuario} acesso={acesso} />;
+  const ehSuperadminGlobal =
+  String(acesso?.nivel || "").toLowerCase() === "superadmin";
+
+if (ehSuperadminGlobal && !empresaSelecionadaSuperadmin) {
+  return (
+    <PortalSuperadmin
+      empresas={empresasPortal}
+      usuario={usuario}
+      entrarNaEmpresa={setEmpresaSelecionadaSuperadmin}
+    />
+  );
 }
 
-function Sistema({ usuario, acesso }) {
+const acessoFinal = ehSuperadminGlobal
+  ? {
+      ...acesso,
+      empresaId: empresaSelecionadaSuperadmin,
+    }
+  : acesso;
+
+return (
+  <Sistema
+    usuario={usuario}
+    acesso={acessoFinal}
+    trocarEmpresaSuperadmin={() => setEmpresaSelecionadaSuperadmin("")}
+  />
+);
+}
+
+function Sistema({ usuario, acesso, trocarEmpresaSuperadmin }) {
   const hoje = new Date().toISOString().slice(0, 10);
   const empresaId = acesso?.empresaId;
 
@@ -2333,6 +2393,7 @@ setTabelasPrecoClientes,
         menuMobile={menuMobile}
         setMenuMobile={setMenuMobile}
         usuario={usuario}
+        trocarEmpresaSuperadmin={trocarEmpresaSuperadmin}
       />
 
       <main

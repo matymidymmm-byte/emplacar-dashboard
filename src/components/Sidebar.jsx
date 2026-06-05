@@ -30,6 +30,7 @@ import styles from "../styles/styles.js";
 import { db, auth } from "../services/firebase.js";
 
 export default function Sidebar({
+  
   empresaId,
   aba,
   setAba,
@@ -76,6 +77,7 @@ export default function Sidebar({
   setMenuMobile,
 
   usuario,
+  trocarEmpresaSuperadmin,
 
   nivelAcesso = "socio",
   ehSuperadmin = false,
@@ -485,6 +487,14 @@ export default function Sidebar({
           <button style={botaoFerramenta} onClick={trocarSenha}>
             Trocar senha
           </button>
+          {acesso?.nivel === "superadmin" && (
+  <button
+    style={botaoFerramenta}
+    onClick={trocarEmpresaSuperadmin}
+  >
+    Trocar empresa
+  </button>
+)}
         </div>
       )}
 
