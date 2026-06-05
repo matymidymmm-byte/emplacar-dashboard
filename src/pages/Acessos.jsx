@@ -293,10 +293,27 @@ export default function Acessos({
     await setDoc(doc(db, "acessos", emailLimpo), dadosAcesso, { merge: true });
 
     await setDoc(
-      doc(db, "empresas", empresaId, "acessos", emailLimpo),
-      dadosAcesso,
-      { merge: true }
-    );
+  doc(db, "usuarios", emailLimpo),
+  {
+    email: emailLimpo,
+    atualizadoEm: new Date().toISOString(),
+  },
+  { merge: true }
+);
+
+await setDoc(
+  doc(db, "usuarios", emailLimpo, "empresas", empresaId),
+  {
+    email: emailLimpo,
+    empresaId,
+    nomeEmpresa: dadosEmpresa?.nome || "",
+    nivel,
+    status,
+    bloqueado: acessoExistente?.bloqueado || false,
+    atualizadoEm: new Date().toISOString(),
+  },
+  { merge: true }
+);
 
     await registrarAuditoria({
       tipo: acessoExistente ? "EDIÇÃO" : "CRIAÇÃO",
@@ -511,7 +528,53 @@ if (ehItemAdmin(item) && !ehSuperadmin) {
           </p>
         </div>
       </div>
+<Card titulo="Sessões da empresa">
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      color: "#94a3b8",
+    }}
+  >
+    <p style={{ margin: 0 }}>
+      Force todos os usuários desta empresa a sair do sistema. O Superadmin não será derrubado.
+    </p>
 
+    <button
+      style={{
+        ...styles.excluir,
+        width: "fit-content",
+        padding: "12px 16px",
+      }}
+      onClick={async () => {
+        const confirmar = confirm(
+          "Tem certeza que deseja derrubar todos os usuários desta empresa?"
+        );
+
+        if (!confirmar) return;
+
+        await setDoc(
+          doc(db, "empresas", empresaId, "sistema", "dados"),
+          {
+            logoutObrigatorioEm: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+
+        await registrarAuditoria({
+          tipo: "SEGURANÇA",
+          descricao: "Logout geral forçado para todos os usuários da empresa.",
+          risco: "ALTO",
+        });
+
+        alert("Logout geral enviado.");
+      }}
+    >
+      Forçar logout geral
+    </button>
+  </div>
+</Card>
       <Card titulo="Convite da empresa">
         <div
           style={{

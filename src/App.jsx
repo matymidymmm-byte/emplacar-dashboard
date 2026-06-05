@@ -425,6 +425,26 @@ function Sistema({ usuario, acesso, trocarEmpresaSuperadmin }) {
 
       if (snapshot.exists()) {
         const dados = snapshot.data();
+        const logoutObrigatorioEm = dados.logoutObrigatorioEm || "";
+
+const sessaoIniciadaEm =
+  sessionStorage.getItem("sessaoIniciadaEm") || "";
+
+if (!sessaoIniciadaEm) {
+  sessionStorage.setItem("sessaoIniciadaEm", new Date().toISOString());
+}
+
+const nivelAtual = String(acesso?.nivel || "").toLowerCase();
+
+if (
+  logoutObrigatorioEm &&
+  sessaoIniciadaEm &&
+  sessaoIniciadaEm < logoutObrigatorioEm &&
+  nivelAtual !== "superadmin"
+) {
+  auth.signOut();
+  return;
+}
 
         if (!Array.isArray(dados.historicoFechamentos)) {
           await setDoc(docSistema, { historicoFechamentos: [] }, { merge: true });
