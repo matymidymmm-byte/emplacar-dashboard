@@ -331,13 +331,23 @@ export default function Estoque({
     return data >= inicio && data <= fim;
   }
 
-  const produtosDisponiveisEstoque = useMemo(() => {
-    return listaUnica([
-      ...PRODUTOS_INICIAIS_ESTOQUE,
-      ...produtosEstoqueConfigurados,
-      ...produtosEstoquePersonalizados,
-    ]);
-  }, [produtosEstoqueConfigurados, produtosEstoquePersonalizados]);
+ const produtosDisponiveisEstoque = useMemo(() => {
+  const ribbonsComprados = estoqueCompras
+    .filter((item) => ehRibbon(item.produto))
+    .map((item) => item.produtoChave || chaveRibbonEstoque(item));
+
+  return listaUnica([
+    ...PRODUTOS_INICIAIS_ESTOQUE,
+    ...produtosEstoqueConfigurados,
+    ...produtosEstoquePersonalizados,
+    ...ribbonsComprados,
+  ]);
+}, [
+  produtosEstoqueConfigurados,
+  produtosEstoquePersonalizados,
+  estoqueCompras,
+]);
+  
 
   const tiposSimulacaoDisponiveis = useMemo(() => {
     return listaUnica([
@@ -363,6 +373,23 @@ export default function Estoque({
   function ehRibbon(produto) {
     return norm(produto).includes("RIBBON");
   }
+  function chaveRibbonEstoque(itemOuProduto) {
+  const produto =
+  typeof itemOuProduto === "string"
+    ? norm(itemOuProduto)
+    : norm(itemOuProduto?.produto);
+
+  if (!ehRibbon(produto)) return produto;
+
+  const largura =
+    typeof itemOuProduto === "string"
+      ? ""
+      : String(itemOuProduto?.larguraRibbon || "").trim();
+
+  if (!largura) return `${produto} | SEM LARGURA`;
+
+  return `${produto} | ${largura} mm`;
+}
 function categoriaParaRibbon(categoriaPlaca, produtoServico = "") {
   const texto = norm(`${produtoServico} ${categoriaPlaca}`);
 
@@ -1028,10 +1055,16 @@ function regrasDoServico(produtoServico) {
       id: editandoCompraId || criarId(),
       ...compraEstoqueForm,
       produto: produtoNormalizado,
+produtoBase: produtoNormalizado,
+produtoChave: chaveRibbonEstoque({
+  produto: produtoNormalizado,
+  larguraRibbon: compraEstoqueForm.larguraRibbon,
+}),
       quantidade: n(compraEstoqueForm.quantidade),
       fornecedor: compraEstoqueForm.fornecedor || "",
       larguraRibbon: compraEstoqueForm.larguraRibbon || "",
       metragemRibbon: compraEstoqueForm.metragemRibbon || "",
+      usoRibbon: compraEstoqueForm.usoRibbon || "Carro e moto",
       custoTotal: n(compraEstoqueForm.custoTotal),
       criadoPor: editandoCompraId ? compraEstoqueForm.criadoPor : usuarioAuditoria,
       criadoEm: editandoCompraId ? compraEstoqueForm.criadoEm : agora(),
@@ -1145,6 +1178,7 @@ function regrasDoServico(produtoServico) {
       fornecedor: item.fornecedor || "",
       larguraRibbon: item.larguraRibbon || "",
       metragemRibbon: item.metragemRibbon || "",
+      usoRibbon: item.usoRibbon || "Carro e moto",
       custoTotal: String(item.custoTotal ?? ""),
       observacao: item.observacao || "",
       criadoPor: item.criadoPor || "",
@@ -1180,6 +1214,7 @@ function regrasDoServico(produtoServico) {
       quantidade: "",
       larguraRibbon: "",
       metragemRibbon: "",
+      usoRibbon: "Carro e moto",
       custoTotal: "",
       observacao: "",
     });
@@ -1240,31 +1275,39 @@ function regrasDoServico(produtoServico) {
       (regra) => !ehRibbon(regra.insumo)
     );
 
-    const regrasRibbon = regrasDoBlank
-      .filter((regra) => {
-        const insumo = norm(regra.insumo);
+   const regrasRibbon = regrasDoBlank
+  .filter((regra) => {
+    const insumo = norm(regra.insumo);
 
-        return (
-          insumo.includes("VEICULAR") ||
-          insumo.includes("MOTO") ||
-          insumo.includes("PLACA")
-        );
-      })
-      .map((regra) => {
-        const quantidadeBlank = n(regra.quantidade);
-        const quantidadeRibbonBase = quantidadeBlank >= 2 ? 0.4 : 0.2;
+    return (
+      insumo.includes("VEICULAR") ||
+      insumo.includes("MOTO") ||
+      insumo.includes("PLACA")
+    );
+  })
+  .map((regra) => {
+    const quantidadeBlank = n(regra.quantidade);
+    const quantidadeRibbonBase = quantidadeBlank >= 2 ? 0.4 : 0.2;
 
-        return {
-          id: `${regra.id}-ribbon-categoria`,
-          servico: regra.servico,
-          insumo: categoriaParaRibbon(
-  entrada.categoriaPlaca,
-  entrada.produto
-),
-          quantidade: quantidadeRibbonBase,
-          aplicarMultiplicadorRibbon: true,
-        };
-      });
+    const servicoIdentificado = identificarServicoEstoque(entrada.produto);
+    const textoServico = norm(servicoIdentificado);
+
+    const usoNecessario = textoServico.includes("MOTO")
+      ? "MOTO"
+      : "CARRO";
+
+    return {
+      id: `${regra.id}-ribbon-categoria`,
+      servico: regra.servico,
+      insumo: categoriaParaRibbon(
+        entrada.categoriaPlaca,
+        entrada.produto
+      ),
+      quantidade: quantidadeRibbonBase,
+      aplicarMultiplicadorRibbon: true,
+      usoRibbonNecessario: usoNecessario,
+    };
+  });
 
     const regras = [...regrasDoBlank, ...regrasRibbon];
 
@@ -1279,13 +1322,14 @@ function regrasDoServico(produtoServico) {
           : 1;
 
       return {
-        id: `${entrada.id || `${entrada.data}-${entrada.cliente}-${entrada.placa}`}-${regra.id}`,
-        data: entrada.data,
-        cliente: entrada.cliente,
-        produtoServico: entrada.produto,
-        categoriaPlaca: entrada.categoriaPlaca || "",
-        placa: entrada.placa,
-        itemEstoque: insumo,
+  id: `${entrada.id || `${entrada.data}-${entrada.cliente}-${entrada.placa}`}-${regra.id}`,
+  data: entrada.data,
+  cliente: entrada.cliente,
+  produtoServico: entrada.produto,
+  categoriaPlaca: entrada.categoriaPlaca || "",
+  placa: entrada.placa,
+  itemEstoque: insumo,
+  usoRibbonNecessario: regra.usoRibbonNecessario || null,
         quantidade: n(regra.quantidade) * multiplicador,
         origem: "Venda / serviço",
         tipoUso: ehRibbon(insumo) ? "RIBBON" : "INSUMO FÍSICO",
@@ -1298,9 +1342,13 @@ function regrasDoServico(produtoServico) {
 
   const estoqueResumo = useMemo(() => {
     const resumoBase = produtosDisponiveisEstoque.map((produto) => {
-      const comprasDoProduto = estoqueCompras.filter(
-        (item) => normalizarProdutoEstoque(item.produto) === produto
-      );
+      const comprasDoProduto = estoqueCompras.filter((item) => {
+  if (!ehRibbon(produto)) {
+    return normalizarProdutoEstoque(item.produto) === produto;
+  }
+
+  return item.produtoChave === produto;
+});
 
       const compras = comprasDoProduto.reduce(
         (soma, item) => soma + quantidadeCompraParaEstoque(item),
@@ -1314,10 +1362,37 @@ function regrasDoServico(produtoServico) {
 
       const custoMedio = compras > 0 ? custoTotal / compras : 0;
 
-      const usadoEmServicos = usosEstoqueServicos.reduce((soma, uso) => {
-        if (uso.itemEstoque !== produto) return soma;
-        return soma + n(uso.quantidade);
-      }, 0);
+     const usadoEmServicos = usosEstoqueServicos.reduce((soma, uso) => {
+  if (!ehRibbon(produto)) {
+    if (uso.itemEstoque !== produto) return soma;
+    return soma + n(uso.quantidade);
+  }
+
+  const compraCompativel = comprasDoProduto.some((compra) => {
+    const usoCompra = norm(compra.usoRibbon || "Carro e moto");
+    const usoNecessario = norm(uso.usoRibbonNecessario || "");
+
+    if (uso.itemEstoque !== normalizarProdutoEstoque(compra.produto)) {
+      return false;
+    }
+
+    if (!usoNecessario) return false;
+
+    if (usoNecessario.includes("CARRO")) {
+      return usoCompra.includes("CARRO");
+    }
+
+    if (usoNecessario.includes("MOTO")) {
+      return usoCompra.includes("MOTO");
+    }
+
+    return false;
+  });
+
+  if (!compraCompativel) return soma;
+
+  return soma + n(uso.quantidade);
+}, 0);
 
       const perdas = estoquePerdas
         .filter((item) => normalizarProdutoEstoque(item.produto) === produto)

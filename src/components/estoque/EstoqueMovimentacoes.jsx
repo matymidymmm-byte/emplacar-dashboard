@@ -34,6 +34,12 @@ export default function EstoqueMovimentacoes({
   editarPerda,
   removerMovimentoEstoque,
 }) {
+  const opcoesUsoRibbon = [
+    "Somente carro",
+    "Somente moto",
+    "Carro e moto",
+  ];
+
   return (
     <>
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
@@ -110,12 +116,24 @@ export default function EstoqueMovimentacoes({
                     })
                   }
                 />
+
+                <Select
+                  label="Uso do ribbon"
+                  valor={compraEstoqueForm.usoRibbon || "Carro e moto"}
+                  mudar={(v) =>
+                    setCompraEstoqueForm({
+                      ...compraEstoqueForm,
+                      usoRibbon: v,
+                    })
+                  }
+                  opcoes={opcoesUsoRibbon}
+                />
               </>
             )}
 
             <Campo
-  label="Custo total da compra"
-  tipo="text"
+              label="Custo total da compra"
+              tipo="text"
               valor={compraEstoqueForm.custoTotal || ""}
               mudar={(v) =>
                 setCompraEstoqueForm({ ...compraEstoqueForm, custoTotal: v })
@@ -208,6 +226,7 @@ export default function EstoqueMovimentacoes({
               "Qtd",
               "Largura",
               "Metragem",
+              "Uso ribbon",
               "Custo total",
               "Usuário",
               "Observação",
@@ -220,6 +239,7 @@ export default function EstoqueMovimentacoes({
               item.quantidade,
               item.larguraRibbon ? `${item.larguraRibbon} mm` : "-",
               item.metragemRibbon ? `${item.metragemRibbon} m` : "-",
+              ehRibbon(item.produto) ? item.usoRibbon || "Carro e moto" : "-",
               moeda.format(item.custoTotal || 0),
               item.atualizadoPor || item.criadoPor || "-",
               item.observacao || "-",
