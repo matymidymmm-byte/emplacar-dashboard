@@ -9,7 +9,7 @@ import {
   Boxes,
   CalendarDays,
   LineChart,
-  Bell,
+  
   FileDown,
   FileUp,
   FileText,
@@ -111,7 +111,7 @@ export default function Sidebar({
     "Controle de Estoque",
     "Relatório Diário",
     "Histórico Financeiro",
-    "Atualizações",
+    
     "Importar Entradas",
     "Importar Saídas",
     "Importar Contas",
@@ -150,7 +150,7 @@ export default function Sidebar({
   "Controle de Estoque": Boxes,
   "Relatório Diário": CalendarDays,
   "Histórico Financeiro": LineChart,
-  Atualizações: Bell,
+ 
   "Importar Entradas": FileDown,
   "Importar Saídas": FileUp,
   "Importar Contas": FileText,
