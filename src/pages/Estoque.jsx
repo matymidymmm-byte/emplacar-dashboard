@@ -1347,7 +1347,7 @@ produtoChave: chaveRibbonEstoque({
     return normalizarProdutoEstoque(item.produto) === produto;
   }
 
-  return item.produtoChave === produto;
+  return (item.produtoChave || chaveRibbonEstoque(item)) === produto;
 });
 
       const compras = comprasDoProduto.reduce(
@@ -1455,14 +1455,32 @@ produtoChave: chaveRibbonEstoque({
   const lotesEstoque = useMemo(() => {
     return estoqueCompras
       .map((compra, index) => {
-        const produto = normalizarProdutoEstoque(compra.produto);
+        const produto = ehRibbon(compra.produto)
+  ? compra.produtoChave || chaveRibbonEstoque(compra)
+  : normalizarProdutoEstoque(compra.produto);
         const qtdEntrada = quantidadeCompraParaEstoque(compra);
 
         const parametros = parametrosDoProduto(produto);
 
         const consumoTotalProduto =
           usosEstoqueServicos
-            .filter((uso) => uso.itemEstoque === produto)
+            .filter((uso) => {
+  if (!ehRibbon(produto)) return uso.itemEstoque === produto;
+
+  const usoCompra = norm(compra.usoRibbon || "Carro e moto");
+  const usoNecessario = norm(uso.usoRibbonNecessario || "");
+
+  if (uso.itemEstoque !== normalizarProdutoEstoque(compra.produto)) {
+    return false;
+  }
+
+  if (!usoNecessario) return false;
+
+  if (usoNecessario.includes("CARRO")) return usoCompra.includes("CARRO");
+  if (usoNecessario.includes("MOTO")) return usoCompra.includes("MOTO");
+
+  return false;
+})
             .reduce((soma, uso) => soma + n(uso.quantidade), 0) +
           estoquePerdas
             .filter(
@@ -1775,16 +1793,35 @@ console.log("VALOR TOTAL:", comprasMesValor);
   );
 
   const agrupadosRapidos = estoqueResumo
-    .filter(
-      (item) =>
-        item.compras > 0 ||
-        item.usadoEmServicos > 0 ||
-        item.saldoDisponivel !== 0
-    )
-    .sort((a, b) => {
-      const peso = { CRÍTICO: 0, BAIXO: 1, OK: 2 };
+  .filter((item) => {
+    const nome = norm(item.produto);
+
+    if (ehRibbon(item.produto)) {
+      return (
+        nome.includes("|") &&
+        (
+          item.compras > 0 ||
+          item.usadoEmServicos > 0 ||
+          item.saldoDisponivel !== 0
+        )
+      );
+    }
+
+    return (
+      item.compras > 0 ||
+      item.usadoEmServicos > 0 ||
+      item.saldoDisponivel !== 0
+    );
+  })
+  .sort((a, b) => {
+    const peso = { CRÍTICO: 0, BAIXO: 1, OK: 2 };
+
+    if (peso[a.status] !== peso[b.status]) {
       return peso[a.status] - peso[b.status];
-    });
+    }
+
+    return String(a.produto).localeCompare(String(b.produto));
+  });
 
   
 

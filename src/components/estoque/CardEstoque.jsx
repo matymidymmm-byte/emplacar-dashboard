@@ -58,8 +58,26 @@ export default function CardEstoque({
     };
   }
 
+  function detalhesRibbon() {
+    if (!ehRibbon(item.produto)) return "";
+
+    const lote = lotesEstoque.find((loteItem) => loteItem.produto === item.produto);
+    const partes = String(item.produto || "").split("|");
+    const largura = partes[1]?.trim() || "Sem largura definida";
+    const uso = lote?.usoRibbon || item.usoRibbon || "Uso não definido";
+
+    return `${largura} • ${uso}`;
+  }
+
+  function nomeProdutoPrincipal() {
+    if (!ehRibbon(item.produto)) return item.produto;
+
+    return String(item.produto || "").split("|")[0].trim();
+  }
+
   const visual = dadosVisuaisProduto(item.produto);
   const Icone = visual.Icone;
+  const detalheRibbon = detalhesRibbon();
 
   return (
     <div
@@ -104,8 +122,21 @@ export default function CardEstoque({
               fontSize: 15,
             }}
           >
-            {item.produto}
+            {nomeProdutoPrincipal()}
           </strong>
+
+          {detalheRibbon && (
+            <p
+              style={{
+                color: "#a78bfa",
+                margin: "4px 0 0",
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              {detalheRibbon}
+            </p>
+          )}
 
           <p
             style={{
@@ -173,8 +204,8 @@ export default function CardEstoque({
             }}
           >
             {item.compras.toFixed(
-  ehRibbon(item.produto) ? 1 : 0
-)} {item.unidade}
+              ehRibbon(item.produto) ? 1 : 0
+            )} {item.unidade}
           </div>
         </div>
 
@@ -190,8 +221,8 @@ export default function CardEstoque({
             }}
           >
             {item.usadoEmServicos.toFixed(
-  ehRibbon(item.produto) ? 1 : 0
-)} {item.unidade}
+              ehRibbon(item.produto) ? 1 : 0
+            )} {item.unidade}
           </div>
         </div>
 
@@ -208,8 +239,7 @@ export default function CardEstoque({
           >
             {
               lotesEstoque.filter(
-                (lote) =>
-                  lote.produto === item.produto
+                (lote) => lote.produto === item.produto
               ).length
             }
           </div>

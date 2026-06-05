@@ -37,6 +37,10 @@ export default function EstoqueRapido({
     );
   }
 
+  function ordenarRibbons(a, b) {
+    return String(a.produto).localeCompare(String(b.produto));
+  }
+
   function grupoDosItens(titulo, itens) {
     if (itens.length === 0) return null;
 
@@ -66,7 +70,9 @@ export default function EstoqueRapido({
     (item) => ehBlank(item.produto) && !ehRibbon(item.produto) && !ehSuporte(item.produto)
   );
 
-  const ribbons = agrupadosRapidos.filter((item) => ehRibbon(item.produto));
+  const ribbons = agrupadosRapidos
+    .filter((item) => ehRibbon(item.produto))
+    .sort(ordenarRibbons);
 
   const suportes = agrupadosRapidos.filter((item) => ehSuporte(item.produto));
 
@@ -95,7 +101,7 @@ export default function EstoqueRapido({
       ) : (
         <>
           {grupoDosItens("Blanks", blanks)}
-          {grupoDosItens("Ribbons", ribbons)}
+          {grupoDosItens("Ribbons por largura e uso", ribbons)}
           {grupoDosItens("Suportes", suportes)}
           {grupoDosItens("Outros", outros)}
         </>
