@@ -85,12 +85,24 @@ export default function Acessos({
           emailItem
       );
 
-      return {
-        ...item,
-        online: sessao?.online || false,
-        ultimoLogin: sessao?.ultimoLogin || "",
-        ultimoLogout: sessao?.ultimoLogout || "",
-      };
+      const ultimaAtividade = sessao?.ultimaAtividade || "";
+
+let onlineReal = false;
+
+if (ultimaAtividade) {
+  const diferenca =
+    Date.now() - new Date(ultimaAtividade).getTime();
+
+  onlineReal = diferenca <= 5 * 60 * 1000;
+}
+
+return {
+  ...item,
+  online: onlineReal,
+  ultimoLogin: sessao?.ultimoLogin || "",
+  ultimoLogout: sessao?.ultimoLogout || "",
+  ultimaAtividade,
+};
     });
   }, [acessosFiltrados, usuariosOnline]);
 
