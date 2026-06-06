@@ -9,6 +9,30 @@ import Kpi from "../components/Kpi.jsx";
 import GraficoLinha from "../components/GraficoLinha.jsx";
 import GraficoBarras from "../components/GraficoBarras.jsx";
 import Tabela from "../components/Tabela.jsx";
+function brasilParaISO(data) {
+  if (!data) return "";
+
+  const partes = data.split("/");
+
+  if (partes.length !== 3) return "";
+
+  const [dia, mes, ano] = partes;
+
+  return `${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
+}
+
+function isoParaBrasil(data) {
+  if (!data) return "";
+
+  const partes = data.split("-");
+
+  if (partes.length !== 3) return data;
+
+  const [ano, mes, dia] = partes;
+
+  return `${dia}/${mes}/${ano}`;
+}
+
 
 export default function Dashboard({
   fecharMesFinanceiro,
@@ -46,7 +70,15 @@ setFechamentoProvavel,
 
   podeEditarMeta = false,
 }) {
+  
   const [modoDetalhado, setModoDetalhado] = useState(false);
+  const [inicioDigitando, setInicioDigitando] = useState(
+  isoParaBrasil(inicioMes)
+);
+
+const [fimDigitando, setFimDigitando] = useState(
+  isoParaBrasil(fimMes)
+);
   const [diasComparativo, setDiasComparativo] = useState(10);
   const [tooltipAberto, setTooltipAberto] = useState("");
   const [mostrarRecebimentosAntigos, setMostrarRecebimentosAntigos] =
@@ -64,11 +96,41 @@ setFechamentoProvavel,
     return data >= inicioMes && data <= fimMes;
   }
 
-  function adicionarDias(dataBase, dias) {
-    const data = new Date(dataBase + "T00:00:00");
-    data.setDate(data.getDate() + dias);
-    return data.toISOString().slice(0, 10);
+  function dataValida(data) {
+  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
+
+  const teste = new Date(data + "T00:00:00");
+
+  return !Number.isNaN(teste.getTime());
+}
+
+function dataSegura(data, fallback = hojeSistema.toISOString().slice(0, 10)) {
+  return dataValida(data) ? data : fallback;
+}
+
+function dataValida(data) {
+  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
+
+  const teste = new Date(data + "T00:00:00");
+  return !Number.isNaN(teste.getTime());
+}
+
+function dataSegura(data, fallback = new Date().toISOString().slice(0, 10)) {
+  return dataValida(data) ? data : fallback;
+}
+
+function adicionarDias(dataBase, dias) {
+  const base = dataSegura(dataBase);
+  const data = new Date(base + "T00:00:00");
+
+  data.setDate(data.getDate() + dias);
+
+  if (Number.isNaN(data.getTime())) {
+    return dataSegura("");
   }
+
+  return data.toISOString().slice(0, 10);
+}
 
   function calcularVariacao(atual, anterior) {
     if (!anterior || anterior <= 0) return atual > 0 ? 100 : 0;
@@ -238,17 +300,18 @@ setFechamentoProvavel,
 
 const hojeReferencia = new Date().toISOString().slice(0, 10);
 
+const fimPeriodoSeguro = dataSegura(fechamentoProvavel || fimMes, hojeReferencia);
+const inicioPeriodoSeguro = dataSegura(inicioMes, hojeReferencia);
+
 const dataFinalDecorrida =
-  hojeReferencia > (fechamentoProvavel || fimMes)
-    ? (fechamentoProvavel || fimMes)
-    : hojeReferencia;
+  hojeReferencia > fimPeriodoSeguro ? fimPeriodoSeguro : hojeReferencia;
 
 const diasTotaisPeriodo = Math.max(
   1,
   Math.floor(
     (
-      new Date((fechamentoProvavel || fimMes) + "T00:00:00") -
-      new Date(inicioMes + "T00:00:00")
+      new Date(fimPeriodoSeguro + "T00:00:00") -
+      new Date(inicioPeriodoSeguro + "T00:00:00")
     ) /
       (1000 * 60 * 60 * 24)
   ) + 1
@@ -544,13 +607,13 @@ const projecaoMes =
   const fimMesAnterior = ultimoFechamento?.fim || "";
 
   const quantidadeDiasAtual = Math.max(
-    1,
-    Math.floor(
-      (new Date(fimMes + "T00:00:00") -
-        new Date(inicioMes + "T00:00:00")) /
-        (1000 * 60 * 60 * 24)
-    ) + 1
-  );
+  1,
+  Math.floor(
+    (new Date(dataSegura(fimMes) + "T00:00:00") -
+      new Date(dataSegura(inicioMes) + "T00:00:00")) /
+      (1000 * 60 * 60 * 24)
+  ) + 1
+);
 
   const fimMesAnteriorComparativo = inicioMesAnterior
     ? adicionarDias(inicioMesAnterior, quantidadeDiasAtual - 1)
@@ -715,9 +778,20 @@ const projecaoMes =
           <label style={styles.label}>
             Começa em
             <input
-              type="date"
-              value={inicioMes}
-              onChange={(e) => setInicioMes(e.target.value)}
+              type="text"
+placeholder="DD/MM/AAAA"
+              value={inicioDigitando}
+         onChange={(e) => {
+  const valor = e.target.value;
+
+  setInicioDigitando(valor);
+
+  const dataISO = brasilParaISO(valor);
+
+  if (dataValida(dataISO)) {
+    setInicioMes(dataISO);
+  }
+}}
               style={styles.input}
             />
           </label>
@@ -725,9 +799,20 @@ const projecaoMes =
           <label style={styles.label}>
             Fecha em
             <input
-              type="date"
-              value={fimMes}
-              onChange={(e) => setFimMes(e.target.value)}
+              type="text"
+placeholder="DD/MM/AAAA"
+              value={fimDigitando}
+              onChange={(e) => {
+  const valor = e.target.value;
+
+  setFimDigitando(valor);
+
+  const dataISO = brasilParaISO(valor);
+
+  if (dataValida(dataISO)) {
+    setFimMes(dataISO);
+  }
+}}
               style={styles.input}
             />
           </label>
