@@ -25,6 +25,7 @@ import styles from "../styles/styles.js";
 export default function HistoricoFinanceiro({
   historicoFechamentos = [],
   entradas = [],
+  saidas = [],
   dadosEmpresa = {},
   moeda,
   setHistoricoFechamentos,
@@ -184,6 +185,35 @@ export default function HistoricoFinanceiro({
       0
     );
   }
+  function calcularFechamentoFlexivel(fechamento) {
+  const inicio = fechamento.inicio;
+  const fim = fechamento.fim || fechamento.dataFechamento;
+
+  const saidasPeriodo = saidas.filter(
+    (saida) => saida.data >= inicio && saida.data <= fim
+  );
+
+  const totalSaidas = saidasPeriodo.reduce(
+    (soma, saida) => soma + Number(saida.valor || 0),
+    0
+  );
+
+  const faturamento = valor(fechamento, "faturamento");
+  const recebido = valor(fechamento, "recebido");
+  const banco = valor(fechamento, "bancoEsperado", fechamento.recebidoBanco);
+  const caixa = valor(fechamento, "caixaEsperado", fechamento.recebidoCaixa);
+  const saldo = banco + caixa;
+
+  return {
+    saidas: totalSaidas,
+    lucro: recebido - totalSaidas,
+    banco,
+    caixa,
+    saldo,
+    faturamento,
+    recebido,
+  };
+}
 
   function analisarCarteira(fechamento) {
     const notas = Array.isArray(fechamento.notasEmAbertoDetalhadas)
@@ -505,7 +535,7 @@ export default function HistoricoFinanceiro({
     const entradasVista = valor(fechamento, "entradasVista");
     const recebimentosAntigos =
       calcularRecebimentosAntigosDoFechamento(fechamento);
-    const lucro = valor(fechamento, "lucro");
+    const lucro = calcularFechamentoFlexivel(fechamento).lucro;
 
     const doc = new jsPDF("p", "mm", "a4");
 
@@ -527,7 +557,13 @@ export default function HistoricoFinanceiro({
     pdfTexto(doc, "Receb. antigos", formatarMoeda(recebimentosAntigos), 102, 48);
     pdfTexto(doc, "Serviços", servicos, 147, 48);
 
-    pdfTexto(doc, "Saídas", formatarMoeda(valor(fechamento, "saidas")), 12, 70);
+    pdfTexto(
+  doc,
+  "Saídas",
+  formatarMoeda(calcularFechamentoFlexivel(fechamento).saidas),
+  12,
+  70
+);
     pdfTexto(doc, "Resultado", formatarMoeda(lucro), 57, 70);
     pdfTexto(doc, "Banco esperado", formatarMoeda(banco), 102, 70);
     pdfTexto(doc, "Caixa esperado", formatarMoeda(caixa), 147, 70);
@@ -1129,17 +1165,17 @@ boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
 
                     <MiniKpi
                       titulo="Saídas"
-                      valorTexto={moeda.format(valor(fechamento, "saidas"))}
+                      valorTexto={moeda.format(calcularFechamentoFlexivel(fechamento).saidas)}
                       icone={<TrendingDown size={20} />}
                       cor="#ef4444"
                     />
 
                     <MiniKpi
                       titulo="Resultado líquido"
-                      valorTexto={moeda.format(valor(fechamento, "lucro"))}
+                      valorTexto={moeda.format(calcularFechamentoFlexivel(fechamento).lucro)}
                       icone={<Scale size={20} />}
                       cor={
-                        valor(fechamento, "lucro") >= 0 ? "#22c55e" : "#ef4444"
+                        calcularFechamentoFlexivel(fechamento).lucro >= 0 ? "#22c55e" : "#ef4444"
                       }
                     />
 
