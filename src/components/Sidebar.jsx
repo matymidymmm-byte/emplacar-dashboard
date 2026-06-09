@@ -3,13 +3,13 @@ import {
   LayoutDashboard,
   ArrowDownCircle,
   ArrowUpCircle,
+  ArrowLeftRight,
   ReceiptText,
   Users,
   AlertTriangle,
   Boxes,
   CalendarDays,
   LineChart,
-  
   FileDown,
   FileUp,
   FileText,
@@ -30,7 +30,6 @@ import styles from "../styles/styles.js";
 import { db, auth } from "../services/firebase.js";
 
 export default function Sidebar({
-  
   empresaId,
   aba,
   setAba,
@@ -60,6 +59,9 @@ export default function Sidebar({
   clientes,
   setClientes,
 
+  movimentacoesCaixaBanco,
+setMovimentacoesCaixaBanco,
+
   estoqueCompras,
   setEstoqueCompras,
 
@@ -82,8 +84,6 @@ export default function Sidebar({
   nivelAcesso = "socio",
   ehSuperadmin = false,
   ehAdmin = false,
-  ehSocio = false,
-  ehLojista = false,
 
   podeGerenciarAcessos = false,
   podeConfigurarSistema = false,
@@ -107,13 +107,13 @@ export default function Sidebar({
     "Dashboard",
     "Entradas",
     "Saídas",
+    "Movimentações Internas",
     "Contas a Pagar",
     "Clientes",
     "Pendências de Clientes",
     "Controle de Estoque",
     "Relatório Diário",
     "Histórico Financeiro",
-    
     "Importar Entradas",
     "Importar Saídas",
     "Importar Contas",
@@ -133,34 +133,29 @@ export default function Sidebar({
     menusAdministrativos.push("Gerenciar Acessos");
   }
 
-  if (podeConfigurarSistema) {
-    menusAdministrativos.push("Dados da Empresa");
-  }
-
-  if (!podeConfigurarSistema) {
-    menusAdministrativos.push("Dados da Empresa");
-  }
+  menusAdministrativos.push("Dados da Empresa");
 
   const menus = [...menusBase, ...menusAdministrativos];
+
   const iconesMenu = {
-  Dashboard: LayoutDashboard,
-  Entradas: ArrowDownCircle,
-  Saídas: ArrowUpCircle,
-  "Contas a Pagar": ReceiptText,
-  Clientes: Users,
-  "Pendências de Clientes": AlertTriangle,
-  "Controle de Estoque": Boxes,
-  "Relatório Diário": CalendarDays,
-  "Histórico Financeiro": LineChart,
- 
-  "Importar Entradas": FileDown,
-  "Importar Saídas": FileUp,
-  "Importar Contas": FileText,
-  "Histórico de Alterações": ShieldCheck,
-  Backups: DatabaseBackup,
-  "Gerenciar Acessos": UserCog,
-  "Dados da Empresa": Building2,
-};
+    Dashboard: LayoutDashboard,
+    Entradas: ArrowDownCircle,
+    Saídas: ArrowUpCircle,
+    "Movimentações Internas": ArrowLeftRight,
+    "Contas a Pagar": ReceiptText,
+    Clientes: Users,
+    "Pendências de Clientes": AlertTriangle,
+    "Controle de Estoque": Boxes,
+    "Relatório Diário": CalendarDays,
+    "Histórico Financeiro": LineChart,
+    "Importar Entradas": FileDown,
+    "Importar Saídas": FileUp,
+    "Importar Contas": FileText,
+    "Histórico de Alterações": ShieldCheck,
+    Backups: DatabaseBackup,
+    "Gerenciar Acessos": UserCog,
+    "Dados da Empresa": Building2,
+  };
 
   const botaoFerramenta = {
     width: "100%",
@@ -188,7 +183,7 @@ export default function Sidebar({
   };
 
   function copiarInformacao(texto, tipo) {
-    navigator.clipboard.writeText(texto);
+    navigator.clipboard.writeText(texto || "");
 
     setBotaoCopiado(tipo);
 
@@ -243,13 +238,14 @@ export default function Sidebar({
       .slice(0, 10)}.json`;
 
     const dados = {
-      versao: "3.0",
+      versao: "3.1",
       exportadoEm: agora.toISOString(),
 
       entradas,
       saidas,
       contas,
       clientes,
+      movimentacoesCaixaBanco,
       estoqueCompras,
       estoquePerdas,
       historicoRelacoes,
@@ -299,6 +295,7 @@ export default function Sidebar({
           saidas: dados.saidas || [],
           contas: dados.contas || [],
           clientes: dados.clientes || [],
+          movimentacoesCaixaBanco: dados.movimentacoesCaixaBanco || [],
           estoqueCompras: dados.estoqueCompras || [],
           estoquePerdas: dados.estoquePerdas || [],
           historicoRelacoes: dados.historicoRelacoes || [],
@@ -311,6 +308,7 @@ export default function Sidebar({
         setSaidas(novoSistema.saidas);
         setContas(novoSistema.contas);
         setClientes(novoSistema.clientes);
+        setMovimentacoesCaixaBanco(novoSistema.movimentacoesCaixaBanco);
         setEstoqueCompras(novoSistema.estoqueCompras);
         setEstoquePerdas(novoSistema.estoquePerdas);
         setHistoricoRelacoes(novoSistema.historicoRelacoes);
@@ -351,6 +349,7 @@ export default function Sidebar({
       saidas: [],
       contas: [],
       clientes: [],
+      movimentacoesCaixaBanco: [],
       estoqueCompras: [],
       estoquePerdas: [],
       historicoRelacoes: [],
@@ -363,6 +362,7 @@ export default function Sidebar({
     setSaidas([]);
     setContas([]);
     setClientes([]);
+    setMovimentacoesCaixaBanco([]);
     setEstoqueCompras([]);
     setEstoquePerdas([]);
     setHistoricoRelacoes([]);
@@ -487,49 +487,47 @@ export default function Sidebar({
           <button style={botaoFerramenta} onClick={trocarSenha}>
             Trocar senha
           </button>
+
           {acesso?.nivel === "superadmin" && (
-  <button
-    style={botaoFerramenta}
-    onClick={trocarEmpresaSuperadmin}
-  >
-    Trocar empresa
-  </button>
-)}
+            <button style={botaoFerramenta} onClick={trocarEmpresaSuperadmin}>
+              Trocar empresa
+            </button>
+          )}
         </div>
       )}
 
       <div style={styles.menuLista}>
-        {menus.map((item) => (
-          <button
-            key={item}
-            onClick={() => {
-              setAba(item);
-              setTextoImportacao("");
-              setResultadoImportacao("");
+        {menus.map((item) => {
+          const Icone = iconesMenu[item];
 
-              if (mobile) {
-                setMenuMobile(false);
-              }
-            }}
-            style={aba === item ? styles.menuAtivo : styles.menu}
-          >
-            <span
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-  }}
->
-  {(() => {
-    const Icone = iconesMenu[item];
+          return (
+            <button
+              key={item}
+              onClick={() => {
+                setAba(item);
+                setTextoImportacao("");
+                setResultadoImportacao("");
 
-    return Icone ? <Icone size={19} strokeWidth={2.2} /> : null;
-  })()}
+                if (mobile) {
+                  setMenuMobile(false);
+                }
+              }}
+              style={aba === item ? styles.menuAtivo : styles.menu}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                {Icone ? <Icone size={19} strokeWidth={2.2} /> : null}
 
-  <span>{item}</span>
-</span>
-          </button>
-        ))}
+                <span>{item}</span>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div style={styles.menuRodape}>

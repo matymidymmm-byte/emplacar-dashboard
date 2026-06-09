@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import MovimentacoesInternas from "./pages/MovimentacoesInternas.jsx";
 import PortalSuperadmin from "./pages/PortalSuperadmin.jsx";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -376,6 +377,7 @@ function Sistema({ usuario, acesso, trocarEmpresaSuperadmin }) {
   const [saidas, setSaidas] = useState([]);
   const [contas, setContas] = useState([]);
   const [clientes, setClientes] = useState([]);
+  const [movimentacoesCaixaBanco, setMovimentacoesCaixaBanco] = useState([]);
   const [estoqueCompras, setEstoqueCompras] = useState([]);
   const [estoquePerdas, setEstoquePerdas] = useState([]);
   const [produtosEstoquePersonalizados, setProdutosEstoquePersonalizados] =
@@ -461,6 +463,12 @@ if (
         setContas(Array.isArray(dados.contas) ? dados.contas : []);
         setClientes(Array.isArray(dados.clientes) ? dados.clientes : []);
 
+        setMovimentacoesCaixaBanco(
+  Array.isArray(dados.movimentacoesCaixaBanco)
+    ? dados.movimentacoesCaixaBanco
+    : []
+);
+
         setEstoqueCompras(
           Array.isArray(dados.estoqueCompras) ? dados.estoqueCompras : []
         );
@@ -535,6 +543,7 @@ if (
           saidas: [],
           contas: [],
           clientes: [],
+          movimentacoesCaixaBanco: [],
           estoqueCompras: [],
           estoquePerdas: [],
           produtosEstoquePersonalizados: [],
@@ -770,6 +779,7 @@ if (
         saidas,
         contas,
         clientes,
+        movimentacoesCaixaBanco,
 
         estoqueCompras,
         estoquePerdas,
@@ -814,6 +824,7 @@ if (
         saidas,
         contas,
         clientes,
+        movimentacoesCaixaBanco,
 
         estoqueCompras,
         estoquePerdas,
@@ -834,6 +845,8 @@ if (
           saidas: backup.saidas || [],
           contas: backup.contas || [],
           clientes: backup.clientes || [],
+          movimentacoesCaixaBanco:
+  backup.movimentacoesCaixaBanco || [],
 
           estoqueCompras: backup.estoqueCompras || [],
           estoquePerdas: backup.estoquePerdas || [],
@@ -850,7 +863,9 @@ if (
         },
         { merge: true }
       );
-
+setMovimentacoesCaixaBanco(
+  backup.movimentacoesCaixaBanco || []
+);
       registrarAlteracao({
         tipo: "Restauração",
         modulo: "Backups",
@@ -885,6 +900,10 @@ if (
   useEffect(() => {
     salvarNaNuvem("clientes", clientes);
   }, [clientes]);
+
+  useEffect(() => {
+  salvarNaNuvem("movimentacoesCaixaBanco", movimentacoesCaixaBanco);
+}, [movimentacoesCaixaBanco]);
 
   useEffect(() => {
     salvarNaNuvem("estoqueCompras", estoqueCompras);
@@ -971,6 +990,7 @@ if (
         saidas,
         contas,
         clientes,
+        movimentacoesCaixaBanco,
 
         estoqueCompras,
         estoquePerdas,
@@ -999,6 +1019,7 @@ if (
     saidas,
     contas,
     clientes,
+    movimentacoesCaixaBanco,
 
     estoqueCompras,
     estoquePerdas,
@@ -2008,8 +2029,23 @@ const movimentacaoGeral =
     const pagos = saidasTotal;
     const entradaLiquida = caixaRecebidoTotal - saidasTotal;
 
-    const tenhoNoBanco = recebidoBanco - saidasBanco;
-    const tenhoNoCaixa = recebidoCaixa - saidasCaixa;
+    const transferenciasInternasPeriodo = movimentacoesCaixaBanco.filter((item) =>
+  dentroDoPeriodo(item.data)
+);
+
+const totalCaixaParaBanco = transferenciasInternasPeriodo
+  .filter((item) => item.origem === "Caixa" && item.destino === "Banco")
+  .reduce((soma, item) => soma + Number(item.valor || 0), 0);
+
+const totalBancoParaCaixa = transferenciasInternasPeriodo
+  .filter((item) => item.origem === "Banco" && item.destino === "Caixa")
+  .reduce((soma, item) => soma + Number(item.valor || 0), 0);
+
+const tenhoNoBanco =
+  recebidoBanco - saidasBanco + totalCaixaParaBanco - totalBancoParaCaixa;
+
+const tenhoNoCaixa =
+  recebidoCaixa - saidasCaixa - totalCaixaParaBanco + totalBancoParaCaixa;
 
     const dias =
       new Set([
@@ -2029,6 +2065,8 @@ const movimentacaoGeral =
       saidasTotal,
       contasPagas,
       pagos,
+      totalCaixaParaBanco,
+totalBancoParaCaixa,
       faturadoEmAberto: notasPendentes,
       notasPendentes,
       recebidoBanco,
@@ -2049,7 +2087,7 @@ const movimentacaoGeral =
       valeConcedidoTotal,
 valeEmAbertoTotal,
     };
-  }, [entradas, dadosPeriodo, inicioMes, fimMes]);
+  }, [entradas, dadosPeriodo, inicioMes, fimMes, movimentacoesCaixaBanco]);
 
   const vendasPorDia = useMemo(() => {
     const mapa = {};
@@ -2211,6 +2249,8 @@ valorNovo: fechamentoProvavel || fimMes,
     dadosEmpresa,
     setDadosEmpresa,
     salvarDadosEmpresa,
+    movimentacoesCaixaBanco,
+setMovimentacoesCaixaBanco,
 
     hoje,
     acesso,
@@ -2435,6 +2475,9 @@ setTabelasPrecoClientes,
         {aba === "Saídas" && <Saidas {...propsGlobais} />}
         {aba === "Contas a Pagar" && <Contas {...propsGlobais} />}
         {aba === "Clientes" && <Clientes {...propsGlobais} />}
+        {aba === "Movimentações Internas" && (
+  <MovimentacoesInternas {...propsGlobais} />
+)}
         {aba === "Pendências de Clientes" && <Pendencias {...propsGlobais} />}
         {aba === "Controle de Estoque" && <Estoque {...propsGlobais} />}
         {aba === "Relatório Diário" && <RelatorioDiario {...propsGlobais} />}
