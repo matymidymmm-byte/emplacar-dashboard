@@ -2007,7 +2007,7 @@ const fimPeriodoAnalise =
 
   const dataLiquidacao = dataLiquidacaoEntrada(x);
 
-  return dataLiquidacao && dataLiquidacao >= inicioMes && dataLiquidacao <= fimPeriodoAnalise;
+  return dataLiquidacao && dataLiquidacao >= inicioMes && dataLiquidacao <= fimMes;
 });
 
 const caixaRecebidoVendas = vendasLiquidadasPeriodo.reduce(
@@ -2031,13 +2031,21 @@ const caixaRecebidoVendas = vendasLiquidadasPeriodo.reduce(
       0
     );
 
-    const recebidoBanco = dadosPeriodo.entradasRecebidas
+    const recebidoBanco = entradas
   .filter((x) => {
     if (ehInjecaoCaixa(x)) return false;
     if (destinoDinheiro(x.formaPagamento) === "Caixa") return false;
-    return true;
+    if (x.status !== "Pago") return false;
+
+    const dataLiquidacao = dataLiquidacaoEntrada(x);
+
+    return (
+      dataLiquidacao &&
+      dataLiquidacao >= inicioMes &&
+      dataLiquidacao <= hoje
+    );
   })
-  .reduce((s, x) => s + x.valor, 0);
+  .reduce((s, x) => s + Number(x.valor || 0), 0);
 
     const recebidoCaixa = dadosPeriodo.entradasRecebidas
       .filter((x) => {

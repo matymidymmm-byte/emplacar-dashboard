@@ -329,10 +329,7 @@ export default function Dashboard({
     .filter((entrada) => entrada.dataLiquidacao <= fimAnalise)
     .reduce((soma, entrada) => soma + entrada.valorNumerico, 0);
 
-  const bancoRealAjustado =
-    Number(indicadores.tenhoNoBanco || 0) -
-    cartoesContadosMasNaoLiquidadosPeriodo +
-    cartoesPagosAntesELiquidadosNoPeriodo;
+  const bancoRealAjustado = Number(indicadores.tenhoNoBanco || 0);
 
   const fluxoCaixaDiario = (() => {
     const mapa = {};
