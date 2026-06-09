@@ -1467,15 +1467,6 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
 }
 
 function recebimentosAntigosDoPeriodo(inicio, fim) {
-  const ultimoFechamento = [...historicoFechamentos].sort((a, b) =>
-    String(b.fim || b.dataFechamento || "").localeCompare(
-      String(a.fim || a.dataFechamento || "")
-    )
-  )[0];
-
-  const fimUltimoFechamento =
-    ultimoFechamento?.fim || ultimoFechamento?.dataFechamento || "";
-
   return entradas.filter((entrada) => {
     if (!ehVendaReal(entrada)) return false;
 
@@ -1483,22 +1474,24 @@ function recebimentosAntigosDoPeriodo(inicio, fim) {
     const dataRecebimento = dataRecebimentoEntrada(entrada);
 
     if (!dataVenda || !dataRecebimento) return false;
+    if (!dentroDoPeriodoInformado(dataRecebimento, inicio, fim)) return false;
 
-    if (fimUltimoFechamento) {
-      return (
-        dataVenda <= fimUltimoFechamento &&
-        dataRecebimento > fimUltimoFechamento &&
-        dentroDoPeriodoInformado(dataRecebimento, inicio, fim)
-      );
-    }
+    const fechamentoAntesDoPagamento = [...historicoFechamentos]
+      .filter((fechamento) => {
+        const fimFechamento = fechamento?.fim || "";
+        return fimFechamento && fimFechamento < dataRecebimento;
+      })
+      .sort((a, b) =>
+        String(b.fim || "").localeCompare(String(a.fim || ""))
+      )[0];
 
-    return (
-      dataVenda < inicio &&
-      dentroDoPeriodoInformado(dataRecebimento, inicio, fim)
-    );
+    const fimFechamento = fechamentoAntesDoPagamento?.fim || "";
+
+    if (!fimFechamento) return dataVenda < inicio;
+
+    return dataVenda <= fimFechamento;
   });
 }
-
   function cancelarEdicao() {
     setEditando({ tipo: null, id: null });
     setEntradaForm(entradaVazia);
@@ -1911,7 +1904,42 @@ function montarPrecosServicosCliente(cliente) {
       contas: contas.filter((x) => dentroDoPeriodo(x.vencimento)),
     };
   }, [entradas, saidas, contas, inicioMes, fimMes]);
+function adicionarDiasUteis(dataBase, diasUteis) {
+  if (!dataBase) return "";
 
+  const data = new Date(dataBase + "T00:00:00");
+  let adicionados = 0;
+
+  while (adicionados < diasUteis) {
+    data.setDate(data.getDate() + 1);
+
+    const diaSemana = data.getDay();
+
+    if (diaSemana !== 0 && diaSemana !== 6) {
+      adicionados += 1;
+    }
+  }
+
+  return data.toISOString().slice(0, 10);
+}
+
+function ehCartaoBanco(formaPagamento) {
+  const forma = normalizar(formaPagamento);
+
+  return forma.includes("DEBITO") || forma.includes("CREDITO");
+}
+
+function dataLiquidacaoEntrada(entrada) {
+  const dataRecebimento = dataRecebimentoEntrada(entrada);
+
+  if (!dataRecebimento) return "";
+
+  if (ehCartaoBanco(entrada.formaPagamento)) {
+    return adicionarDiasUteis(dataRecebimento, 1);
+  }
+
+  return dataRecebimento;
+}
   const indicadores = useMemo(() => {
    
     const entradasCompetencia = entradas.filter(
@@ -1962,18 +1990,30 @@ const valeEmAbertoTotal =
   valeConcedidoTotal - recuperacaoValeTotalParaSaldo;
 
 
-
-    const recebimentosAntigos = recebimentosAntigosDoPeriodo(
+const fimPeriodoAnalise =
+  fechamentoProvavel && fechamentoProvavel >= inicioMes
+    ? fechamentoProvavel
+    : fimMes;
+   const recebimentosAntigos = recebimentosAntigosDoPeriodo(
   inicioMes,
-  fechamentoProvavel || fimMes
+  fimPeriodoAnalise
 );
 
     const entradaBruta = entradasCompetencia.reduce((s, x) => s + x.valor, 0);
 
-    const caixaRecebidoVendas = vendasRecebidasPeriodo.reduce(
-      (s, x) => s + x.valor,
-      0
-    );
+    const vendasLiquidadasPeriodo = entradas.filter((x) => {
+  if (!ehVendaReal(x)) return false;
+  if (x.status !== "Pago") return false;
+
+  const dataLiquidacao = dataLiquidacaoEntrada(x);
+
+  return dataLiquidacao && dataLiquidacao >= inicioMes && dataLiquidacao <= fimPeriodoAnalise;
+});
+
+const caixaRecebidoVendas = vendasLiquidadasPeriodo.reduce(
+  (s, x) => s + Number(x.valor || 0),
+  0
+);
 
     const injecaoCaixaTotal = injecaoCaixaPeriodo.reduce((s, x) => s + x.valor, 0);
 
@@ -1992,12 +2032,12 @@ const valeEmAbertoTotal =
     );
 
     const recebidoBanco = dadosPeriodo.entradasRecebidas
-      .filter((x) => {
-        if (ehInjecaoCaixa(x)) return false;
-        if (destinoDinheiro(x.formaPagamento) === "Caixa") return false;
-        return true;
-      })
-      .reduce((s, x) => s + x.valor, 0);
+  .filter((x) => {
+    if (ehInjecaoCaixa(x)) return false;
+    if (destinoDinheiro(x.formaPagamento) === "Caixa") return false;
+    return true;
+  })
+  .reduce((s, x) => s + x.valor, 0);
 
     const recebidoCaixa = dadosPeriodo.entradasRecebidas
       .filter((x) => {
@@ -2107,7 +2147,15 @@ totalBancoParaCaixa,
       valeConcedidoTotal,
 valeEmAbertoTotal,
     };
-  }, [entradas, dadosPeriodo, inicioMes, fimMes, movimentacoesCaixaBanco]);
+  }, [
+  entradas,
+  dadosPeriodo,
+  inicioMes,
+  fimMes,
+  fechamentoProvavel,
+  movimentacoesCaixaBanco,
+  historicoFechamentos,
+]);
 
   const vendasPorDia = useMemo(() => {
     const mapa = {};

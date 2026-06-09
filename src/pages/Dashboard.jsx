@@ -9,6 +9,7 @@ import Kpi from "../components/Kpi.jsx";
 import GraficoLinha from "../components/GraficoLinha.jsx";
 import GraficoBarras from "../components/GraficoBarras.jsx";
 import Tabela from "../components/Tabela.jsx";
+
 function brasilParaISO(data) {
   if (!data) return "";
 
@@ -33,7 +34,6 @@ function isoParaBrasil(data) {
   return `${dia}/${mes}/${ano}`;
 }
 
-
 export default function Dashboard({
   fecharMesFinanceiro,
   setAba,
@@ -43,7 +43,7 @@ export default function Dashboard({
   fimMes,
   setFimMes,
   fechamentoProvavel,
-setFechamentoProvavel,
+  setFechamentoProvavel,
 
   indicadores,
   moeda,
@@ -70,20 +70,26 @@ setFechamentoProvavel,
 
   podeEditarMeta = false,
 }) {
-  
   const [modoDetalhado, setModoDetalhado] = useState(false);
   const [inicioDigitando, setInicioDigitando] = useState(
-  isoParaBrasil(inicioMes)
-);
-
-const [fimDigitando, setFimDigitando] = useState(
-  isoParaBrasil(fimMes)
-);
+    isoParaBrasil(inicioMes)
+  );
+  const [fimDigitando, setFimDigitando] = useState(isoParaBrasil(fimMes));
   const [diasComparativo, setDiasComparativo] = useState(10);
   const [tooltipAberto, setTooltipAberto] = useState("");
   const [mostrarRecebimentosAntigos, setMostrarRecebimentosAntigos] =
     useState(false);
-    
+  const [mostrarCartoesAReceber, setMostrarCartoesAReceber] = useState(false);
+
+  const hojeSistema = new Date();
+  const hojeReferencia = hojeSistema.toISOString().slice(0, 10);
+  const diaAtual = hojeSistema.getDate();
+
+  const ultimoDiaMes = new Date(
+    hojeSistema.getFullYear(),
+    hojeSistema.getMonth() + 1,
+    0
+  ).getDate();
 
   function dataBR(data) {
     if (!data || !data.includes("-")) return data || "";
@@ -97,40 +103,85 @@ const [fimDigitando, setFimDigitando] = useState(
   }
 
   function dataValida(data) {
-  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
+    if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
 
-  const teste = new Date(data + "T00:00:00");
+    const teste = new Date(data + "T00:00:00");
 
-  return !Number.isNaN(teste.getTime());
-}
-
-function dataSegura(data, fallback = hojeSistema.toISOString().slice(0, 10)) {
-  return dataValida(data) ? data : fallback;
-}
-
-function dataValida(data) {
-  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
-
-  const teste = new Date(data + "T00:00:00");
-  return !Number.isNaN(teste.getTime());
-}
-
-function dataSegura(data, fallback = new Date().toISOString().slice(0, 10)) {
-  return dataValida(data) ? data : fallback;
-}
-
-function adicionarDias(dataBase, dias) {
-  const base = dataSegura(dataBase);
-  const data = new Date(base + "T00:00:00");
-
-  data.setDate(data.getDate() + dias);
-
-  if (Number.isNaN(data.getTime())) {
-    return dataSegura("");
+    return !Number.isNaN(teste.getTime());
   }
 
-  return data.toISOString().slice(0, 10);
-}
+  function dataSegura(data, fallback = hojeReferencia) {
+    return dataValida(data) ? data : fallback;
+  }
+
+  function adicionarDias(dataBase, dias) {
+    const base = dataSegura(dataBase);
+    const data = new Date(base + "T00:00:00");
+
+    data.setDate(data.getDate() + dias);
+
+    if (Number.isNaN(data.getTime())) {
+      return dataSegura("");
+    }
+
+    return data.toISOString().slice(0, 10);
+  }
+
+  function adicionarDiasUteis(dataBase, diasUteis) {
+    const base = dataSegura(dataBase);
+    const data = new Date(base + "T00:00:00");
+
+    let adicionados = 0;
+
+    while (adicionados < diasUteis) {
+      data.setDate(data.getDate() + 1);
+
+      const diaSemana = data.getDay();
+
+      if (diaSemana !== 0 && diaSemana !== 6) {
+        adicionados += 1;
+      }
+    }
+
+    return data.toISOString().slice(0, 10);
+  }
+
+  function normalizarTexto(texto) {
+    return String(texto || "")
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  }
+
+  function ehDebito(formaPagamento) {
+    const forma = normalizarTexto(formaPagamento);
+    return forma.includes("DEBITO");
+  }
+
+  function ehCredito(formaPagamento) {
+    const forma = normalizarTexto(formaPagamento);
+    return forma.includes("CREDITO");
+  }
+
+  function ehCartaoBanco(formaPagamento) {
+    return ehDebito(formaPagamento) || ehCredito(formaPagamento);
+  }
+
+  function dataLiquidacaoEntrada(entrada) {
+    const dataRecebimento = dataRecebimentoEntrada(entrada);
+
+    if (!dataRecebimento) return "";
+
+    if (ehDebito(entrada.formaPagamento)) {
+      return adicionarDiasUteis(dataRecebimento, 1);
+    }
+
+    if (ehCredito(entrada.formaPagamento)) {
+      return adicionarDiasUteis(dataRecebimento, 1);
+    }
+
+    return dataRecebimento;
+  }
 
   function calcularVariacao(atual, anterior) {
     if (!anterior || anterior <= 0) return atual > 0 ? 100 : 0;
@@ -150,7 +201,7 @@ function adicionarDias(dataBase, dias) {
   }
 
   function ehInjecaoOuAporte(item) {
-    const texto = String(
+    const texto = normalizarTexto(
       [
         item?.tipo,
         item?.produto,
@@ -158,10 +209,7 @@ function adicionarDias(dataBase, dias) {
         item?.cliente,
         item?.observacao,
       ].join(" ")
-    )
-      .toUpperCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+    );
 
     return (
       texto.includes("INJECAO") ||
@@ -190,14 +238,101 @@ function adicionarDias(dataBase, dias) {
     window.alert("Mês financeiro salvo no histórico com sucesso.");
   }
 
-  const hojeSistema = new Date();
-  const diaAtual = hojeSistema.getDate();
+  const fimAnalise =
+    fechamentoProvavel && fechamentoProvavel >= inicioMes
+      ? fechamentoProvavel
+      : fimMes;
 
-  const ultimoDiaMes = new Date(
-    hojeSistema.getFullYear(),
-    hojeSistema.getMonth() + 1,
+  const fimPeriodoSeguro = dataSegura(fimAnalise, hojeReferencia);
+  const inicioPeriodoSeguro = dataSegura(inicioMes, hojeReferencia);
+
+  const dataFinalDecorrida =
+    hojeReferencia > fimPeriodoSeguro ? fimPeriodoSeguro : hojeReferencia;
+
+  const diasTotaisPeriodo = Math.max(
+    1,
+    Math.floor(
+      (new Date(fimPeriodoSeguro + "T00:00:00") -
+        new Date(inicioPeriodoSeguro + "T00:00:00")) /
+        (1000 * 60 * 60 * 24)
+    ) + 1
+  );
+
+  const diasDecorridosPeriodo = Math.max(
+    1,
+    Math.floor(
+      (new Date(dataFinalDecorrida + "T00:00:00") -
+        new Date(inicioPeriodoSeguro + "T00:00:00")) /
+        (1000 * 60 * 60 * 24)
+    ) + 1
+  );
+
+  const cartoesLiquidados = entradas
+    .filter((entrada) => entrada.status === "Pago")
+    .filter((entrada) => !ehInjecaoOuAporte(entrada))
+    .filter((entrada) => ehCartaoBanco(entrada.formaPagamento))
+    .map((entrada) => {
+      const dataPagamento = dataRecebimentoEntrada(entrada);
+      const dataLiquidacao = dataLiquidacaoEntrada(entrada);
+
+      return {
+        ...entrada,
+        dataPagamento,
+        dataLiquidacao,
+        valorNumerico: Number(entrada.valor || 0),
+      };
+    })
+    .filter((entrada) => entrada.dataPagamento && entrada.dataLiquidacao);
+
+  const cartoesPendentesLiquidacao = cartoesLiquidados.filter(
+    (entrada) => entrada.dataLiquidacao > hojeReferencia
+  );
+
+  const proximoDiaUtil = adicionarDiasUteis(hojeReferencia, 1);
+
+  const cartoesAReceberHoje = cartoesLiquidados.filter(
+    (entrada) => entrada.dataLiquidacao === hojeReferencia
+  );
+
+  const cartoesAReceberAmanha = cartoesLiquidados.filter(
+    (entrada) => entrada.dataLiquidacao === proximoDiaUtil
+  );
+
+  const cartoesAReceberProximosDias = cartoesLiquidados.filter(
+    (entrada) => entrada.dataLiquidacao > proximoDiaUtil
+  );
+
+  const valorCartoesAReceberHoje = cartoesAReceberHoje.reduce(
+    (soma, entrada) => soma + entrada.valorNumerico,
     0
-  ).getDate();
+  );
+
+  const valorCartoesAReceberAmanha = cartoesAReceberAmanha.reduce(
+    (soma, entrada) => soma + entrada.valorNumerico,
+    0
+  );
+
+  const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
+    (soma, entrada) => soma + entrada.valorNumerico,
+    0
+  );
+
+  const cartoesContadosMasNaoLiquidadosPeriodo = cartoesLiquidados
+    .filter((entrada) => entrada.dataPagamento >= inicioMes)
+    .filter((entrada) => entrada.dataPagamento <= fimAnalise)
+    .filter((entrada) => entrada.dataLiquidacao > fimAnalise)
+    .reduce((soma, entrada) => soma + entrada.valorNumerico, 0);
+
+  const cartoesPagosAntesELiquidadosNoPeriodo = cartoesLiquidados
+    .filter((entrada) => entrada.dataPagamento < inicioMes)
+    .filter((entrada) => entrada.dataLiquidacao >= inicioMes)
+    .filter((entrada) => entrada.dataLiquidacao <= fimAnalise)
+    .reduce((soma, entrada) => soma + entrada.valorNumerico, 0);
+
+  const bancoRealAjustado =
+    Number(indicadores.tenhoNoBanco || 0) -
+    cartoesContadosMasNaoLiquidadosPeriodo +
+    cartoesPagosAntesELiquidadosNoPeriodo;
 
   const fluxoCaixaDiario = (() => {
     const mapa = {};
@@ -220,18 +355,25 @@ function adicionarDias(dataBase, dias) {
     entradas.forEach((entrada) => {
       const dataRecebimento = dataRecebimentoEntrada(entrada);
 
-      if (!dentroDoPeriodo(dataRecebimento)) return;
+      if (!dataRecebimento) return;
       if (entrada.status !== "Pago") return;
-
-      criarDia(dataRecebimento);
 
       const valor = Number(entrada.valor || 0);
 
       if (destinoDinheiro(entrada.formaPagamento) === "Caixa") {
+        if (!dentroDoPeriodo(dataRecebimento)) return;
+
+        criarDia(dataRecebimento);
         mapa[dataRecebimento].entradaCaixa += valor;
-      } else {
-        mapa[dataRecebimento].entradaBanco += valor;
+        return;
       }
+
+      const dataBanco = dataLiquidacaoEntrada(entrada);
+
+      if (!dentroDoPeriodo(dataBanco)) return;
+
+      criarDia(dataBanco);
+      mapa[dataBanco].entradaBanco += valor;
     });
 
     saidas.forEach((saida) => {
@@ -296,40 +438,8 @@ function adicionarDias(dataBase, dias) {
   const mediaNecessaria =
     faltaMeta > 0 ? faltaMeta / Math.max(ultimoDiaMes - diaAtual, 1) : 0;
 
- 
-
-const hojeReferencia = new Date().toISOString().slice(0, 10);
-
-const fimPeriodoSeguro = dataSegura(fechamentoProvavel || fimMes, hojeReferencia);
-const inicioPeriodoSeguro = dataSegura(inicioMes, hojeReferencia);
-
-const dataFinalDecorrida =
-  hojeReferencia > fimPeriodoSeguro ? fimPeriodoSeguro : hojeReferencia;
-
-const diasTotaisPeriodo = Math.max(
-  1,
-  Math.floor(
-    (
-      new Date(fimPeriodoSeguro + "T00:00:00") -
-      new Date(inicioPeriodoSeguro + "T00:00:00")
-    ) /
-      (1000 * 60 * 60 * 24)
-  ) + 1
-);
-
-const diasDecorridosPeriodo = Math.max(
-  1,
-  Math.floor(
-    (
-      new Date(dataFinalDecorrida + "T00:00:00") -
-      new Date(inicioMes + "T00:00:00")
-    ) /
-      (1000 * 60 * 60 * 24)
-  ) + 1
-);
-
-const projecaoMes =
-  (receitaOperacional / diasDecorridosPeriodo) * diasTotaisPeriodo;
+  const projecaoMes =
+    (receitaOperacional / diasDecorridosPeriodo) * diasTotaisPeriodo;
 
   const despesasPorCategoria = (() => {
     const mapa = {};
@@ -381,16 +491,21 @@ const projecaoMes =
       if (entrada.status !== "Pago") return false;
       if (ehInjecaoOuAporte(entrada)) return false;
 
-      return (
-        entrada.data < inicioMes &&
-        dataRecebimento >= inicioMes &&
-        dataRecebimento <= fimMes
-      );
+      return historicoFechamentos.some((fechamento) => {
+        const fimFechamento = fechamento?.fim || "";
+
+        if (!fimFechamento) return false;
+
+        return (
+          entrada.data <= fimFechamento &&
+          dataRecebimento > fimFechamento &&
+          dataRecebimento >= inicioMes &&
+          dataRecebimento <= fimAnalise
+        );
+      });
     })
     .sort((a, b) =>
-      String(dataRecebimentoEntrada(b)).localeCompare(
-        String(dataRecebimentoEntrada(a))
-      )
+      String(b.diaPago || b.data).localeCompare(String(a.diaPago || a.data))
     );
 
   const quantidadeRecebimentosAntigos = recebimentosAntigosDetalhados.length;
@@ -451,7 +566,7 @@ const projecaoMes =
     "Faturado em Aberto":
       "Valor vendido como Nota/Faturado que ainda não foi recebido.",
     Banco:
-      "Quanto deveria existir no banco, considerando entradas bancárias menos saídas bancárias.",
+      "Quanto deveria existir no banco, considerando entradas bancárias liquidadas menos saídas bancárias.",
     "Caixa Físico":
       "Quanto deveria existir em dinheiro físico, considerando entradas e saídas em caixa.",
     "Recebimentos Antigos":
@@ -471,7 +586,7 @@ const projecaoMes =
     "Aporte Total":
       "Soma de todas as injeções/aportes feitos na empresa.",
     "Banco Real":
-      "Quanto deveria existir no banco segundo o sistema.",
+      "Quanto deveria existir no banco segundo o sistema, já considerando liquidação de débito e crédito.",
     "Recuperação Vale":
       "Valor recuperado de vales ou adiantamentos descontados depois.",
     "Serviços Realizados":
@@ -480,8 +595,10 @@ const projecaoMes =
       "Quantidade de vendas feitas antes do período atual, mas recebidas dentro deste período financeiro.",
     "Valor de Notas Antigas":
       "Valor financeiro recebido neste período referente a vendas de períodos anteriores.",
-      "Movimentação Geral":
-  "Soma das vendas recebidas, notas em aberto e aportes realizados no período.",
+    "Movimentação Geral":
+      "Soma das vendas recebidas, notas em aberto e aportes realizados no período.",
+    "A Receber Cartão":
+      "Valores pagos no débito/crédito que ainda não caíram no banco por causa do prazo de liquidação.",
   };
 
   function KpiComAjuda({ titulo, valor }) {
@@ -551,8 +668,9 @@ const projecaoMes =
     ["Caixa Real", indicadores.entradaLiquida || 0],
     ["Saídas", indicadores.saidasTotal || 0],
     ["Faturado em Aberto", indicadores.faturadoEmAberto || 0],
-    ["Banco", indicadores.tenhoNoBanco || 0],
+    ["Banco", bancoRealAjustado || 0],
     ["Caixa Físico", indicadores.tenhoNoCaixa || 0],
+    ["A Receber Cartão", valorCartoesAReceberAmanha || 0],
   ];
 
   const kpisDetalhados = [
@@ -568,11 +686,12 @@ const projecaoMes =
     ["Injeção Loja", indicadores.injecaoLojaTotal || 0],
     ["Injeção Caixa", indicadores.injecaoCaixaTotal || 0],
     ["Aporte Total", indicadores.aporteTotal || 0],
-    ["Banco Real", indicadores.tenhoNoBanco || 0],
+    ["Banco Real", bancoRealAjustado || 0],
     ["Caixa Físico", indicadores.tenhoNoCaixa || 0],
+    ["A Receber Cartão", valorCartoesAReceberAmanha || 0],
     ["Recuperação Vale", indicadores.recuperacaoValeTotal || 0],
     ["Vale Concedido", indicadores.valeConcedidoTotal || 0],
-["Vale em Aberto", indicadores.valeEmAbertoTotal || 0],
+    ["Vale em Aberto", indicadores.valeEmAbertoTotal || 0],
   ];
 
   const kpis = modoDetalhado ? kpisDetalhados : kpisSimples;
@@ -600,20 +719,16 @@ const projecaoMes =
 
   const ultimoFechamento = historicoFechamentos?.[0];
 
-  const fechamentoAnterior = historicoFechamentos?.[1];
-
   const inicioMesAnterior = ultimoFechamento?.inicio || "";
 
-  const fimMesAnterior = ultimoFechamento?.fim || "";
-
   const quantidadeDiasAtual = Math.max(
-  1,
-  Math.floor(
-    (new Date(dataSegura(fimMes) + "T00:00:00") -
-      new Date(dataSegura(inicioMes) + "T00:00:00")) /
-      (1000 * 60 * 60 * 24)
-  ) + 1
-);
+    1,
+    Math.floor(
+      (new Date(dataSegura(fimMes) + "T00:00:00") -
+        new Date(dataSegura(inicioMes) + "T00:00:00")) /
+        (1000 * 60 * 60 * 24)
+    ) + 1
+  );
 
   const fimMesAnteriorComparativo = inicioMesAnterior
     ? adicionarDias(inicioMesAnterior, quantidadeDiasAtual - 1)
@@ -779,19 +894,19 @@ const projecaoMes =
             Começa em
             <input
               type="text"
-placeholder="DD/MM/AAAA"
+              placeholder="DD/MM/AAAA"
               value={inicioDigitando}
-         onChange={(e) => {
-  const valor = e.target.value;
+              onChange={(e) => {
+                const valor = e.target.value;
 
-  setInicioDigitando(valor);
+                setInicioDigitando(valor);
 
-  const dataISO = brasilParaISO(valor);
+                const dataISO = brasilParaISO(valor);
 
-  if (dataValida(dataISO)) {
-    setInicioMes(dataISO);
-  }
-}}
+                if (dataValida(dataISO)) {
+                  setInicioMes(dataISO);
+                }
+              }}
               style={styles.input}
             />
           </label>
@@ -800,19 +915,19 @@ placeholder="DD/MM/AAAA"
             Fecha em
             <input
               type="text"
-placeholder="DD/MM/AAAA"
+              placeholder="DD/MM/AAAA"
               value={fimDigitando}
               onChange={(e) => {
-  const valor = e.target.value;
+                const valor = e.target.value;
 
-  setFimDigitando(valor);
+                setFimDigitando(valor);
 
-  const dataISO = brasilParaISO(valor);
+                const dataISO = brasilParaISO(valor);
 
-  if (dataValida(dataISO)) {
-    setFimMes(dataISO);
-  }
-}}
+                if (dataValida(dataISO)) {
+                  setFimMes(dataISO);
+                }
+              }}
               style={styles.input}
             />
           </label>
@@ -828,6 +943,98 @@ placeholder="DD/MM/AAAA"
           />
         ))}
       </div>
+
+      <Card titulo="Cartões a receber">
+        <div style={styles.kpisModernos}>
+          <KpiComAjuda
+            titulo="A Receber Hoje"
+            valor={moeda.format(valorCartoesAReceberHoje)}
+          />
+
+          <KpiComAjuda
+            titulo="A Receber Cartão"
+            valor={moeda.format(valorCartoesAReceberAmanha)}
+          />
+
+          <KpiComAjuda
+            titulo="Próximos Recebimentos"
+            valor={moeda.format(valorCartoesAReceberProximosDias)}
+          />
+        </div>
+
+        {valorCartoesAReceberAmanha > 0 && (
+          <div
+            style={{
+              marginTop: 16,
+              padding: 16,
+              borderRadius: 16,
+              background:
+                "linear-gradient(135deg,rgba(37,99,235,0.18),rgba(124,58,237,0.12))",
+              border: "1px solid rgba(96,165,250,0.35)",
+              color: "#dbeafe",
+              lineHeight: 1.6,
+            }}
+          >
+            <strong style={{ color: "#fff" }}>
+              Amanhã cai {moeda.format(valorCartoesAReceberAmanha)}
+            </strong>
+            <br />
+            Valor previsto para cair no banco em {dataBR(proximoDiaUtil)} por
+            vendas no débito/crédito.
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            marginTop: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            style={mostrarCartoesAReceber ? styles.botao : styles.botaoCinza}
+            onClick={() => setMostrarCartoesAReceber(!mostrarCartoesAReceber)}
+          >
+            {mostrarCartoesAReceber
+              ? "Ocultar cartões a receber"
+              : "Ver cartões a receber"}
+          </button>
+        </div>
+      </Card>
+
+      {mostrarCartoesAReceber && (
+        <Card titulo="Detalhes dos cartões a receber">
+          {cartoesPendentesLiquidacao.length === 0 ? (
+            <p style={styles.vazio}>Nenhum valor de cartão pendente.</p>
+          ) : (
+            <Tabela
+              colunas={[
+                "Cliente",
+                "Placa",
+                "Produto",
+                "Pagamento",
+                "Dia pago",
+                "Cai no banco",
+                "Valor",
+                "Processo",
+              ]}
+              dados={cartoesPendentesLiquidacao
+                .sort((a, b) => a.dataLiquidacao.localeCompare(b.dataLiquidacao))
+                .map((entrada) => [
+                  entrada.cliente || "-",
+                  entrada.placa || "-",
+                  entrada.produto || "-",
+                  entrada.formaPagamento || "-",
+                  dataBR(entrada.dataPagamento),
+                  dataBR(entrada.dataLiquidacao),
+                  moeda.format(Number(entrada.valor || 0)),
+                  entrada.processo || "-",
+                ])}
+            />
+          )}
+        </Card>
+      )}
 
       {modoDetalhado && (
         <Card titulo="Fechamento do caixa">
@@ -863,9 +1070,7 @@ placeholder="DD/MM/AAAA"
           >
             <button
               style={
-                mostrarRecebimentosAntigos
-                  ? styles.botao
-                  : styles.botaoCinza
+                mostrarRecebimentosAntigos ? styles.botao : styles.botaoCinza
               }
               onClick={() =>
                 setMostrarRecebimentosAntigos(!mostrarRecebimentosAntigos)
@@ -930,9 +1135,7 @@ placeholder="DD/MM/AAAA"
                 min={1}
                 max={31}
                 value={diasComparativo}
-                onChange={(e) =>
-                  setDiasComparativo(Number(e.target.value || 1))
-                }
+                onChange={(e) => setDiasComparativo(Number(e.target.value || 1))}
                 style={{
                   ...styles.input,
                   maxWidth: 160,
@@ -1081,69 +1284,66 @@ placeholder="DD/MM/AAAA"
           </div>
 
           {podeEditarMeta && (
-  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-    <input
-      type="number"
-      value={metaMensal}
-      onChange={(e) => setMetaMensal(Number(e.target.value))}
-      placeholder="Nova meta"
-      style={{
-        background: "#0f172a",
-        border: "1px solid #334155",
-        borderRadius: 12,
-        color: "#fff",
-        padding: "12px 14px",
-        minWidth: 180,
-        fontSize: 15,
-      }}
-    />
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <input
+                type="number"
+                value={metaMensal}
+                onChange={(e) => setMetaMensal(Number(e.target.value))}
+                placeholder="Nova meta"
+                style={{
+                  background: "#0f172a",
+                  border: "1px solid #334155",
+                  borderRadius: 12,
+                  color: "#fff",
+                  padding: "12px 14px",
+                  minWidth: 180,
+                  fontSize: 15,
+                }}
+              />
 
-    <label
-  style={{
-    color: "#94a3b8",
-    fontSize: 14,
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  }}
->
-  Data Provável de Fechamento
-  <span
-  style={{
-    color: "#64748b",
-    fontSize: 12,
-  }}
->
-  Usada para calcular a projeção do período.
-</span>
+              <label
+                style={{
+                  color: "#94a3b8",
+                  fontSize: 14,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
+                Data Provável de Fechamento
+                <span
+                  style={{
+                    color: "#64748b",
+                    fontSize: 12,
+                  }}
+                >
+                  Usada para calcular a projeção do período.
+                </span>
 
-  <input
-    type="date"
-    value={fechamentoProvavel}
-    onChange={(e) => {
-  const novaData = e.target.value;
-  setFechamentoProvavel(novaData);
-}}
-    style={{
-      background: "#0f172a",
-      border: "1px solid #334155",
-      borderRadius: 12,
-      color: "#fff",
-      padding: "12px 14px",
-      minWidth: 180,
-      fontSize: 15,
-    }}
-  />
-</label>
-  </div>
-)}
+                <input
+                  type="date"
+                  value={fechamentoProvavel}
+                  onChange={(e) => {
+                    const novaData = e.target.value;
+                    setFechamentoProvavel(novaData);
+                  }}
+                  style={{
+                    background: "#0f172a",
+                    border: "1px solid #334155",
+                    borderRadius: 12,
+                    color: "#fff",
+                    padding: "12px 14px",
+                    minWidth: 180,
+                    fontSize: 15,
+                  }}
+                />
+              </label>
+            </div>
+          )}
         </div>
 
         <div style={styles.kpisModernos}>
-          <KpiComAjuda
-            titulo="% Meta"
-            valor={`${percentualMeta.toFixed(1)}%`}
-          />
+          <KpiComAjuda titulo="% Meta" valor={`${percentualMeta.toFixed(1)}%`} />
 
           <KpiComAjuda
             titulo="Falta para meta"
@@ -1155,10 +1355,7 @@ placeholder="DD/MM/AAAA"
             valor={moeda.format(mediaNecessaria)}
           />
 
-          <KpiComAjuda
-            titulo="Projeção mês"
-            valor={moeda.format(projecaoMes)}
-          />
+          <KpiComAjuda titulo="Projeção mês" valor={moeda.format(projecaoMes)} />
         </div>
       </Card>
     </>
