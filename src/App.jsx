@@ -1467,6 +1467,15 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
 }
 
 function recebimentosAntigosDoPeriodo(inicio, fim) {
+  const ultimoFechamento = [...historicoFechamentos].sort((a, b) =>
+    String(b.fim || b.dataFechamento || "").localeCompare(
+      String(a.fim || a.dataFechamento || "")
+    )
+  )[0];
+
+  const fimUltimoFechamento =
+    ultimoFechamento?.fim || ultimoFechamento?.dataFechamento || "";
+
   return entradas.filter((entrada) => {
     if (!ehVendaReal(entrada)) return false;
 
@@ -1475,7 +1484,18 @@ function recebimentosAntigosDoPeriodo(inicio, fim) {
 
     if (!dataVenda || !dataRecebimento) return false;
 
-    return dataVenda < inicio && dentroDoPeriodoInformado(dataRecebimento, inicio, fim);
+    if (fimUltimoFechamento) {
+      return (
+        dataVenda <= fimUltimoFechamento &&
+        dataRecebimento > fimUltimoFechamento &&
+        dentroDoPeriodoInformado(dataRecebimento, inicio, fim)
+      );
+    }
+
+    return (
+      dataVenda < inicio &&
+      dentroDoPeriodoInformado(dataRecebimento, inicio, fim)
+    );
   });
 }
 
