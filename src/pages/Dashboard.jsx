@@ -9,6 +9,7 @@ import Kpi from "../components/Kpi.jsx";
 import GraficoLinha from "../components/GraficoLinha.jsx";
 import GraficoBarras from "../components/GraficoBarras.jsx";
 import Tabela from "../components/Tabela.jsx";
+import Campo from "../components/Campo.jsx";
 
 function brasilParaISO(data) {
   if (!data) return "";
@@ -55,6 +56,8 @@ export default function Dashboard({
   statusConta,
 
   servicosPorDia,
+  confirmarRecebimentoCartao,
+  confirmarRecebimentoCartoesEmLote,
 
   entradas,
   saidas,
@@ -80,6 +83,12 @@ export default function Dashboard({
   const [mostrarRecebimentosAntigos, setMostrarRecebimentosAntigos] =
     useState(false);
   const [mostrarCartoesAReceber, setMostrarCartoesAReceber] = useState(false);
+  const [cartaoSelecionado, setCartaoSelecionado] = useState(null);
+const [modalCartaoAberto, setModalCartaoAberto] = useState(false);
+const [dataRecebimentoCartao, setDataRecebimentoCartao] = useState("");
+const [valorLiquidoCartao, setValorLiquidoCartao] = useState("");
+const [cartoesSelecionados, setCartoesSelecionados] = useState([]);
+const [mesCartoesFiltro, setMesCartoesFiltro] = useState("");
 
   const hojeSistema = new Date();
   const hojeReferencia = hojeSistema.toISOString().slice(0, 10);
@@ -168,20 +177,12 @@ export default function Dashboard({
   }
 
   function dataLiquidacaoEntrada(entrada) {
-    const dataRecebimento = dataRecebimentoEntrada(entrada);
-
-    if (!dataRecebimento) return "";
-
-    if (ehDebito(entrada.formaPagamento)) {
-      return adicionarDiasUteis(dataRecebimento, 1);
-    }
-
-    if (ehCredito(entrada.formaPagamento)) {
-      return adicionarDiasUteis(dataRecebimento, 1);
-    }
-
-    return dataRecebimento;
+  if (entrada?.recebimentoCartaoConfirmado) {
+    return entrada.dataRecebimentoCartao || "";
   }
+
+  return "";
+}
 
   function calcularVariacao(atual, anterior) {
     if (!anterior || anterior <= 0) return atual > 0 ? 100 : 0;
@@ -284,9 +285,16 @@ export default function Dashboard({
     })
     .filter((entrada) => entrada.dataPagamento && entrada.dataLiquidacao);
 
-  const cartoesPendentesLiquidacao = cartoesLiquidados.filter(
-    (entrada) => entrada.dataLiquidacao > hojeReferencia
-  );
+  const cartoesPendentesLiquidacao = entradas
+  .filter((entrada) => entrada.status === "Pago")
+  .filter((entrada) => !ehInjecaoOuAporte(entrada))
+  .filter((entrada) => ehCartaoBanco(entrada.formaPagamento))
+  .filter((entrada) => !entrada.recebimentoCartaoConfirmado)
+  .map((entrada) => ({
+    ...entrada,
+    dataPagamento: dataRecebimentoEntrada(entrada),
+    valorNumerico: Number(entrada.valor || 0),
+  }));
 
   const proximoDiaUtil = adicionarDiasUteis(hojeReferencia, 1);
 
@@ -301,21 +309,29 @@ export default function Dashboard({
   const cartoesAReceberProximosDias = cartoesLiquidados.filter(
     (entrada) => entrada.dataLiquidacao > proximoDiaUtil
   );
+const mesesCartoesPendentes = [
+  ...new Set(
+    cartoesPendentesLiquidacao.map((entrada) =>
+      String(entrada.dataPagamento || entrada.data || "").slice(0, 7)
+    )
+  ),
+].sort();
 
-  const valorCartoesAReceberHoje = cartoesAReceberHoje.reduce(
-    (soma, entrada) => soma + entrada.valorNumerico,
-    0
-  );
+const cartoesPendentesFiltrados = mesCartoesFiltro
+  ? cartoesPendentesLiquidacao.filter(
+      (entrada) =>
+        String(entrada.dataPagamento || entrada.data || "").slice(0, 7) ===
+        mesCartoesFiltro
+    )
+  : cartoesPendentesLiquidacao;
+  const valorCartoesAReceberHoje = cartoesPendentesLiquidacao.reduce(
+  (soma, entrada) => soma + Number(entrada.valor || 0),
+  0
+);
 
-  const valorCartoesAReceberAmanha = cartoesAReceberAmanha.reduce(
-    (soma, entrada) => soma + entrada.valorNumerico,
-    0
-  );
+const valorCartoesAReceberAmanha = 0;
 
-  const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
-    (soma, entrada) => soma + entrada.valorNumerico,
-    0
-  );
+const valorCartoesAReceberProximosDias = 0;
 
   const cartoesContadosMasNaoLiquidadosPeriodo = cartoesLiquidados
     .filter((entrada) => entrada.dataPagamento >= inicioMes)
@@ -652,6 +668,20 @@ export default function Dashboard({
       </div>
     );
   }
+  function abrirModalReceberCartao(entrada) {
+  setCartaoSelecionado(entrada);
+  setDataRecebimentoCartao(hojeReferencia);
+  setValorLiquidoCartao(String(Number(entrada.valor || 0).toFixed(2)));
+  setModalCartaoAberto(true);
+}
+
+function fecharModalReceberCartao() {
+  setCartaoSelecionado(null);
+  setModalCartaoAberto(false);
+  setDataRecebimentoCartao(hojeReferencia);
+  setValorLiquidoCartao("");
+    
+  }
 
   const caixaOperacional =
     (indicadores.caixaRecebidoTotal || 0) -
@@ -815,10 +845,120 @@ export default function Dashboard({
         </strong>
       </div>
     );
-  }
+    
+}
+function nomeMesCartao(mesAno) {
+  const nomes = [
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
+  ];
 
+  const [ano, mes] = String(mesAno || "").split("-");
+  const indiceMes = Number(mes) - 1;
+
+  if (!ano || indiceMes < 0 || indiceMes > 11) return mesAno;
+
+  const quantidade = cartoesPendentesLiquidacao.filter(
+    (entrada) =>
+      String(entrada.dataPagamento || entrada.data || "").slice(0, 7) === mesAno
+  ).length;
+
+  return `${nomes[indiceMes]}/${ano} (${quantidade})`;
+}
   return (
     <>
+    {modalCartaoAberto && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.75)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 99999,
+      padding: 20,
+    }}
+  >
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 520,
+        background: "#081428",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 20,
+        padding: 24,
+      }}
+    >
+      <h2 style={{ marginBottom: 20 }}>
+        Confirmar recebimento de cartão
+      </h2>
+
+      <div style={{ marginBottom: 12 }}>
+        <strong>Cliente:</strong>{" "}
+        {cartaoSelecionado?.cliente || "-"}
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <strong>Valor bruto:</strong>{" "}
+        {moeda.format(Number(cartaoSelecionado?.valor || 0))}
+      </div>
+
+      <Campo
+        label="Data do recebimento"
+        tipo="date"
+        valor={dataRecebimentoCartao}
+        mudar={setDataRecebimentoCartao}
+      />
+
+      <Campo
+        label="Valor líquido recebido"
+        valor={valorLiquidoCartao}
+        mudar={setValorLiquidoCartao}
+      />
+
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          marginTop: 20,
+        }}
+      >
+        <button
+          style={styles.botao}
+          onClick={() => {
+  confirmarRecebimentoCartao(
+    cartaoSelecionado.id,
+    dataRecebimentoCartao,
+    valorLiquidoCartao
+  );
+
+  fecharModalReceberCartao();
+}}
+        >
+          Confirmar
+        </button>
+
+        <button
+          style={styles.botaoCinza}
+          onClick={fecharModalReceberCartao}
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       <div style={styles.dashboardTopo}>
         <div>
           <h1 style={styles.dashboardTitulo}>Dashboard Financeiro</h1>
@@ -942,96 +1082,179 @@ export default function Dashboard({
       </div>
 
       <Card titulo="Cartões a receber">
-        <div style={styles.kpisModernos}>
-          <KpiComAjuda
-            titulo="A Receber Hoje"
-            valor={moeda.format(valorCartoesAReceberHoje)}
-          />
+  <div style={styles.kpisModernos}>
+    <KpiComAjuda
+      titulo="Cartões Pendentes"
+      valor={moeda.format(valorCartoesAReceberHoje)}
+    />
 
-          <KpiComAjuda
-            titulo="A Receber Cartão"
-            valor={moeda.format(valorCartoesAReceberAmanha)}
-          />
+    <KpiComAjuda titulo="Confirmados Hoje" valor={moeda.format(0)} />
 
-          <KpiComAjuda
-            titulo="Próximos Recebimentos"
-            valor={moeda.format(valorCartoesAReceberProximosDias)}
-          />
-        </div>
+    <KpiComAjuda titulo="Taxas Pendentes" valor={moeda.format(0)} />
+  </div>
 
-        {valorCartoesAReceberAmanha > 0 && (
-          <div
-            style={{
-              marginTop: 16,
-              padding: 16,
-              borderRadius: 16,
-              background:
-                "linear-gradient(135deg,rgba(37,99,235,0.18),rgba(124,58,237,0.12))",
-              border: "1px solid rgba(96,165,250,0.35)",
-              color: "#dbeafe",
-              lineHeight: 1.6,
-            }}
-          >
-            <strong style={{ color: "#fff" }}>
-              Amanhã cai {moeda.format(valorCartoesAReceberAmanha)}
-            </strong>
-            <br />
-            Valor previsto para cair no banco em {dataBR(proximoDiaUtil)} por
-            vendas no débito/crédito.
-          </div>
-        )}
+  <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+    <button
+      style={mostrarCartoesAReceber ? styles.botao : styles.botaoCinza}
+      onClick={() => setMostrarCartoesAReceber(!mostrarCartoesAReceber)}
+    >
+      {mostrarCartoesAReceber
+        ? "Ocultar cartões a receber"
+        : "Ver cartões a receber"}
+    </button>
+  </div>
+</Card>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            marginTop: 16,
-            flexWrap: "wrap",
-          }}
-        >
-          <button
-            style={mostrarCartoesAReceber ? styles.botao : styles.botaoCinza}
-            onClick={() => setMostrarCartoesAReceber(!mostrarCartoesAReceber)}
-          >
-            {mostrarCartoesAReceber
-              ? "Ocultar cartões a receber"
-              : "Ver cartões a receber"}
-          </button>
-        </div>
-      </Card>
+{mostrarCartoesAReceber && (
+  <Card titulo="Detalhes dos cartões a receber">
+    <div
+  style={{
+    display: "flex",
+    gap: 10,
+    marginBottom: 16,
+    flexWrap: "wrap",
+    alignItems: "center",
+  }}
+>
+  <span style={{ color: "#cbd5e1" }}>
+    Filtrar mês:
+  </span>
 
-      {mostrarCartoesAReceber && (
-        <Card titulo="Detalhes dos cartões a receber">
-          {cartoesPendentesLiquidacao.length === 0 ? (
-            <p style={styles.vazio}>Nenhum valor de cartão pendente.</p>
-          ) : (
-            <Tabela
-              colunas={[
-                "Cliente",
-                "Placa",
-                "Produto",
-                "Pagamento",
-                "Dia pago",
-                "Cai no banco",
-                "Valor",
-                "Processo",
-              ]}
-              dados={cartoesPendentesLiquidacao
-                .sort((a, b) => a.dataLiquidacao.localeCompare(b.dataLiquidacao))
-                .map((entrada) => [
-                  entrada.cliente || "-",
-                  entrada.placa || "-",
-                  entrada.produto || "-",
-                  entrada.formaPagamento || "-",
-                  dataBR(entrada.dataPagamento),
-                  dataBR(entrada.dataLiquidacao),
-                  moeda.format(Number(entrada.valor || 0)),
-                  entrada.processo || "-",
-                ])}
-            />
-          )}
-        </Card>
-      )}
+  <select
+    value={mesCartoesFiltro}
+    onChange={(e) => setMesCartoesFiltro(e.target.value)}
+    style={{
+      background: "#0f172a",
+      color: "#fff",
+      border: "1px solid #334155",
+      borderRadius: 10,
+      padding: "10px 12px",
+    }}
+  >
+    <option value="">Todos</option>
+
+    {mesesCartoesPendentes.map((mes) => (
+      <option key={mes} value={mes}>
+  {nomeMesCartao(mes)}
+</option>
+    ))}
+  </select>
+</div>
+    <div
+  style={{
+    display: "flex",
+    gap: 10,
+    marginBottom: 16,
+    flexWrap: "wrap",
+  }}
+>
+  <button
+  style={styles.botaoCinza}
+  onClick={() => {
+    if (!mesCartoesFiltro) {
+      alert("Escolha um mês primeiro.");
+      return;
+    }
+
+    setCartoesSelecionados(
+      cartoesPendentesFiltrados.map((x) => x.id)
+    );
+  }}
+>
+  Selecionar mês
+</button>
+  <button
+    style={styles.botaoCinza}
+    onClick={() =>
+        setCartoesSelecionados(
+  cartoesPendentesFiltrados.map((x) => x.id)
+)
+    }
+  >
+    Selecionar todos
+  </button>
+
+  <button
+    style={styles.botaoCinza}
+    onClick={() => setCartoesSelecionados([])}
+  >
+    Limpar seleção
+  </button>
+
+  <button
+  style={styles.botao}
+  onClick={() => {
+    if (!cartoesSelecionados.length) return;
+
+    const confirmar = window.confirm(
+      `Receber ${cartoesSelecionados.length} cartões selecionados?`
+    );
+
+    if (!confirmar) return;
+
+    confirmarRecebimentoCartoesEmLote(cartoesSelecionados);
+
+    setCartoesSelecionados([]);
+  }}
+>
+  Receber selecionados ({cartoesSelecionados.length})
+</button>
+</div>
+    {cartoesPendentesFiltrados.length === 0 ? (
+      <p style={styles.vazio}>Nenhum cartão pendente de recebimento.</p>
+    ) : (
+      <Tabela
+        colunas={[
+  "",
+  "Cliente",
+  "Placa",
+  "Produto",
+  "Pagamento",
+  "Previsão",
+  "Valor venda",
+  "Processo",
+  "Ação",
+]}
+        dados={cartoesPendentesFiltrados
+          .sort((a, b) =>
+            String(a.dataPagamento || "").localeCompare(
+              String(b.dataPagamento || "")
+            )
+          )
+          .map((entrada) => [
+            <input
+  type="checkbox"
+  checked={cartoesSelecionados.includes(entrada.id)}
+  onChange={(e) => {
+    if (e.target.checked) {
+      setCartoesSelecionados((old) => [...old, entrada.id]);
+    } else {
+      setCartoesSelecionados((old) =>
+        old.filter((id) => id !== entrada.id)
+      );
+    }
+  }}
+/>,
+            entrada.cliente || "-",
+            entrada.placa || "-",
+            entrada.produto || "-",
+            entrada.formaPagamento || "-",
+            dataBR(entrada.dataPagamento),
+            moeda.format(Number(entrada.valor || 0)),
+            entrada.processo || "-",
+
+            <button
+              key={entrada.id}
+              style={styles.botao}
+              onClick={() => abrirModalReceberCartao(entrada)}
+            >
+              Receber
+            </button>,
+          ])}
+      />
+    )}
+  </Card>
+)}
 
       {modoDetalhado && (
         <Card titulo="Fechamento do caixa">

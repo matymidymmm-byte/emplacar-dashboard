@@ -1088,6 +1088,10 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
     categoriaPlaca: "",
     celular: "",
     relacaoPagaId: "",
+    recebimentoCartaoConfirmado: false,
+valorLiquidoRecebido: 0,
+dataRecebimentoCartao: "",
+taxaCartao: 0,
   };
 
   const saidaVazia = {
@@ -1513,6 +1517,17 @@ function recebimentosAntigosDoPeriodo(inicio, fim) {
       categoriaPlaca: entradaForm.categoriaPlaca || "",
       celular: entradaForm.celular || "",
       relacaoPagaId: entradaForm.relacaoPagaId || "",
+      recebimentoCartaoConfirmado:
+  entradaForm.recebimentoCartaoConfirmado || false,
+
+valorLiquidoRecebido:
+  Number(entradaForm.valorLiquidoRecebido || 0),
+
+dataRecebimentoCartao:
+  entradaForm.dataRecebimentoCartao || "",
+
+taxaCartao:
+  Number(entradaForm.taxaCartao || 0),
       id: editando.tipo === "entrada" ? editando.id : Date.now(),
     };
 
@@ -1578,7 +1593,93 @@ function recebimentosAntigosDoPeriodo(inicio, fim) {
 
     cancelarEdicao();
   }
+  function confirmarRecebimentoCartao(idEntrada, dataRecebimentoManual = "", valorLiquidoManual = "") {
+  const entrada = entradas.find((x) => String(x.id) === String(idEntrada));
 
+  if (!entrada) {
+    alert("Entrada não encontrada.");
+    return;
+  }
+
+  const valorVenda = Number(entrada.valor || 0);
+
+  const dataRecebimento = dataRecebimentoManual || hoje;
+
+if (!dataRecebimento) return;
+
+const valorLiquidoTexto = valorLiquidoManual || String(valorVenda.toFixed(2));
+
+if (!valorLiquidoTexto) return;
+
+  const valorLiquido = numero(valorLiquidoTexto);
+  const taxaCartao = Math.max(valorVenda - valorLiquido, 0);
+
+  const saidaTaxaId = taxaCartao > 0 ? Date.now() : "";
+
+  setEntradas((old) =>
+    old.map((item) =>
+      String(item.id) === String(idEntrada)
+        ? {
+            ...item,
+            recebimentoCartaoConfirmado: true,
+            dataRecebimentoCartao: dataRecebimento,
+            valorLiquidoRecebido: valorLiquido,
+            taxaCartao,
+            saidaTaxaCartaoId: saidaTaxaId,
+          }
+        : item
+    )
+  );
+
+  if (taxaCartao > 0) {
+    const novaSaidaTaxa = {
+      id: saidaTaxaId,
+      data: dataRecebimento,
+      formaPagamento: "Banco",
+      categoria: "Taxa maquininha",
+      tipoSaida: "Taxa de cartão",
+      conta: `Taxa maquininha - ${entrada.placa || entrada.cliente || "cartão"}`,
+      valor: taxaCartao,
+      status: "Pago",
+      origemEntradaCartaoId: entrada.id,
+    };
+
+    setSaidas((old) => [novaSaidaTaxa, ...old]);
+  }
+
+  registrarAlteracao({
+    tipo: "Recebimento cartão",
+    modulo: "Dashboard",
+    descricao: `${usuario?.email || "Usuário"} confirmou recebimento de cartão ${
+      entrada.placa || entrada.cliente || entrada.id
+    }`,
+    valorAntigo: valorVenda,
+    valorNovo: `Recebido ${valorLiquido} em ${dataRecebimento} | Taxa ${taxaCartao}`,
+    itemId: entrada.id,
+  });
+
+  
+}
+function confirmarRecebimentoCartoesEmLote(ids) {
+  if (!ids?.length) return;
+
+  setEntradas((old) =>
+    old.map((entrada) => {
+      if (!ids.includes(entrada.id)) return entrada;
+
+      return {
+        ...entrada,
+        recebimentoCartaoConfirmado: true,
+        dataRecebimentoCartao:
+          entrada.dataPagamento ||
+          entrada.diaPago ||
+          entrada.data,
+        valorLiquidoRecebido: Number(entrada.valor || 0),
+        taxaCartao: 0,
+      };
+    })
+  );
+}
   function salvarConta() {
     const nova = {
       ...contaForm,
@@ -1935,7 +2036,11 @@ function dataLiquidacaoEntrada(entrada) {
   if (!dataRecebimento) return "";
 
   if (ehCartaoBanco(entrada.formaPagamento)) {
-    return adicionarDiasUteis(dataRecebimento, 1);
+    if (!entrada.recebimentoCartaoConfirmado) {
+      return "";
+    }
+
+    return entrada.dataRecebimentoCartao || "";
   }
 
   return dataRecebimento;
@@ -2045,7 +2150,25 @@ const caixaRecebidoVendas = vendasLiquidadasPeriodo.reduce(
       dataLiquidacao <= hoje
     );
   })
-  .reduce((s, x) => s + Number(x.valor || 0), 0);
+  .reduce((soma, entrada) => {
+    const forma = normalizar(entrada.formaPagamento);
+
+    if (
+      (forma.includes("DEBITO") || forma.includes("CREDITO")) &&
+      entrada.recebimentoCartaoConfirmado
+    ) {
+      return soma + Number(entrada.valorLiquidoRecebido || 0);
+    }
+
+    if (
+      forma.includes("DEBITO") ||
+      forma.includes("CREDITO")
+    ) {
+      return soma;
+    }
+
+    return soma + Number(entrada.valor || 0);
+  }, 0);
 
     const recebidoCaixa = dadosPeriodo.entradasRecebidas
       .filter((x) => {
@@ -2347,6 +2470,8 @@ setMovimentacoesCaixaBanco,
     podeEditarMeta,
     podeVerFinanceiro,
     podeOperarSistema,
+    confirmarRecebimentoCartao,
+    confirmarRecebimentoCartoesEmLote,
 
     fecharMesFinanceiro,
     diaInicioMesFinanceiro,
