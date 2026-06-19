@@ -105,6 +105,24 @@ export default function TabelaEntradas({
   function limparSelecao() {
     setSelecionados([]);
   }
+  function excluirSelecionados() {
+  if (selecionados.length === 0) {
+    alert("Selecione pelo menos uma entrada.");
+    return;
+  }
+
+  const confirmar = window.confirm(
+    `Deseja excluir ${selecionados.length} entrada(s)?`
+  );
+
+  if (!confirmar) return;
+
+  selecionados.forEach((id) => {
+    remover("entrada", id);
+  });
+
+  setSelecionados([]);
+}
 
   function exportarEntradasFiltradas() {
     if (entradasFiltradas.length === 0) {
@@ -314,6 +332,22 @@ OBSERVAÇÃO: ${item.observacao || ""}`,
         <button style={styles.botaoCinza} onClick={limparSelecao}>
           Limpar seleção
         </button>
+        <button
+  style={{
+    ...styles.botaoCinza,
+    border:
+      selecionados.length > 0
+        ? "1px solid rgba(239,68,68,0.45)"
+        : "1px solid transparent",
+    color:
+      selecionados.length > 0
+        ? "#fca5a5"
+        : undefined,
+  }}
+  onClick={excluirSelecionados}
+>
+  Excluir selecionados ({selecionados.length})
+</button>
 
         <label style={styles.label}>
           Forma pagamento

@@ -268,7 +268,7 @@ Após o pagamento, nos envie o comprovante, por favor.`;
     }
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(horizontal ? 7 : 7);
+    doc.setFontSize(7);
     doc.setTextColor(100, 116, 139);
 
     if (empresaPdf.endereco) {
@@ -287,215 +287,292 @@ Após o pagamento, nos envie o comprovante, por favor.`;
     }
   }
 
-  function desenharTabelaServicos(doc, itens, horizontal, yInicial) {
-    const larguraPagina = doc.internal.pageSize.getWidth();
+  function desenharResumoRelacao(doc, dados, horizontal, yInicial, tipo = "aberta") {
     const margem = 10;
-
     let y = yInicial;
 
     doc.setTextColor(15, 23, 42);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(horizontal ? 8 : 8);
-
-    doc.setFillColor(219, 234, 254);
-    doc.rect(margem, y - 5, larguraPagina - margem * 2, 8, "F");
+    doc.setFontSize(horizontal ? 9 : 11);
 
     if (horizontal) {
-      doc.text("Data", margem + 2, y);
-      doc.text("Produto", margem + 27, y);
-      doc.text("Placa", margem + 86, y);
-      doc.text("Renavan", margem + 122, y);
-      doc.text("Pagamento", margem + 165, y);
-      doc.text("Valor", margem + 210, y);
-      doc.text("Status", margem + 238, y);
-    } else {
-      doc.text("Data", margem + 2, y);
-      doc.text("Produto", margem + 25, y);
-      doc.text("Placa", margem + 82, y);
-      doc.text("Valor", margem + 122, y);
-      doc.text("Status", margem + 155, y);
+      const totalTexto =
+        tipo === "paga"
+          ? `Total recebido: ${moeda.format(Number(dados.total || 0))}`
+          : `Total em aberto: ${moeda.format(Number(dados.total || 0))}`;
+
+      doc.text(`Cliente: ${dados.cliente || "-"}`, margem, y);
+      doc.text(`Qtd: ${dados.quantidade || dados.itens?.length || 0}`, 105, y);
+      doc.text(totalTexto, 135, y);
+
+      if (tipo === "paga") {
+        y += 6;
+        doc.text(`Pago em: ${dataBR(dados.diaPago)}`, margem, y);
+        doc.text(`Forma: ${dados.formaPagamento || "-"}`, 105, y);
+      }
+
+      return y + 9;
     }
 
-    y += 5;
+    doc.text(`Cliente: ${dados.cliente || "-"}`, margem, y);
+    y += 7;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(horizontal ? 7 : 7.5);
-
-    const limiteItens = horizontal ? 50 : 18;
-    const alturaLinha = horizontal ? 4.5 : 6;
-
-    itens.slice(0, limiteItens).forEach((item, index) => {
-      if (index % 2 === 0) {
-        doc.setFillColor(248, 250, 252);
-        doc.rect(margem, y - 3.5, larguraPagina - margem * 2, alturaLinha, "F");
-      }
-
-      doc.setTextColor(15, 23, 42);
-
-      if (horizontal) {
-        doc.text(dataBR(item.data), margem + 2, y);
-        doc.text(String(item.produto || "Serviço").slice(0, 32), margem + 27, y);
-        doc.text(String(item.placa || "-").slice(0, 12), margem + 86, y);
-        doc.text(String(item.renavan || "-").slice(0, 16), margem + 122, y);
-        doc.text(
-          String(item.formaPagamento || item.formaPagamentoAnterior || "-").slice(
-            0,
-            18
-          ),
-          margem + 165,
-          y
-        );
-        doc.text(moeda.format(Number(item.valor || 0)), margem + 210, y);
-        doc.text(String(item.status || item.statusAnterior || "-").slice(0, 12), margem + 238, y);
-      } else {
-        doc.text(dataBR(item.data), margem + 2, y);
-        doc.text(String(item.produto || "Serviço").slice(0, 28), margem + 25, y);
-        doc.text(String(item.placa || "-").slice(0, 12), margem + 82, y);
-        doc.text(moeda.format(Number(item.valor || 0)), margem + 122, y);
-        doc.text(String(item.status || item.statusAnterior || "-").slice(0, 12), margem + 155, y);
-      }
-
-      y += alturaLinha;
-    });
-
-    if (itens.length > limiteItens) {
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(220, 38, 38);
-      doc.text(
-        `+ ${itens.length - limiteItens} serviços não exibidos por limite de 1 página.`,
-        margem + 2,
-        y + 4
-      );
+    if (tipo === "paga") {
+      doc.text(`Data do pagamento: ${dataBR(dados.diaPago)}`, margem, y);
+      y += 7;
+      doc.text(`Forma de pagamento: ${dados.formaPagamento || "-"}`, margem, y);
+      y += 7;
+      doc.text(`Quantidade paga: ${dados.quantidade || dados.itens?.length || 0}`, margem, y);
+      y += 7;
+      doc.text(`Total recebido: ${moeda.format(Number(dados.total || 0))}`, margem, y);
+      y += 11;
+    } else {
+      doc.text(`Qtd: ${dados.quantidade || dados.itens?.length || 0}`, margem, y);
+      y += 7;
+      doc.text(`Total em aberto: ${moeda.format(Number(dados.total || 0))}`, margem, y);
+      y += 11;
     }
 
     return y;
   }
 
+  function desenharTabelaServicos(doc, itens, horizontal, yInicial) {
+    const larguraPagina = doc.internal.pageSize.getWidth();
+    const alturaPagina = doc.internal.pageSize.getHeight();
+    const margem = 10;
+    const limiteRodape = alturaPagina - 42;
+
+    function cabecalhoTabela(x, y, larguraTabela, compacto) {
+      doc.setFillColor(219, 234, 254);
+      doc.rect(x, y - 5, larguraTabela, 8, "F");
+
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(compacto ? 6.5 : 7.5);
+
+      doc.text("Data", x + 2, y);
+      doc.text("Produto", x + (compacto ? 22 : 25), y);
+      doc.text("Placa", x + (compacto ? 70 : 88), y);
+      doc.text("Renavam", x + (compacto ? 94 : 122), y);
+      doc.text("Valor", x + (compacto ? larguraTabela - 18 : larguraTabela - 24), y);
+    }
+
+    function linhaTabela(item, index, x, y, larguraTabela, compacto) {
+      const alturaLinha = compacto ? 3.9 : 5.4;
+
+      if (index % 2 === 0) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(x, y - 3.3, larguraTabela, alturaLinha, "F");
+      }
+
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(compacto ? 6.1 : 7);
+
+      doc.text(dataBR(item.data), x + 2, y);
+      doc.text(
+        String(item.produto || "Serviço").slice(0, compacto ? 20 : 32),
+        x + (compacto ? 22 : 25),
+        y
+      );
+      doc.text(
+        String(item.placa || "-").slice(0, 10),
+        x + (compacto ? 70 : 88),
+        y
+      );
+      doc.text(
+        String(item.renavan || "-").slice(0, 14),
+        x + (compacto ? 94 : 122),
+        y
+      );
+      doc.text(
+        moeda.format(Number(item.valor || 0)),
+        x + (compacto ? larguraTabela - 18 : larguraTabela - 24),
+        y
+      );
+
+      return alturaLinha;
+    }
+
+    if (horizontal) {
+      const gap = 8;
+      const larguraTabela = (larguraPagina - margem * 2 - gap) / 2;
+      const xEsquerda = margem;
+      const xDireita = margem + larguraTabela + gap;
+      const alturaLinha = 3.9;
+      const linhasPorColuna = Math.max(
+        1,
+        Math.floor((limiteRodape - (yInicial + 5)) / alturaLinha)
+      );
+
+      let paginaItens = itens;
+      let pagina = 0;
+
+      while (paginaItens.length > 0) {
+        if (pagina > 0) {
+          doc.addPage("a4", "l");
+          yInicial = 42;
+
+          doc.setTextColor(100, 116, 139);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.text("Continuação da relação", margem, yInicial - 8);
+        }
+
+        let yEsquerda = yInicial;
+        let yDireita = yInicial;
+
+        cabecalhoTabela(xEsquerda, yEsquerda, larguraTabela, true);
+        cabecalhoTabela(xDireita, yDireita, larguraTabela, true);
+
+        yEsquerda += 5;
+        yDireita += 5;
+
+        const limitePagina = linhasPorColuna * 2;
+        const itensDaPagina = paginaItens.slice(0, limitePagina);
+
+        itensDaPagina.forEach((item, index) => {
+          if (index < linhasPorColuna) {
+            linhaTabela(item, index, xEsquerda, yEsquerda, larguraTabela, true);
+            yEsquerda += alturaLinha;
+          } else {
+            linhaTabela(item, index, xDireita, yDireita, larguraTabela, true);
+            yDireita += alturaLinha;
+          }
+        });
+
+        desenharRodape(doc, true);
+
+        paginaItens = paginaItens.slice(limitePagina);
+        pagina += 1;
+      }
+
+      return;
+    }
+
+    let y = yInicial;
+    const larguraTabela = larguraPagina - margem * 2;
+    const alturaLinha = 5.4;
+
+    cabecalhoTabela(margem, y, larguraTabela, false);
+    y += 5;
+
+    itens.forEach((item, index) => {
+      if (y > limiteRodape) {
+        desenharRodape(doc, false);
+        doc.addPage("a4", "p");
+        y = 50;
+
+        doc.setTextColor(100, 116, 139);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.text("Continuação da relação", margem, y - 8);
+
+        cabecalhoTabela(margem, y, larguraTabela, false);
+        y += 5;
+      }
+
+      linhaTabela(item, index, margem, y, larguraTabela, false);
+      y += alturaLinha;
+    });
+
+    desenharRodape(doc, false);
+  }
+
   async function gerarPdfPendencia(pendencia) {
     if (!pendencia) return;
 
-    const horizontal = pendencia.itens.length > 18;
+    const itens = Array.isArray(pendencia.itens) ? pendencia.itens : [];
+    const horizontal = itens.length > 34;
     const doc = new jsPDF(horizontal ? "l" : "p", "mm", "a4");
     const logo = await carregarLogo();
 
-    const margem = 10;
-    let y = horizontal ? 42 : 50;
-
     desenharCabecalho(doc, logo, "Relação de Serviços em Aberto", horizontal);
 
-    doc.setTextColor(15, 23, 42);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(horizontal ? 10 : 11);
+    const yResumo = horizontal ? 42 : 50;
+    const yTabela = desenharResumoRelacao(
+      doc,
+      {
+        ...pendencia,
+        quantidade: pendencia.quantidade || itens.length,
+        total: pendencia.total || 0,
+      },
+      horizontal,
+      yResumo,
+      "aberta"
+    );
 
-    if (horizontal) {
-      doc.text(`Cliente: ${pendencia.cliente}`, 180, 12);
-      doc.text(`Qtd: ${pendencia.quantidade}`, 180, 18);
-      doc.text(`Total: ${moeda.format(pendencia.total)}`, 180, 24);
-    } else {
-      doc.text(`Cliente: ${pendencia.cliente}`, margem, y);
-      y += 7;
-      doc.text(`Qtd: ${pendencia.quantidade}`, margem, y);
-      y += 7;
-      doc.text(`Total em aberto: ${moeda.format(pendencia.total)}`, margem, y);
-      y += 11;
-    }
-
-    desenharTabelaServicos(doc, pendencia.itens, horizontal, y);
-    desenharRodape(doc, horizontal);
+    desenharTabelaServicos(doc, itens, horizontal, yTabela);
 
     doc.save(`relacao-aberta-${nomeArquivo(pendencia.cliente)}.pdf`);
   }
-function desenharCarimboPago(doc, relacao, horizontal) {
-  const larguraPagina = doc.internal.pageSize.getWidth();
-  const alturaPagina = doc.internal.pageSize.getHeight();
 
-  doc.saveGraphicsState();
+  function desenharCarimboPago(doc, relacao, horizontal) {
+    const larguraPagina = doc.internal.pageSize.getWidth();
+    const alturaPagina = doc.internal.pageSize.getHeight();
 
-  // Vermelho suave estilo carimbo transparente
-  doc.setTextColor(248, 113, 113);
+    doc.saveGraphicsState();
+    doc.setTextColor(248, 113, 113);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(horizontal ? 82 : 68);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(horizontal ? 82 : 68);
-
-  doc.text(
-    "PAGO",
-    larguraPagina / 2,
-    alturaPagina / 2 + 40,
-    {
+    doc.text("PAGO", larguraPagina / 2, alturaPagina / 2 + 40, {
       align: "center",
       angle: -22,
-    }
-  );
+    });
 
-  doc.restoreGraphicsState();
+    doc.restoreGraphicsState();
 
-  // Informações discretas no canto inferior direito
-  doc.setTextColor(100, 116, 139);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(horizontal ? 6.5 : 6);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(horizontal ? 6.5 : 6);
 
-  const margem = 12;
-  const infoX = larguraPagina - margem;
-  const infoY = alturaPagina - 10;
+    const margem = 12;
+    const infoX = larguraPagina - margem;
+    const infoY = alturaPagina - 10;
 
-  doc.text(
-    `Pago em: ${dataBR(relacao.diaPago)}`,
-    infoX,
-    infoY - 8,
-    { align: "right" }
-  );
+    doc.text(`Pago em: ${dataBR(relacao.diaPago)}`, infoX, infoY - 8, {
+      align: "right",
+    });
 
-  doc.text(
-    `Forma: ${String(relacao.formaPagamento || "-").toUpperCase()}`,
-    infoX,
-    infoY - 4,
-    { align: "right" }
-  );
+    doc.text(
+      `Forma: ${String(relacao.formaPagamento || "-").toUpperCase()}`,
+      infoX,
+      infoY - 4,
+      { align: "right" }
+    );
 
-  doc.text(
-    `Valor: ${moeda.format(Number(relacao.total || 0))}`,
-    infoX,
-    infoY,
-    { align: "right" }
-  );
-}
+    doc.text(`Valor: ${moeda.format(Number(relacao.total || 0))}`, infoX, infoY, {
+      align: "right",
+    });
+  }
+
   async function gerarPdfRelacaoPaga(relacao) {
     if (!relacao) return;
 
     const itens = Array.isArray(relacao.itens) ? relacao.itens : [];
-    const horizontal = itens.length > 18;
+    const horizontal = itens.length > 34;
     const doc = new jsPDF(horizontal ? "l" : "p", "mm", "a4");
     const logo = await carregarLogo();
 
-    const margem = 10;
-    let y = horizontal ? 42 : 50;
-
     desenharCabecalho(doc, logo, "Comprovante de Relação Paga", horizontal);
 
-    doc.setTextColor(15, 23, 42);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(horizontal ? 10 : 11);
+    const yResumo = horizontal ? 42 : 50;
+    const yTabela = desenharResumoRelacao(
+      doc,
+      {
+        ...relacao,
+        quantidade: relacao.quantidade || itens.length,
+        total: relacao.total || 0,
+      },
+      horizontal,
+      yResumo,
+      "paga"
+    );
 
-    if (horizontal) {
-      doc.text(`Cliente: ${relacao.cliente}`, 180, 12);
-      doc.text(`Pago em: ${dataBR(relacao.diaPago)}`, 180, 18);
-      doc.text(`Total: ${moeda.format(relacao.total)}`, 180, 24);
-    } else {
-      doc.text(`Cliente: ${relacao.cliente}`, margem, y);
-      y += 7;
-      doc.text(`Data do pagamento: ${dataBR(relacao.diaPago)}`, margem, y);
-      y += 7;
-      doc.text(`Forma de pagamento: ${relacao.formaPagamento || "-"}`, margem, y);
-      y += 7;
-      doc.text(`Quantidade paga: ${relacao.quantidade}`, margem, y);
-      y += 7;
-      doc.text(`Total recebido: ${moeda.format(relacao.total)}`, margem, y);
-      y += 11;
-    }
+    desenharTabelaServicos(doc, itens, horizontal, yTabela);
+    desenharCarimboPago(doc, relacao, horizontal);
 
-    desenharTabelaServicos(doc, itens, horizontal, y);
-desenharCarimboPago(doc, relacao, horizontal);
-desenharRodape(doc, horizontal);
     doc.save(`comprovante-pago-${nomeArquivo(relacao.cliente)}.pdf`);
   }
 
