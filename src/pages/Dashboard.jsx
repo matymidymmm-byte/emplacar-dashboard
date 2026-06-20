@@ -632,8 +632,7 @@ const despesasOperacionais = saidas
       <div style={{ position: "relative" }}>
         <button
           type="button"
-          onMouseEnter={() => setTooltipAberto(titulo)}
-          onMouseLeave={() => setTooltipAberto("")}
+
           onClick={() => setTooltipAberto(aberto ? "" : titulo)}
           style={{
             position: "absolute",
