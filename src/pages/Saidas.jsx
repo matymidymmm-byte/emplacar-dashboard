@@ -288,16 +288,23 @@ export default function Saidas({
               opcoes={categoriasSaida}
             />
 
-            <Campo
-              label="Tipo saída"
-              valor={saidaForm.tipoSaida}
-              mudar={(v) =>
-                setSaidaForm({
-                  ...saidaForm,
-                  tipoSaida: v,
-                })
-              }
-            />
+            <Select
+  label="Tipo financeiro"
+  valor={saidaForm.tipoSaida || "Operacional"}
+  mudar={(v) =>
+    setSaidaForm({
+      ...saidaForm,
+      tipoSaida: v,
+    })
+  }
+  opcoes={[
+    "Operacional",
+    "Distribuição de Lucro",
+    "Aporte de Capital",
+    "Patrimonial",
+    "Outros Não Operacionais",
+  ]}
+/>
 
             <Campo
               label="Conta"

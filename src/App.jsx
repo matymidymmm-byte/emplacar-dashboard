@@ -1577,22 +1577,23 @@ taxaCartao:
     cancelarEdicao();
   }
 
-  function salvarSaida() {
-    const nova = {
-      ...saidaForm,
-      categoria: saidaForm.categoria || "Outros",
-      valor: numero(saidaForm.valor),
-      id: editando.tipo === "saida" ? editando.id : Date.now(),
-    };
+ function salvarSaida() {
+  const nova = {
+    ...saidaForm,
+    categoria: saidaForm.categoria || "Outros",
+    tipoSaida: saidaForm.tipoSaida || "Operacional",
+    valor: numero(saidaForm.valor),
+    id: editando.tipo === "saida" ? editando.id : Date.now(),
+  };
 
-    if (editando.tipo === "saida") {
-      setSaidas((old) => old.map((x) => (x.id === editando.id ? nova : x)));
-    } else {
-      setSaidas((old) => [nova, ...old]);
-    }
-
-    cancelarEdicao();
+  if (editando.tipo === "saida") {
+    setSaidas((old) => old.map((x) => (x.id === editando.id ? nova : x)));
+  } else {
+    setSaidas((old) => [nova, ...old]);
   }
+
+  cancelarEdicao();
+}
   function confirmarRecebimentoCartao(idEntrada, dataRecebimentoManual = "", valorLiquidoManual = "") {
   const entrada = entradas.find((x) => String(x.id) === String(idEntrada));
 

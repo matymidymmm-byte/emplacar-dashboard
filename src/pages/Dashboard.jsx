@@ -435,7 +435,17 @@ const valorCartoesAReceberProximosDias = 0;
   const receitaOperacional =
     indicadores.faturamentoCompetencia || indicadores.entradaBruta || 0;
 
-  const despesasOperacionais = indicadores.saidasTotal || 0;
+  const tiposForaDRE = [
+  "Distribuição de Lucro",
+  "Aporte de Capital",
+  "Patrimonial",
+  "Outros Não Operacionais",
+];
+
+const despesasOperacionais = saidas
+  .filter((saida) => dentroDoPeriodo(saida.data))
+  .filter((saida) => !tiposForaDRE.includes(saida.tipoSaida))
+  .reduce((soma, saida) => soma + Number(saida.valor || 0), 0);
   const resultadoOperacional = receitaOperacional - despesasOperacionais;
 
   const margemOperacional =
