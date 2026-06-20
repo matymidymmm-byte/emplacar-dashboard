@@ -2154,11 +2154,11 @@ const caixaRecebidoVendas = vendasLiquidadasPeriodo.reduce(
     const forma = normalizar(entrada.formaPagamento);
 
     if (
-      (forma.includes("DEBITO") || forma.includes("CREDITO")) &&
-      entrada.recebimentoCartaoConfirmado
-    ) {
-      return soma + Number(entrada.valorLiquidoRecebido || 0);
-    }
+  (forma.includes("DEBITO") || forma.includes("CREDITO")) &&
+  entrada.recebimentoCartaoConfirmado
+) {
+  return soma + Number(entrada.valor || 0);
+}
 
     if (
       forma.includes("DEBITO") ||
