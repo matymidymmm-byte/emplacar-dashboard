@@ -301,6 +301,7 @@ export default function Saidas({
     "Operacional",
     "Distribuição de Lucro",
     "Aporte de Capital",
+    "Vale / Adiantamento",
     "Patrimonial",
     "Outros Não Operacionais",
   ]}

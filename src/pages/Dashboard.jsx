@@ -438,9 +438,10 @@ const valorCartoesAReceberProximosDias = 0;
   const tiposForaDRE = [
   "Distribuição de Lucro",
   "Aporte de Capital",
+  "Vale / Adiantamento",
   "Patrimonial",
   "Outros Não Operacionais",
-];
+];  
 
 const despesasOperacionais = saidas
   .filter((saida) => dentroDoPeriodo(saida.data))
