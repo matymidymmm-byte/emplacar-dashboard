@@ -2187,8 +2187,22 @@ const caixaRecebidoVendas = vendasLiquidadasPeriodo.reduce(
           !x.diaPago
       )
       .reduce((s, x) => s + x.valor, 0);
+      const tiposForaOperacao = [
+  "Distribuição de Lucro",
+  "Aporte de Capital",
+  "Vale / Adiantamento",
+  "Patrimonial",
+  "Outros Não Operacionais",
+];
 
-    const saidasTotal = dadosPeriodo.saidas.reduce((s, x) => s + x.valor, 0);
+const saidasOperacionaisPeriodo = dadosPeriodo.saidas.filter(
+  (saida) => !tiposForaOperacao.includes(saida.tipoSaida)
+);
+
+    const saidasTotal = saidasOperacionaisPeriodo.reduce(
+  (s, x) => s + Number(x.valor || 0),
+  0
+);
 
     const valesColaboradores = dadosPeriodo.saidas
       .filter(ehValeColaborador)
@@ -2208,6 +2222,7 @@ const caixaRecebidoVendas = vendasLiquidadasPeriodo.reduce(
 
     const caixaRecebidoTotal =
       caixaRecebidoVendas + injecaoCapitalTotal + recuperacaoValeTotal;
+      
       const recebimentosAntigosTotal = recebimentosAntigos.reduce(
   (s, x) => s + Number(x.valor || 0),
   0
@@ -2252,6 +2267,7 @@ const tenhoNoCaixa =
       faturamentoCompetencia: entradaBruta,
       caixaRecebidoVendas,
       caixaRecebidoTotal,
+      
       movimentacaoGeral,
       entradaLiquida,
       saidasTotal,
