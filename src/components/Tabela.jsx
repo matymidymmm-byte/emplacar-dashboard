@@ -94,7 +94,7 @@ export default function Tabela({ colunas, dados, aoFiltrar }) {
                   if (!ehComponenteReact(celula)) return false;
 
                   const titulo = celula?.props?.title || "";
-                  return String(titulo).toLowerCase().includes("observação:");
+return String(titulo).toLowerCase().includes("observação");
                 });
 
                 return (

@@ -27,6 +27,7 @@ export default function Saidas({
   const scrollAnteriorRef = useRef(0);
   const [modoVisualizacao, setModoVisualizacao] = useState("periodo");
   const [dadosFiltrados, setDadosFiltrados] = useState([]);
+  const [observacaoAberta, setObservacaoAberta] = useState(null);
 
   const categoriasSaida = [
     "Placas / Matéria-prima",
@@ -99,54 +100,35 @@ export default function Saidas({
   }
 
   function BotaoObservacao({ saida }) {
-    const possuiObservacao = temObservacao(saida);
+  const possuiObservacao = temObservacao(saida);
 
-    return (
-      <button
-        title={
-          possuiObservacao
-            ? `Observação: ${saida.observacao}`
-            : "Sem observação"
-        }
-        onClick={() => {
-          if (possuiObservacao) {
-            alert(saida.observacao);
-          }
-        }}
-        style={{
-          position: "relative",
-          background: possuiObservacao ? "#1d4ed8" : "#243041",
-          border: possuiObservacao ? "1px solid #60a5fa" : "none",
-          color: "#fff",
-          borderRadius: 10,
-          padding: "5px 8px",
-          cursor: possuiObservacao ? "pointer" : "default",
-          fontSize: 16,
-          opacity: possuiObservacao ? 1 : 0.45,
-          boxShadow: possuiObservacao
-            ? "0 0 0 2px rgba(96,165,250,0.18)"
-            : "none",
-        }}
-      >
-        💬
+  return (
+    <button
+      type="button"
+      title={possuiObservacao ? "Ver observação" : "Sem observação"}
+      onClick={(e) => {
+  e.preventDefault();
+  e.stopPropagation();
 
-        {possuiObservacao && (
-          <span
-            style={{
-              position: "absolute",
-              top: -4,
-              right: -4,
-              width: 9,
-              height: 9,
-              background: "#facc15",
-              borderRadius: "50%",
-              border: "1px solid #0f172a",
-            }}
-          />
-        )}
-      </button>
-    );
-  }
+  console.log("OBS CLICADA:", saida);
+  setObservacaoAberta(saida);
+}}
+      style={{
+        position: "relative",
+        background: possuiObservacao ? "#1d4ed8" : "#243041",
+        border: possuiObservacao ? "1px solid #60a5fa" : "none",
+        color: "#fff",
+        borderRadius: 10,
+        padding: "5px 8px",
+        cursor: possuiObservacao ? "pointer" : "default",
+        fontSize: 16,
+        opacity: possuiObservacao ? 1 : 0.45,
+      }}
+    >
+      💬
+    </button>
+  );
+}
 
   const saidasVisiveis = saidas.filter((saida) => {
     if (!saida.data) return false;
@@ -189,6 +171,60 @@ export default function Saidas({
 
   return (
     <>
+    {observacaoAberta && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.75)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 99999,
+      padding: 20,
+    }}
+  >
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 520,
+        background: "#081428",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 20,
+        padding: 24,
+        color: "#fff",
+      }}
+    >
+      <h2 style={{ marginTop: 0 }}>Observação da saída</h2>
+
+      <p style={{ color: "#94a3b8" }}>
+        {observacaoAberta.conta || observacaoAberta.categoria || "Saída"}
+      </p>
+
+      <div
+        style={{
+          background: "#020617",
+          border: "1px solid #334155",
+          borderRadius: 14,
+          padding: 16,
+          color: "#e5e7eb",
+          whiteSpace: "pre-wrap",
+          lineHeight: 1.5,
+          marginTop: 14,
+        }}
+      >
+        {observacaoAberta.observacao}
+      </div>
+
+      <button
+        style={{ ...styles.botao, marginTop: 18 }}
+        onClick={() => setObservacaoAberta(null)}
+      >
+        Fechar
+      </button>
+    </div>
+  </div>
+)}
       <div style={styles.resumoFiltro}>
         <span>
           <strong>Visualização:</strong>{" "}
@@ -381,7 +417,26 @@ export default function Saidas({
               saida.conta,
               moeda.format(Number(saida.valor || 0)),
               destinoDinheiro(saida.formaPagamento),
-              <BotaoObservacao saida={saida} />,
+              <button
+  type="button"
+  onClick={() => {
+  if (temObservacao(saida)) {
+    setObservacaoAberta(saida);
+  }
+}}
+  style={{
+    background: temObservacao(saida) ? "#1d4ed8" : "#243041",
+    border: temObservacao(saida) ? "1px solid #60a5fa" : "none",
+    color: "#fff",
+    borderRadius: 10,
+    padding: "5px 8px",
+    cursor: "pointer",
+    fontSize: 16,
+    opacity: temObservacao(saida) ? 1 : 0.45,
+  }}
+>
+  💬
+</button>,
               <Acoes
                 editar={() => editar("saida", saida)}
                 excluir={() => remover("saida", saida.id)}
