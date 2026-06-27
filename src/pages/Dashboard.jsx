@@ -10,6 +10,12 @@ import GraficoLinha from "../components/GraficoLinha.jsx";
 import GraficoBarras from "../components/GraficoBarras.jsx";
 import Tabela from "../components/Tabela.jsx";
 import Campo from "../components/Campo.jsx";
+import {
+  TrendingUp,
+  Wallet,
+  Landmark,
+  BarChart3,
+} from "lucide-react";
 
 function brasilParaISO(data) {
   if (!data) return "";
@@ -73,7 +79,10 @@ export default function Dashboard({
 
   podeEditarMeta = false,
 }) {
-  const [modoDetalhado, setModoDetalhado] = useState(false);
+  const [modoDashboard, setModoDashboard] = useState("simples");
+
+const modoDetalhado = modoDashboard === "detalhado";
+const modoFechamento = modoDashboard === "fechamento";
   const [inicioDigitando, setInicioDigitando] = useState(
     isoParaBrasil(inicioMes)
   );
@@ -732,6 +741,31 @@ function fecharModalReceberCartao() {
   ];
 
   const kpis = modoDetalhado ? kpisDetalhados : kpisSimples;
+  const fechamentoFaturamento = [
+  ["Faturamento Total", indicadores.faturamentoCompetencia || receitaOperacional || 0],
+  ["Notas em Aberto", indicadores.faturadoEmAberto || 0],
+  ["Recebidos à Vista", indicadores.entradasVistaTotal || 0],
+  ["Recebidos Antigos", indicadores.recebimentosAntigos || 0],
+];
+
+const fechamentoCaixa = [
+  ["Total Entrou no Caixa", indicadores.recebidoCaixa || 0],
+  ["Saídas no Caixa", indicadores.saidasCaixa || 0],
+  ["Depósitos para Banco", indicadores.totalCaixaParaBanco || 0],
+  ["Saldo Caixa", indicadores.tenhoNoCaixa || 0],
+];
+
+const fechamentoBanco = [
+  ["Total Entrou no Banco", indicadores.recebidoBanco || 0],
+  ["Saídas no Banco", indicadores.saidasBanco || 0],
+  ["Recebido do Caixa", indicadores.totalCaixaParaBanco || 0],
+  ["Saldo Banco", indicadores.tenhoNoBanco || 0],
+];
+
+const fechamentoResultado = [
+  ["Saídas Totais", indicadores.saidasTotal || 0],
+  ["Lucro Operacional", indicadores.entradaLiquida || 0],
+];
 
   const inicioSemanaAtual = adicionarDias(fimMes, -6);
   const fimSemanaAtual = fimMes;
@@ -885,7 +919,279 @@ function nomeMesCartao(mesAno) {
 
   return `${nomes[indiceMes]}/${ano} (${quantidade})`;
 }
+function TituloFechamento({ icone: Icone, titulo, subtitulo, cor = "#38bdf8" }) {
   return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 12,
+          background: `${cor}22`,
+          border: `1px solid ${cor}55`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: `0 0 18px ${cor}33`,
+        }}
+      >
+        <Icone size={18} color={cor} />
+      </div>
+
+      <div>
+        <div style={{ color: "#f8fafc", fontWeight: 900 }}>
+          {titulo}
+        </div>
+
+        <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>
+          {subtitulo}
+        </div>
+      </div>
+    </div>
+  );
+}
+function CardFechamento({ titulo, linhas = [], totalLabel = "", totalValor = 0 }) {
+  return (
+    <Card titulo={titulo}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        {linhas.map((linha, index) => (
+          <div
+            key={`${linha.label}-${index}`}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 14,
+              padding: "10px 0",
+              borderBottom: "1px solid rgba(148,163,184,0.16)",
+              color: linha.negativo ? "#fca5a5" : "#cbd5e1",
+              fontSize: 15,
+              fontWeight: 600,
+            }}
+          >
+            <span>{linha.label}</span>
+            <span>{moeda.format(linha.valor || 0)}</span>
+          </div>
+        ))}
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 14,
+            marginTop: 8,
+            paddingTop: 16,
+            borderTop: "1px solid rgba(255,255,255,0.24)",
+            color: "#f8fafc",
+            fontSize: 18,
+            fontWeight: 900,
+          }}
+        >
+          <span>{totalLabel}</span>
+          <span>{moeda.format(totalValor || 0)}</span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function PainelFechamento() {
+  const linhasFaturamento = [
+    {
+  label: "Movimentação Total",
+  valor: indicadores.movimentacaoGeral || 0,
+},
+  {
+    label: "Entradas Operacionais",
+    valor: indicadores.faturamentoCompetencia || receitaOperacional || 0,
+  },
+  {
+    label: "Recebidos à Vista",
+    valor: indicadores.entradasVistaTotal || 0,
+  },
+  {
+    label: "Recebidos Antigos",
+    valor: indicadores.recebimentosAntigos || 0,
+  },
+  {
+    label: "Notas em Aberto",
+    valor: indicadores.faturadoEmAberto || 0,
+    negativo: true,
+  },
+];
+
+const faturamentoLiquidoFechamento =
+  Number(indicadores.faturamentoCompetencia || receitaOperacional || 0) -
+  Number(indicadores.faturadoEmAberto || 0);
+
+const linhasCaixa = [
+  {
+    label: "Entrou no Caixa",
+    valor: indicadores.recebidoCaixa || 0,
+  },
+  {
+    label: "(-) Saídas no Caixa",
+    valor: indicadores.saidasCaixa || 0,
+    negativo: true,
+  },
+  {
+    label: "(-) Depósitos para Banco",
+    valor: indicadores.totalCaixaParaBanco || 0,
+    negativo: true,
+  },
+];
+
+const linhasBanco = [
+  {
+    label: "Entrou no Banco",
+    valor: indicadores.recebidoBanco || 0,
+  },
+  {
+    label: "(+) Recebido do Caixa",
+    valor: indicadores.totalCaixaParaBanco || 0,
+  },
+  {
+    label: "(-) Saídas no Banco",
+    valor: indicadores.saidasBanco || 0,
+    negativo: true,
+  },
+];
+
+const linhasResultado = [
+  {
+    label: "Faturamento Total",
+    valor: indicadores.faturamentoCompetencia || receitaOperacional || 0,
+  },
+  {
+    label: "(-) Saídas Totais",
+    valor: indicadores.saidasTotal || 0,
+    negativo: true,
+  },
+  {
+    label: "(-) Notas em Aberto",
+    valor: indicadores.faturadoEmAberto || 0,
+    negativo: true,
+  },
+];
+
+  return (
+  <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+    <Card titulo="Painel de Conferência de Fechamento">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+          gap: 16,
+        }}
+      >
+        <div>
+          <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
+  Saldo do Fechamento
+</p>
+
+          <h2 style={{ color: "#fff", margin: "6px 0 0" }}>
+            {dataBR(inicioMes)} até {dataBR(fimAnalise)}
+          </h2>
+        </div>
+
+        <div>
+          <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
+            Saldo Caixa + Banco
+          </p>
+
+          <h2 style={{ color: "#22c55e", margin: "6px 0 0" }}>
+            {moeda.format(
+              Number(indicadores.tenhoNoCaixa || 0) +
+                Number(indicadores.tenhoNoBanco || 0)
+            )}
+          </h2>
+        </div>
+
+        <div>
+          <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
+  Saldo do Fechamento
+</p>
+
+          <h2 style={{ color: "#38bdf8", margin: "6px 0 0" }}>
+            {moeda.format(indicadores.entradaLiquida || 0)}
+          </h2>
+        </div>
+      </div>
+    </Card>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))",
+        gap: 22,
+      }}
+    >
+      <CardFechamento
+  titulo={
+    <TituloFechamento
+      icone={TrendingUp}
+      titulo="Faturamento"
+      subtitulo="Vendas, recebidos e notas abertas"
+      cor="#38bdf8"
+    />
+  }
+  linhas={linhasFaturamento}
+  totalLabel="Faturamento Líquido"
+  totalValor={faturamentoLiquidoFechamento}
+/>
+
+<CardFechamento
+  titulo={
+    <TituloFechamento
+      icone={Wallet}
+      titulo="Caixa"
+      subtitulo="Entradas, saídas e depósitos"
+      cor="#22c55e"
+    />
+  }
+  linhas={linhasCaixa}
+  totalLabel="Saldo Caixa"
+  totalValor={indicadores.tenhoNoCaixa || 0}
+/>
+
+<CardFechamento
+  titulo={
+    <TituloFechamento
+      icone={Landmark}
+      titulo="Banco"
+      subtitulo="Recebimentos, depósitos e saídas"
+      cor="#f59e0b"
+    />
+  }
+  linhas={linhasBanco}
+  totalLabel="Saldo Banco"
+  totalValor={indicadores.tenhoNoBanco || 0}
+/>
+
+<CardFechamento
+  titulo={
+    <TituloFechamento
+      icone={BarChart3}
+      titulo="Resultado"
+      subtitulo="Resumo do fechamento financeiro"
+      cor="#8b5cf6"
+    />
+  }
+  linhas={linhasResultado}
+  totalLabel="Saldo do Fechamento"
+  totalValor={indicadores.entradaLiquida || 0}
+/>
+    </div>
+  </div>
+);
+}
+
+return (
     <>
     {modalCartaoAberto && (
   <div
@@ -986,28 +1292,43 @@ function nomeMesCartao(mesAno) {
           }}
         >
           <button
-            style={{
-              ...styles.botaoDashboard,
-              background: modoDetalhado
-                ? "#334155"
-                : "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)",
-            }}
-            onClick={() => setModoDetalhado(false)}
-          >
-            Simples
-          </button>
+  style={{
+    ...styles.botaoDashboard,
+    background:
+      modoDashboard === "simples"
+        ? "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)"
+        : "#334155",
+  }}
+  onClick={() => setModoDashboard("simples")}
+>
+  Simples
+</button>
 
-          <button
-            style={{
-              ...styles.botaoDashboard,
-              background: modoDetalhado
-                ? "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)"
-                : "#334155",
-            }}
-            onClick={() => setModoDetalhado(true)}
-          >
-            Detalhado
-          </button>
+<button
+  style={{
+    ...styles.botaoDashboard,
+    background:
+      modoDashboard === "detalhado"
+        ? "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)"
+        : "#334155",
+  }}
+  onClick={() => setModoDashboard("detalhado")}
+>
+  Detalhado
+</button>
+
+<button
+  style={{
+    ...styles.botaoDashboard,
+    background:
+      modoDashboard === "fechamento"
+        ? "linear-gradient(135deg,#16a34a 0%,#15803d 100%)"
+        : "#334155",
+  }}
+  onClick={() => setModoDashboard("fechamento")}
+>
+  Fechamento
+</button>
 
           <button style={styles.botaoDashboard} onClick={exportarPDF}>
             Exportar PDF
@@ -1081,15 +1402,19 @@ function nomeMesCartao(mesAno) {
         </div>
       </Card>
 
-      <div style={styles.kpisModernos}>
-        {kpis.map(([titulo, valor]) => (
-          <KpiComAjuda
-            key={titulo}
-            titulo={titulo}
-            valor={moeda.format(valor)}
-          />
-        ))}
-      </div>
+      {modoFechamento ? (
+  <PainelFechamento />
+) : (
+  <div style={styles.kpisModernos}>
+    {kpis.map(([titulo, valor]) => (
+      <KpiComAjuda
+        key={titulo}
+        titulo={titulo}
+        valor={moeda.format(valor)}
+      />
+    ))}
+  </div>
+)}
 
       <Card titulo="Cartões a receber">
   <div style={styles.kpisModernos}>
