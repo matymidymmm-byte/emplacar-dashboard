@@ -2054,15 +2054,19 @@ function dataLiquidacaoEntrada(entrada) {
 
     const vendasRecebidasPeriodo = dadosPeriodo.entradasRecebidas.filter(ehVendaReal);
 
-    const entradasVistaTotal = entradasCompetencia
-      .filter((x) => {
-        if (x.status !== "Pago") return false;
+   const entradasVistaTotal = entradasCompetencia
+  .filter((x) => {
+    if (x.status !== "Pago") return false;
 
-        if (destinoDinheiro(x.formaPagamento) === "Faturado") return false;
+    if (destinoDinheiro(x.formaPagamento) === "Faturado") return false;
 
-        return true;
-      })
-      .reduce((soma, x) => soma + Number(x.valor || 0), 0);
+    if (ehCartaoBanco(x.formaPagamento) && !x.recebimentoCartaoConfirmado) {
+      return false;
+    }
+
+    return true;
+  })
+  .reduce((soma, x) => soma + Number(x.valor || 0), 0);
 
     const injecaoCaixaPeriodo = dadosPeriodo.entradasRecebidas.filter(ehInjecaoCaixa);
 

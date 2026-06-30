@@ -324,69 +324,44 @@ export default function RelatorioDiario({
   }
 
   function copiarWhatsApp() {
-    const texto = `
+  const rankingTexto =
+    topClientes.length > 0
+      ? topClientes
+          .map((item, index) => {
+            const posicao = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}º`;
+            return `${posicao} ${item.cliente} — ${moeda.format(item.valor)}`;
+          })
+          .join("\n")
+      : "Nenhuma venda registrada.";
+
+  const texto = `
 📊 RELATÓRIO DIÁRIO
 
-📅 Data: ${dataSelecionada}
+📅 ${dataBR(dataSelecionada)}
 
-💰 Faturamento:
+💰 Faturamento do dia:
 ${moeda.format(faturamentoDia)}
-
-💵 Caixa recebido:
-${moeda.format(caixaRecebidoDia)}
-
-🏦 Banco liquidado estimado:
-${moeda.format(saldoBancoLiquidadoDia)}
-
-💳 Cartões pagos hoje que ainda vão cair:
-${moeda.format(cartoesPagosDiaNaoLiquidados)}
-
-📆 Próximo dia útil cai:
-${moeda.format(cartoesACairProximoDiaUtil)}
-
-📉 Saídas:
-${moeda.format(totalSaidasDia)}
-
-📈 Saldo do dia:
-${moeda.format(saldoDia)}
-
-🧾 Ticket médio:
-${moeda.format(ticketMedio)}
 
 🚗 Serviços realizados:
 ${vendasDia.length}
 
-📌 Faturado em aberto:
-${moeda.format(faturadoAberto)}
+📉 Saídas:
+${moeda.format(totalSaidasDia)}
 
-⚠️ Contas vencidas:
-${moeda.format(totalContasVencidas)}
-
-🎯 META
-
-Meta mensal:
-${moeda.format(metaMensal || 0)}
-
-Faturado até hoje:
-${moeda.format(faturadoAteHoje)}
-
-Meta atingida:
+🎯 Meta atingida:
 ${percentualMeta.toFixed(1)}%
 
-Status:
-${statusMeta}
+🏆 Ranking de clientes:
+${rankingTexto}
 
-Falta para meta:
-${moeda.format(faltaParaMeta)}
-
-Projeção:
-${moeda.format(projecaoMeta)}
+━━━━━━━━━━━━━━
+NEXORA ERP
 `;
 
-    navigator.clipboard.writeText(texto);
+  navigator.clipboard.writeText(texto.trim());
 
-    alert("Resumo copiado para WhatsApp.");
-  }
+  alert("Resumo limpo copiado para WhatsApp.");
+}
 
   return (
     <>

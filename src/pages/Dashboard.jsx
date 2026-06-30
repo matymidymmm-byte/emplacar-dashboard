@@ -295,7 +295,7 @@ const [mesCartoesFiltro, setMesCartoesFiltro] = useState("");
     .filter((entrada) => entrada.dataPagamento && entrada.dataLiquidacao);
 
   const cartoesPendentesLiquidacao = entradas
-  .filter((entrada) => entrada.status === "Pago")
+  .filter((entrada) => entrada.status === "Pago" || entrada.status === "Pendente")
   .filter((entrada) => !ehInjecaoOuAporte(entrada))
   .filter((entrada) => ehCartaoBanco(entrada.formaPagamento))
   .filter((entrada) => !entrada.recebimentoCartaoConfirmado)
@@ -969,9 +969,21 @@ function CardFechamento({ titulo, linhas = [], totalLabel = "", totalValor = 0 }
               gap: 14,
               padding: "10px 0",
               borderBottom: "1px solid rgba(148,163,184,0.16)",
-              color: linha.negativo ? "#fca5a5" : "#cbd5e1",
-              fontSize: 15,
-              fontWeight: 600,
+              color: linha.negativo
+  ? "#fca5a5"
+  : linha.label === "Recebido Total"
+  ? "#22c55e"
+  : "#cbd5e1",
+
+fontSize:
+  linha.label === "Recebido Total"
+    ? 16
+    : 15,
+
+fontWeight:
+  linha.label === "Recebido Total"
+    ? 800
+    : 600,
             }}
           >
             <span>{linha.label}</span>
@@ -1001,15 +1013,23 @@ function CardFechamento({ titulo, linhas = [], totalLabel = "", totalValor = 0 }
 }
 
 function PainelFechamento() {
-  const linhasFaturamento = [
-    {
-  label: "Movimentação Total",
-  valor: indicadores.movimentacaoGeral || 0,
-},
+ const linhasFaturamento = [
   {
-    label: "Entradas Operacionais",
-    valor: indicadores.faturamentoCompetencia || receitaOperacional || 0,
+    label: "Movimentação Total",
+    valor: indicadores.movimentacaoGeral || 0,
   },
+  {
+    label: "Recebido Total",
+    valor:
+      Number(indicadores.aporteTotal || 0) +
+      Number(indicadores.recebimentosAntigos || 0) +
+      Number(indicadores.entradasVistaTotal || 0),
+  },
+ 
+  {
+  label: "Faturamento Bruto",
+  valor: indicadores.faturamentoCompetencia || receitaOperacional || 0,
+},
   {
     label: "Recebidos à Vista",
     valor: indicadores.entradasVistaTotal || 0,
@@ -1017,6 +1037,10 @@ function PainelFechamento() {
   {
     label: "Recebidos Antigos",
     valor: indicadores.recebimentosAntigos || 0,
+  },
+  {
+    label: "Aportes",
+    valor: indicadores.aporteTotal || 0,
   },
   {
     label: "Notas em Aberto",
@@ -1061,7 +1085,10 @@ const linhasBanco = [
     negativo: true,
   },
 ];
-
+const saidasFinanceirasTotais = dadosPeriodo.saidas.reduce(
+  (soma, saida) => soma + Number(saida.valor || 0),
+  0
+);
 const linhasResultado = [
   {
     label: "Faturamento Total",
@@ -1083,45 +1110,55 @@ const linhasResultado = [
   <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
     <Card titulo="Painel de Conferência de Fechamento">
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-          gap: 16,
-        }}
-      >
-        <div>
-          <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
-  Saldo do Fechamento
-</p>
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+    gap: 16,
+  }}
+>
+  <div>
+    <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
+      Período do Fechamento
+    </p>
 
-          <h2 style={{ color: "#fff", margin: "6px 0 0" }}>
-            {dataBR(inicioMes)} até {dataBR(fimAnalise)}
-          </h2>
-        </div>
+    <h2 style={{ color: "#fff", margin: "6px 0 0" }}>
+      {dataBR(inicioMes)} até {dataBR(fimAnalise)}
+    </h2>
+  </div>
 
-        <div>
-          <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
-            Saldo Caixa + Banco
-          </p>
+  <div>
+    <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
+      Saldo Caixa + Banco
+    </p>
 
-          <h2 style={{ color: "#22c55e", margin: "6px 0 0" }}>
-            {moeda.format(
-              Number(indicadores.tenhoNoCaixa || 0) +
-                Number(indicadores.tenhoNoBanco || 0)
-            )}
-          </h2>
-        </div>
+    <h2 style={{ color: "#22c55e", margin: "6px 0 0" }}>
+      {moeda.format(
+        Number(indicadores.tenhoNoCaixa || 0) +
+          Number(indicadores.tenhoNoBanco || 0)
+      )}
+    </h2>
+  </div>
 
-        <div>
-          <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
-  Saldo do Fechamento
-</p>
+  <div>
+    <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
+      Saídas Financeiras Totais
+    </p>
 
-          <h2 style={{ color: "#38bdf8", margin: "6px 0 0" }}>
-            {moeda.format(indicadores.entradaLiquida || 0)}
-          </h2>
-        </div>
-      </div>
+    <h2 style={{ color: "#ef4444", margin: "6px 0 0" }}>
+      {moeda.format(saidasFinanceirasTotais || 0)}
+    </h2>
+  </div>
+
+  <div>
+    <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
+      Saldo do Fechamento
+    </p>
+
+    <h2 style={{ color: "#38bdf8", margin: "6px 0 0" }}>
+      {moeda.format(indicadores.entradaLiquida || 0)}
+    </h2>
+  </div>
+</div>
     </Card>
 
     <div
