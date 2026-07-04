@@ -1518,16 +1518,24 @@ function recebimentosAntigosDoPeriodo(inicio, fim) {
       celular: entradaForm.celular || "",
       relacaoPagaId: entradaForm.relacaoPagaId || "",
       recebimentoCartaoConfirmado:
-  entradaForm.recebimentoCartaoConfirmado || false,
+  entradaForm.status === "Pago"
+    ? entradaForm.recebimentoCartaoConfirmado || false
+    : false,
 
 valorLiquidoRecebido:
-  Number(entradaForm.valorLiquidoRecebido || 0),
+  entradaForm.status === "Pago"
+    ? Number(entradaForm.valorLiquidoRecebido || 0)
+    : 0,
 
 dataRecebimentoCartao:
-  entradaForm.dataRecebimentoCartao || "",
+  entradaForm.status === "Pago"
+    ? entradaForm.dataRecebimentoCartao || ""
+    : "",
 
 taxaCartao:
-  Number(entradaForm.taxaCartao || 0),
+  entradaForm.status === "Pago"
+    ? Number(entradaForm.taxaCartao || 0)
+    : 0,
       id: editando.tipo === "entrada" ? editando.id : Date.now(),
     };
 
@@ -1621,8 +1629,9 @@ if (!valorLiquidoTexto) return;
     old.map((item) =>
       String(item.id) === String(idEntrada)
         ? {
-            ...item,
-            recebimentoCartaoConfirmado: true,
+    ...item,
+    status: "Pago",
+    recebimentoCartaoConfirmado: true,
             dataRecebimentoCartao: dataRecebimento,
             valorLiquidoRecebido: valorLiquido,
             taxaCartao,
@@ -1664,21 +1673,69 @@ if (!valorLiquidoTexto) return;
 function confirmarRecebimentoCartoesEmLote(ids) {
   if (!ids?.length) return;
 
+  const idsSelecionados = ids.map(String);
+
   setEntradas((old) =>
     old.map((entrada) => {
-      if (!ids.includes(entrada.id)) return entrada;
+      if (!idsSelecionados.includes(String(entrada.id))) {
+        return entrada;
+      }
 
       return {
         ...entrada,
+        status: "Pago",
         recebimentoCartaoConfirmado: true,
         dataRecebimentoCartao:
           entrada.dataPagamento ||
           entrada.diaPago ||
-          entrada.data,
+          entrada.data ||
+          hoje,
         valorLiquidoRecebido: Number(entrada.valor || 0),
         taxaCartao: 0,
       };
     })
+  );
+}
+function desfazerRecebimentoCartao(idEntrada) {
+  const entrada = entradas.find((x) => String(x.id) === String(idEntrada));
+
+  if (!entrada) return;
+
+  if (entrada.saidaTaxaCartaoId) {
+    setSaidas((old) =>
+      old.filter(
+        (saida) => String(saida.id) !== String(entrada.saidaTaxaCartaoId)
+      )
+    );
+  }
+
+  setEntradas((old) =>
+    old.map((item) =>
+      String(item.id) === String(idEntrada)
+        ? {
+            ...item,
+            recebimentoCartaoConfirmado: false,
+            dataRecebimentoCartao: "",
+            valorLiquidoRecebido: 0,
+            taxaCartao: 0,
+            saidaTaxaCartaoId: "",
+            historicoCartaoOculto: false,
+          }
+        : item
+    )
+  );
+}
+
+function excluirHistoricoRecebimentoCartao(idEntrada) {
+  setEntradas((old) =>
+    old.map((item) =>
+      String(item.id) === String(idEntrada)
+        ? {
+            ...item,
+            historicoCartaoOculto: true,
+          }
+        : item
+    )
   );
 }
   function salvarConta() {
@@ -2495,6 +2552,8 @@ setMovimentacoesCaixaBanco,
     podeOperarSistema,
     confirmarRecebimentoCartao,
     confirmarRecebimentoCartoesEmLote,
+    desfazerRecebimentoCartao,
+excluirHistoricoRecebimentoCartao,
 
     fecharMesFinanceiro,
     diaInicioMesFinanceiro,

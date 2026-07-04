@@ -64,6 +64,9 @@ export default function Dashboard({
   servicosPorDia,
   confirmarRecebimentoCartao,
   confirmarRecebimentoCartoesEmLote,
+  desfazerRecebimentoCartao,
+excluirHistoricoRecebimentoCartao,
+
 
   entradas,
   saidas,
@@ -298,10 +301,10 @@ const [mesCartoesFiltro, setMesCartoesFiltro] = useState("");
   .filter((entrada) => entrada.status === "Pago" || entrada.status === "Pendente")
   .filter((entrada) => !ehInjecaoOuAporte(entrada))
   .filter((entrada) => ehCartaoBanco(entrada.formaPagamento))
-  .filter((entrada) => !entrada.recebimentoCartaoConfirmado)
+  .filter((entrada) => !entrada.historicoCartaoOculto)
   .map((entrada) => ({
     ...entrada,
-    dataPagamento: dataRecebimentoEntrada(entrada),
+    dataPagamento: dataRecebimentoEntrada(entrada) || entrada.data,
     valorNumerico: Number(entrada.valor || 0),
   }));
 
@@ -333,10 +336,9 @@ const cartoesPendentesFiltrados = mesCartoesFiltro
         mesCartoesFiltro
     )
   : cartoesPendentesLiquidacao;
-  const valorCartoesAReceberHoje = cartoesPendentesLiquidacao.reduce(
-  (soma, entrada) => soma + Number(entrada.valor || 0),
-  0
-);
+  const valorCartoesAReceberHoje = cartoesPendentesLiquidacao
+  .filter((entrada) => !entrada.recebimentoCartaoConfirmado)
+  .reduce((soma, entrada) => soma + Number(entrada.valor || 0), 0);
 
 const valorCartoesAReceberAmanha = 0;
 
@@ -1571,6 +1573,32 @@ return (
 >
   Receber selecionados ({cartoesSelecionados.length})
 </button>
+<button
+  style={{
+    ...styles.botaoCinza,
+    background: "#7f1d1d",
+  }}
+  onClick={() => {
+    if (!cartoesSelecionados.length) {
+      alert("Selecione pelo menos um cartão.");
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Excluir histórico de ${cartoesSelecionados.length} cartões selecionados?`
+    );
+
+    if (!confirmar) return;
+
+    cartoesSelecionados.forEach((id) => {
+      excluirHistoricoRecebimentoCartao(id);
+    });
+
+    setCartoesSelecionados([]);
+  }}
+>
+  Excluir histórico selecionados ({cartoesSelecionados.length})
+</button>
 </div>
     {cartoesPendentesFiltrados.length === 0 ? (
       <p style={styles.vazio}>Nenhum cartão pendente de recebimento.</p>
@@ -1614,14 +1642,54 @@ return (
             dataBR(entrada.dataPagamento),
             moeda.format(Number(entrada.valor || 0)),
             entrada.processo || "-",
+<div
+  key={entrada.id}
+  style={{
+    display: "flex",
+    gap: 6,
+    flexWrap: "wrap",
+  }}
+>
+  {!entrada.recebimentoCartaoConfirmado ? (
+    <button
+      style={styles.botao}
+      onClick={() => abrirModalReceberCartao(entrada)}
+    >
+      Receber
+    </button>
+  ) : (
+    <>
+      <span
+        style={{
+          color: "#22c55e",
+          fontWeight: 700,
+          alignSelf: "center",
+        }}
+      >
+        ✔ Recebido
+      </span>
 
-            <button
-              key={entrada.id}
-              style={styles.botao}
-              onClick={() => abrirModalReceberCartao(entrada)}
-            >
-              Receber
-            </button>,
+      <button
+        style={styles.botaoCinza}
+        onClick={() => desfazerRecebimentoCartao(entrada.id)}
+      >
+        Desfazer
+      </button>
+
+      <button
+        style={{
+          ...styles.botaoCinza,
+          background: "#7f1d1d",
+        }}
+        onClick={() =>
+          excluirHistoricoRecebimentoCartao(entrada.id)
+        }
+      >
+        Excluir histórico
+      </button>
+    </>
+  )}
+</div>
           ])}
       />
     )}
