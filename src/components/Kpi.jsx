@@ -10,7 +10,7 @@ import {
 
 import styles from "../styles/styles";
 
-export default function Kpi({ titulo, valor }) {
+export default function Kpi({ titulo, valor, subtitulo = "" }) {
   const [hover, setHover] = useState(false);
 
   function pegarIcone() {
@@ -120,6 +120,21 @@ export default function Kpi({ titulo, valor }) {
 >
             {valor}
           </strong>
+          {subtitulo && (
+  <p
+    style={{
+      margin: "6px 0 0",
+      fontSize: 12,
+      color: "#94a3b8",
+      fontWeight: 600,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    }}
+  >
+    {subtitulo}
+  </p>
+)}
         </div>
       </div>
     </div>
