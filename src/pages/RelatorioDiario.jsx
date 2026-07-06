@@ -325,37 +325,35 @@ export default function RelatorioDiario({
 
   function copiarWhatsApp() {
   const rankingTexto =
-    topClientes.length > 0
-      ? topClientes
-          .map((item, index) => {
-            const posicao = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}º`;
-            return `${posicao} ${item.cliente} — ${moeda.format(item.valor)}`;
-          })
-          .join("\n")
-      : "Nenhuma venda registrada.";
+  topClientes.length > 0
+    ? topClientes
+        .map(
+          (item, index) =>
+            `${index + 1}º ${String(item.cliente || "").toUpperCase()} • ${moeda.format(item.valor)}`
+        )
+        .join("\n")
+    : "Nenhuma venda registrada.";
 
   const texto = `
 📊 RELATÓRIO DIÁRIO
 
 📅 ${dataBR(dataSelecionada)}
 
-💰 Faturamento do dia:
+💰 Faturamento do dia
 ${moeda.format(faturamentoDia)}
 
-🚗 Serviços realizados:
+🚗 Serviços realizados
 ${vendasDia.length}
 
-📉 Saídas:
+📉 Saídas
 ${moeda.format(totalSaidasDia)}
 
-🎯 Meta atingida:
+🎯 Meta atingida
 ${percentualMeta.toFixed(1)}%
 
-🏆 Ranking de clientes:
-${rankingTexto}
+🏆 Top 5 Clientes
 
-━━━━━━━━━━━━━━
-NEXORA ERP
+${rankingTexto}
 `;
 
   navigator.clipboard.writeText(texto.trim());
