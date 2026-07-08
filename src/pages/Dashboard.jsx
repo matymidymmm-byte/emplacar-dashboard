@@ -1,4 +1,4 @@
-  import { useState } from "react";
+  import { useEffect, useState } from "react";
   import jsPDF from "jspdf";
   import html2canvas from "html2canvas";
 
@@ -49,6 +49,8 @@
     setInicioMes,
     fimMes,
     setFimMes,
+    salvarInicioPeriodo,
+salvarFimPeriodo,  
     fechamentoProvavel,
     setFechamentoProvavel,
 
@@ -90,6 +92,13 @@
       isoParaBrasil(inicioMes)
     );
     const [fimDigitando, setFimDigitando] = useState(isoParaBrasil(fimMes));
+    useEffect(() => {
+  setInicioDigitando(isoParaBrasil(inicioMes));
+}, [inicioMes]);
+
+useEffect(() => {
+  setFimDigitando(isoParaBrasil(fimMes));
+}, [fimMes]);
     const [diasComparativo, setDiasComparativo] = useState(10);
     const [tooltipAberto, setTooltipAberto] = useState("");
     const [mostrarRecebimentosAntigos, setMostrarRecebimentosAntigos] =
@@ -1438,8 +1447,8 @@ const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
                   const dataISO = brasilParaISO(valor);
 
                   if (dataValida(dataISO)) {
-                    setInicioMes(dataISO);
-                  }
+  salvarInicioPeriodo(dataISO);
+}
                 }}
                 style={styles.input}
               />
@@ -1459,8 +1468,8 @@ const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
                   const dataISO = brasilParaISO(valor);
 
                   if (dataValida(dataISO)) {
-                    setFimMes(dataISO);
-                  }
+  salvarFimPeriodo(dataISO);
+}
                 }}
                 style={styles.input}
               />

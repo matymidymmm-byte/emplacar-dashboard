@@ -457,7 +457,8 @@ if (
         setMetaMensal(Number(dados.metaMensal || 0));
         setModoRibbonPadrao(dados.modoRibbonPadrao || "2X");
         setInicioPeriodoSalvo(dados.inicioPeriodoSalvo || "");
-        setFechamentoProvavel(dados.fechamentoProvavel || "");
+setFimMes(dados.fimPeriodoSalvo || hoje);
+setFechamentoProvavel(dados.fechamentoProvavel || "");
 
         setSaidas(Array.isArray(dados.saidas) ? dados.saidas : []);
         setContas(Array.isArray(dados.contas) ? dados.contas : []);
@@ -734,6 +735,29 @@ if (
       { merge: true }
     );
   }
+  async function salvarInicioPeriodo(valor) {
+  setInicioMes(valor);
+
+  await setDoc(
+    docSistema,
+    {
+      inicioPeriodoSalvo: valor,
+    },
+    { merge: true }
+  );
+}
+
+async function salvarFimPeriodo(valor) {
+  setFimMes(valor);
+
+  await setDoc(
+    docSistema,
+    {
+      fimPeriodoSalvo: valor,
+    },
+    { merge: true }
+  );
+}
 
   async function salvarDadosEmpresa() {
     try {
@@ -885,9 +909,12 @@ setMovimentacoesCaixaBanco(
   }, [entradas]);
 
   useEffect(() => {
-    setInicioMes(calcularInicioMesFinanceiro());
-    setFimMes(hoje);
-  }, [historicoFechamentos, hoje]);
+  if (!nuvemCarregada) return;
+
+  const inicioAutomatico = calcularInicioMesFinanceiro();
+
+  setInicioMes(inicioPeriodoSalvo || inicioAutomatico);
+}, [nuvemCarregada, inicioPeriodoSalvo, historicoFechamentos]);
 
   useEffect(() => {
     salvarNaNuvem("saidas", saidas);
@@ -955,6 +982,12 @@ setMovimentacoesCaixaBanco(
   useEffect(() => {
     salvarNaNuvem("metaMensal", metaMensal);
   }, [metaMensal]);
+  useEffect(() => {
+  salvarNaNuvem("inicioPeriodoSalvo", inicioMes);
+}, [inicioMes]);
+useEffect(() => {
+  salvarNaNuvem("fimPeriodoSalvo", fimMes);
+}, [fimMes]);
   useEffect(() => {
   salvarNaNuvem("fechamentoProvavel", fechamentoProvavel);
 }, [fechamentoProvavel]);
@@ -2510,6 +2543,11 @@ dataFechamento: hoje,
     };
 
     setHistoricoFechamentos((old) => [fechamento, ...old]);
+    const novoInicio = calcularInicioMesFinanceiro();
+
+setInicioMes(novoInicio);
+setFimMes(hoje);
+setInicioPeriodoSalvo(novoInicio);
 
     registrarAlteracao({
       tipo: "Fechamento",
@@ -2577,6 +2615,8 @@ excluirHistoricoRecebimentoCartao,
     setInicioMes,
     fimMes,
     setFimMes,
+    salvarInicioPeriodo,
+salvarFimPeriodo,
     fechamentoProvavel,
 setFechamentoProvavel,
 
