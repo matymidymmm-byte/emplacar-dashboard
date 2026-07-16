@@ -1503,7 +1503,9 @@ taxaCartao: 0,
   return data >= inicio && data <= fim;
 }
 
-function recebimentosAntigosDoPeriodo(inicio, fim) {
+function listarRecebimentosAntigosDoPeriodo(inicio, fim) {
+  if (!inicio || !fim) return [];
+
   return entradas.filter((entrada) => {
     if (!ehVendaReal(entrada)) return false;
 
@@ -1511,22 +1513,12 @@ function recebimentosAntigosDoPeriodo(inicio, fim) {
     const dataRecebimento = dataRecebimentoEntrada(entrada);
 
     if (!dataVenda || !dataRecebimento) return false;
-    if (!dentroDoPeriodoInformado(dataRecebimento, inicio, fim)) return false;
 
-    const fechamentoAntesDoPagamento = [...historicoFechamentos]
-      .filter((fechamento) => {
-        const fimFechamento = fechamento?.fim || "";
-        return fimFechamento && fimFechamento < dataRecebimento;
-      })
-      .sort((a, b) =>
-        String(b.fim || "").localeCompare(String(a.fim || ""))
-      )[0];
-
-    const fimFechamento = fechamentoAntesDoPagamento?.fim || "";
-
-    if (!fimFechamento) return dataVenda < inicio;
-
-    return dataVenda <= fimFechamento;
+    return (
+      dataVenda < inicio &&
+      dataRecebimento >= inicio &&
+      dataRecebimento <= fim
+    );
   });
 }
   function cancelarEdicao() {
@@ -2194,9 +2186,9 @@ const fimPeriodoAnalise =
   fechamentoProvavel && fechamentoProvavel >= inicioMes
     ? fechamentoProvavel
     : fimMes;
-   const recebimentosAntigos = recebimentosAntigosDoPeriodo(
+   const recebimentosAntigos = listarRecebimentosAntigosDoPeriodo(
   inicioMes,
-  fimPeriodoAnalise
+  fimMes
 );
 
     const entradaBruta = entradasCompetencia.reduce((s, x) => s + x.valor, 0);
@@ -2378,6 +2370,7 @@ saidasCaixa,
       recebidoFaturado: caixaRecebidoVendas,
       recebidoTotal: caixaRecebidoTotal,
       recebimentosAntigos: recebimentosAntigosTotal,
+recebimentosAntigosDetalhados: recebimentosAntigos,
       injecaoCaixaTotal,
       injecaoLojaTotal,
       injecaoSociosTotal,

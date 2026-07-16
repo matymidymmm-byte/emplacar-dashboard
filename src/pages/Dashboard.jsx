@@ -548,31 +548,11 @@ const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
       0
     );
 
-    const recebimentosAntigosDetalhados = entradas
-      .filter((entrada) => {
-        const dataRecebimento = dataRecebimentoEntrada(entrada);
-
-        if (!entrada?.data) return false;
-        if (!dataRecebimento) return false;
-        if (entrada.status !== "Pago") return false;
-        if (ehInjecaoOuAporte(entrada)) return false;
-
-        return historicoFechamentos.some((fechamento) => {
-          const fimFechamento = fechamento?.fim || "";
-
-          if (!fimFechamento) return false;
-
-          return (
-            entrada.data <= fimFechamento &&
-            dataRecebimento > fimFechamento &&
-            dataRecebimento >= inicioMes &&
-            dataRecebimento <= fimAnalise
-          );
-        });
-      })
-      .sort((a, b) =>
-        String(b.diaPago || b.data).localeCompare(String(a.diaPago || a.data))
-      );
+    const recebimentosAntigosDetalhados = [
+  ...(indicadores.recebimentosAntigosDetalhados || []),
+].sort((a, b) =>
+  String(b.diaPago || b.data).localeCompare(String(a.diaPago || a.data))
+);
 
     const quantidadeRecebimentosAntigos = recebimentosAntigosDetalhados.length;
 
