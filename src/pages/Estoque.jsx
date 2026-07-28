@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import EstoqueRapido from "../components/estoque/EstoqueRapido.jsx";
 import EstoqueMovimentacoes from "../components/estoque/EstoqueMovimentacoes.jsx";
@@ -230,6 +230,9 @@ export default function Estoque({
   setEstoqueCompras = () => {},
   estoquePerdas = [],
   setEstoquePerdas = () => {},
+  ajustesEstoque = [],
+setAjustesEstoque = () => {},
+setEstoqueResumoGlobal = () => {},
 
   produtosEstoquePersonalizados = [],
   setProdutosEstoquePersonalizados = () => {},
@@ -262,7 +265,17 @@ export default function Estoque({
   const [editandoCompraId, setEditandoCompraId] = useState(null);
   const [editandoPerdaId, setEditandoPerdaId] = useState(null);
   const [filtroDashboard, setFiltroDashboard] = useState("MÊS");
+  const [ajusteEstoqueForm, setAjusteEstoqueForm] = useState({
+  produto: "",
+  quantidadeFisica: "",
 
+  metragemRolo: "",
+  rolosFechados: "",
+  metrosRoloEmUso: "",
+
+  motivo: "Inventário",
+  observacao: "",
+});
   const [simulacao, setSimulacao] = useState({ cliente: "" });
   const [produtoParametroSelecionado, setProdutoParametroSelecionado] =
     useState("");
@@ -369,6 +382,45 @@ export default function Estoque({
 
     return REGRAS_CONSUMO_PADRAO;
   }, [minimosEstoqueConfigurados]);
+  const itensRelatorioWhatsApp = useMemo(() => {
+  const salvos =
+    minimosEstoqueConfigurados?.__itensRelatorioWhatsApp;
+
+  if (Array.isArray(salvos)) {
+    return salvos;
+  }
+
+  return [
+    "VEICULAR PADRÃO",
+    "MOTO PADRÃO",
+    "VEICULAR PRETA",
+    "VEICULAR MINI",
+    "VEICULAR MINI-MINI",
+  ];
+}, [minimosEstoqueConfigurados]);
+
+function alternarItemRelatorioWhatsApp(produto) {
+  setMinimosEstoqueConfigurados((old) => {
+    const atuais = Array.isArray(old?.__itensRelatorioWhatsApp)
+      ? old.__itensRelatorioWhatsApp
+      : [
+          "VEICULAR PADRÃO",
+          "MOTO PADRÃO",
+          "VEICULAR PRETA",
+          "VEICULAR MINI",
+          "VEICULAR MINI-MINI",
+        ];
+
+    const jaMarcado = atuais.includes(produto);
+
+    return {
+      ...old,
+      __itensRelatorioWhatsApp: jaMarcado
+        ? atuais.filter((item) => item !== produto)
+        : [...atuais, produto],
+    };
+  });
+}
 
   function ehRibbon(produto) {
     return norm(produto).includes("RIBBON");
@@ -515,6 +567,23 @@ alertaCritico: ehRibbon(chave) ? n(bruto.alertaCritico) : 0,
 
     return n(item.quantidade);
   }
+  function metragemPadraoDoRibbon(produto) {
+  if (!produto || !ehRibbon(produto)) return 0;
+
+  const comprasCompativeis = estoqueCompras
+    .filter((item) => {
+      const chaveCompra =
+        item.produtoChave || chaveRibbonEstoque(item);
+
+      return norm(chaveCompra) === norm(produto);
+    })
+    .filter((item) => n(item.metragemRibbon) > 0)
+    .sort((a, b) =>
+      String(b.data || "").localeCompare(String(a.data || ""))
+    );
+
+  return n(comprasCompativeis[0]?.metragemRibbon);
+}
 
   function calcularPercentualEstoque(item) {
     const parametros = parametrosDoProduto(item.produto);
@@ -1045,7 +1114,106 @@ function regrasDoServico(produtoServico) {
       motivo: "Regras padrão restauradas",
     });
   }
+function salvarAjusteEstoque() {
+  const produto = normalizarProdutoEstoque(ajusteEstoqueForm.produto);
+  const produtoEhRibbon = ehRibbon(produto);
 
+  const metragemRolo = produtoEhRibbon
+    ? n(ajusteEstoqueForm.metragemRolo) ||
+      metragemPadraoDoRibbon(produto)
+    : 0;
+
+  const rolosFechados = produtoEhRibbon
+    ? n(ajusteEstoqueForm.rolosFechados)
+    : 0;
+
+  const metrosRoloEmUso = produtoEhRibbon
+    ? n(ajusteEstoqueForm.metrosRoloEmUso)
+    : 0;
+
+  const quantidadeFisica = produtoEhRibbon
+    ? rolosFechados * metragemRolo + metrosRoloEmUso
+    : n(ajusteEstoqueForm.quantidadeFisica);
+
+  if (!produto) {
+    alert("Selecione o produto.");
+    return;
+  }
+
+ if (produtoEhRibbon) {
+  if (metragemRolo <= 0) {
+    alert("Informe a metragem padrão do rolo.");
+    return;
+  }
+
+  if (
+    ajusteEstoqueForm.rolosFechados === "" &&
+    ajusteEstoqueForm.metrosRoloEmUso === ""
+  ) {
+    alert("Informe os rolos fechados ou a metragem do rolo em uso.");
+    return;
+  }
+
+  if (metrosRoloEmUso >= metragemRolo) {
+    alert("A metragem do rolo em uso deve ser menor que a metragem de um rolo fechado.");
+    return;
+  }
+} else if (ajusteEstoqueForm.quantidadeFisica === "") {
+  alert("Informe a quantidade física.");
+  return;
+}
+
+  const resumoAtual = estoqueResumo.find(
+    (item) => norm(item.produto) === norm(produto)
+  );
+
+  const saldoTeorico = n(resumoAtual?.saldoFisico);
+  const diferenca = quantidadeFisica - saldoTeorico;
+
+  const novoAjuste = {
+    id: criarId(),
+    data: dataHoje(),
+    dataHora: agora(),
+    produto,
+    saldoTeorico,
+    quantidadeFisica,
+    diferenca,
+        metragemRolo: produtoEhRibbon ? metragemRolo : 0,
+    rolosFechados: produtoEhRibbon ? rolosFechados : 0,
+    metrosRoloEmUso: produtoEhRibbon ? metrosRoloEmUso : 0,
+    motivo: ajusteEstoqueForm.motivo || "Inventário",
+    observacao: ajusteEstoqueForm.observacao || "",
+    usuario: usuarioAuditoria,
+  };
+
+  setAjustesEstoque((old) => [novoAjuste, ...old]);
+
+  registrarMovimentacaoEstoque({
+    tipo: "AJUSTE",
+    origem: "Ajuste manual de estoque",
+    produto,
+    quantidade: diferenca,
+    antes: saldoTeorico,
+    depois: quantidadeFisica,
+    motivo: `${novoAjuste.motivo}${
+      novoAjuste.observacao ? ` - ${novoAjuste.observacao}` : ""
+    }`,
+  });
+
+  setAjusteEstoqueForm({
+  produto: "",
+  quantidadeFisica: "",
+
+  metragemRolo: "",
+  rolosFechados: "",
+  metrosRoloEmUso: "",
+
+  motivo: "Inventário",
+  observacao: "",
+});
+
+  alert("Estoque ajustado com sucesso.");
+}
   function salvarCompraEstoque() {
     if (!compraEstoqueForm.produto || !compraEstoqueForm.quantidade) return;
 
@@ -1267,7 +1435,24 @@ produtoChave: chaveRibbonEstoque({
         motivo: "Perda excluída",
       });
     }
-  }
+  if (tipo === "ajuste") {
+  const item = ajustesEstoque.find((x) => x.id === id);
+
+  setAjustesEstoque((old) =>
+    old.filter((ajuste) => ajuste.id !== id)
+  );
+
+  registrarMovimentacaoEstoque({
+    tipo: "EXCLUSÃO",
+    origem: "Ajuste manual de estoque",
+    produto: item?.produto || "-",
+    quantidade: item?.diferenca || 0,
+    antes: item || null,
+    depois: null,
+    motivo: "Ajuste de estoque excluído",
+  });
+}
+}
 
   const usosEstoqueServicos = useMemo(() => {
   return entradas.flatMap((entrada) => {
@@ -1402,20 +1587,99 @@ produtoChave: chaveRibbonEstoque({
         .filter((item) => normalizarProdutoEstoque(item.produto) === produto)
         .reduce((soma, item) => soma + n(item.quantidade), 0);
 
-      const saldoFisico = compras - usadoEmServicos - perdas;
+      const totalAjustes = ajustesEstoque
+  .filter(
+    (ajuste) =>
+      norm(normalizarProdutoEstoque(ajuste.produto)) ===
+      norm(normalizarProdutoEstoque(produto))
+  )
+  .reduce(
+    (soma, ajuste) => soma + n(ajuste.diferenca),
+    0
+  );
+
+const saldoFisico =
+  compras -
+  usadoEmServicos -
+  perdas +
+  totalAjustes;
       const saldoDisponivel = saldoFisico - reservado;
       const estoqueMinimo = minimoDoProduto(produto);
       const valorAtual = saldoFisico * custoMedio;
 
-      const mediaConsumoDiario =
-        usadoEmServicos > 0 ? usadoEmServicos / 30 : 0;
+      const dataFinalConsumo = dataHoje();
 
-      const diasRestantes =
-        mediaConsumoDiario > 0
-          ? Math.floor(saldoDisponivel / mediaConsumoDiario)
-          : saldoDisponivel > 0
-          ? 999
-          : 0;
+const dataInicialConsumo = (() => {
+  const data = new Date(`${dataFinalConsumo}T00:00:00`);
+  data.setDate(data.getDate() - 29);
+  return data.toISOString().slice(0, 10);
+})();
+
+const usosRecentesProduto = usosEstoqueServicos.filter((uso) => {
+  if (!uso.data) return false;
+
+  const dentroDosUltimos30Dias =
+    uso.data >= dataInicialConsumo &&
+    uso.data <= dataFinalConsumo;
+
+  if (!dentroDosUltimos30Dias) return false;
+
+  if (!ehRibbon(produto)) {
+    return uso.itemEstoque === produto;
+  }
+
+  const compraCompativel = comprasDoProduto.some((compra) => {
+    const usoCompra = norm(compra.usoRibbon || "Carro e moto");
+    const usoNecessario = norm(uso.usoRibbonNecessario || "");
+
+    if (
+      uso.itemEstoque !==
+      normalizarProdutoEstoque(compra.produto)
+    ) {
+      return false;
+    }
+
+    if (!usoNecessario) return false;
+
+    if (usoNecessario.includes("CARRO")) {
+      return usoCompra.includes("CARRO");
+    }
+
+    if (usoNecessario.includes("MOTO")) {
+      return usoCompra.includes("MOTO");
+    }
+
+    return false;
+  });
+
+  return compraCompativel;
+});
+
+const consumoUltimos30Dias = usosRecentesProduto.reduce(
+  (soma, uso) => soma + n(uso.quantidade),
+  0
+);
+
+const diasComConsumo = new Set(
+  usosRecentesProduto
+    .map((uso) => uso.data)
+    .filter(Boolean)
+).size;
+
+const mediaConsumoDiario =
+  diasComConsumo > 0
+    ? consumoUltimos30Dias / diasComConsumo
+    : 0;
+
+const diasRestantes =
+  mediaConsumoDiario > 0
+    ? Math.max(
+        Math.floor(saldoDisponivel / mediaConsumoDiario),
+        0
+      )
+    : saldoDisponivel > 0
+    ? 999
+    : 0;
 
       const parametros = parametrosDoProduto(produto);
 
@@ -1430,6 +1694,8 @@ produtoChave: chaveRibbonEstoque({
         saldoFisico,
         saldoDisponivel,
         estoqueMinimo,
+        consumoUltimos30Dias,
+diasComConsumo,
         valorAtual,
         mediaConsumoDiario,
         diasRestantes,
@@ -1444,13 +1710,60 @@ produtoChave: chaveRibbonEstoque({
       status: statusProduto(item),
     }));
   }, [
-    produtosDisponiveisEstoque,
-    estoqueCompras,
-    estoquePerdas,
-    reservasEstoque,
-    usosEstoqueServicos,
-    minimosEstoqueConfigurados,
-  ]);
+  produtosDisponiveisEstoque,
+  estoqueCompras,
+  estoquePerdas,
+  ajustesEstoque,
+  reservasEstoque,
+  usosEstoqueServicos,
+  minimosEstoqueConfigurados,
+]);
+useEffect(() => {
+  const resumoParaRelatorio = estoqueResumo.map((item) => {
+    const nomeProduto = String(item.produto || "");
+    const larguraEncontrada = nomeProduto.match(/\|\s*(\d+)\s*mm/i);
+
+    const larguraRibbon = larguraEncontrada
+      ? Number(larguraEncontrada[1])
+      : 0;
+
+    return {
+      ...item,
+
+      exibirNoRelatorio:
+        itensRelatorioWhatsApp.includes(item.produto),
+
+      metragemRolo: ehRibbon(item.produto)
+        ? metragemPadraoDoRibbon(item.produto)
+        : 0,
+
+      larguraRibbon,
+
+      usoRibbonRelatorio:
+        larguraRibbon >= 170
+          ? "Ribbon para moto"
+          : larguraRibbon > 0
+          ? "Ribbon para carro"
+          : "",
+    };
+  });
+
+  setEstoqueResumoGlobal((resumoAnterior) => {
+    const anterior = JSON.stringify(resumoAnterior || []);
+    const novo = JSON.stringify(resumoParaRelatorio || []);
+
+    if (anterior === novo) {
+      return resumoAnterior;
+    }
+
+    return resumoParaRelatorio;
+  });
+}, [
+  estoqueResumo,
+  itensRelatorioWhatsApp,
+  estoqueCompras,
+  setEstoqueResumoGlobal,
+]);
 
   const lotesEstoque = useMemo(() => {
     return estoqueCompras
@@ -1605,6 +1918,18 @@ produtoChave: chaveRibbonEstoque({
       usuario: item.atualizadoPor || item.criadoPor || "-",
       observacao: item.motivo || "-",
     }));
+    const ajustes = ajustesEstoque.map((item) => ({
+  id: `ajuste-${item.id}`,
+  data: item.data || "",
+  tipo: "AJUSTE",
+  origem: "Ajuste manual",
+  produto: normalizarProdutoEstoque(item.produto),
+  quantidade: Number(item.diferenca || 0),
+  valor: 0,
+  fornecedor: "-",
+  usuario: item.usuario || "-",
+  observacao: item.observacao || item.motivo || "-",
+}));
 
     const auditoria = movimentacoesEstoque.map((item) => ({
       id: `auditoria-${item.id}`,
@@ -1619,10 +1944,18 @@ produtoChave: chaveRibbonEstoque({
       observacao: item.motivo || "-",
     }));
 
-    return [...auditoria, ...compras, ...vendas, ...perdas].sort((a, b) =>
-      String(b.data || "").localeCompare(String(a.data || ""))
+    return [...auditoria, ...compras, ...vendas, ...perdas, ...ajustes].sort(
+  (a, b) =>
+    String(b.data || "").localeCompare(String(a.data || ""))
+
     );
-  }, [estoqueCompras, usosEstoqueServicos, estoquePerdas, movimentacoesEstoque]);
+  }, [
+  estoqueCompras,
+  usosEstoqueServicos,
+  estoquePerdas,
+  ajustesEstoque,
+  movimentacoesEstoque,
+]);
 
   const movimentacoesReais = livroMovimentacoes.filter(
   (item) =>
@@ -1630,7 +1963,8 @@ produtoChave: chaveRibbonEstoque({
     (
       item.tipo === "ENTRADA" ||
       item.tipo === "SAÍDA" ||
-      item.tipo === "PERDA"
+      item.tipo === "PERDA" ||
+item.tipo === "AJUSTE"
     )
 );
 
@@ -1941,6 +2275,12 @@ function removerServicoSimulacao(servico) {
     setCompraEstoqueForm={setCompraEstoqueForm}
     perdaEstoqueForm={perdaEstoqueForm}
     setPerdaEstoqueForm={setPerdaEstoqueForm}
+    ajusteEstoqueForm={ajusteEstoqueForm}
+setAjusteEstoqueForm={setAjusteEstoqueForm}
+metragemPadraoDoRibbon={metragemPadraoDoRibbon}
+
+ajustesEstoque={ajustesEstoque}
+salvarAjusteEstoque={salvarAjusteEstoque}
     fornecedoresDisponiveis={fornecedoresDisponiveis}
     produtosDisponiveisEstoque={produtosDisponiveisEstoque}
     ehRibbon={ehRibbon}
@@ -1978,6 +2318,8 @@ function removerServicoSimulacao(servico) {
 
   servicosSimulacaoEstoque={servicosSimulacaoEstoque}
   removerServicoSimulacao={removerServicoSimulacao}
+  itensRelatorioWhatsApp={itensRelatorioWhatsApp}
+alternarItemRelatorioWhatsApp={alternarItemRelatorioWhatsApp}
 
     novoFornecedor={novoFornecedor}
     setNovoFornecedor={setNovoFornecedor}
@@ -2050,4 +2392,13 @@ function removerServicoSimulacao(servico) {
 )}
     </>
   );
+  return (
+  <main style={{ padding: 20, color: "#fff" }}>
+    <h1>Relatório Diário</h1>
+
+    <button onClick={copiarWhatsApp}>
+      Copiar relatório para WhatsApp
+    </button>
+  </main>
+);
 }

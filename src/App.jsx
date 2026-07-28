@@ -380,6 +380,8 @@ function Sistema({ usuario, acesso, trocarEmpresaSuperadmin }) {
   const [movimentacoesCaixaBanco, setMovimentacoesCaixaBanco] = useState([]);
   const [estoqueCompras, setEstoqueCompras] = useState([]);
   const [estoquePerdas, setEstoquePerdas] = useState([]);
+  const [ajustesEstoque, setAjustesEstoque] = useState([]);
+  const [estoqueResumoGlobal, setEstoqueResumoGlobal] = useState([]);
   const [produtosEstoquePersonalizados, setProdutosEstoquePersonalizados] =
     useState([]);
   const [fornecedoresEstoque, setFornecedoresEstoque] = useState([]);
@@ -477,6 +479,11 @@ setFechamentoProvavel(dados.fechamentoProvavel || "");
         setEstoquePerdas(
           Array.isArray(dados.estoquePerdas) ? dados.estoquePerdas : []
         );
+        setAjustesEstoque(
+  Array.isArray(dados.ajustesEstoque)
+    ? dados.ajustesEstoque
+    : []
+);
 
         setFornecedoresEstoque(
           Array.isArray(dados.fornecedoresEstoque)
@@ -547,6 +554,7 @@ setFechamentoProvavel(dados.fechamentoProvavel || "");
           movimentacoesCaixaBanco: [],
           estoqueCompras: [],
           estoquePerdas: [],
+          ajustesEstoque: [],
           produtosEstoquePersonalizados: [],
           fornecedoresEstoque: [],
           movimentacoesEstoque: [],
@@ -939,6 +947,9 @@ setMovimentacoesCaixaBanco(
   useEffect(() => {
     salvarNaNuvem("estoquePerdas", estoquePerdas);
   }, [estoquePerdas]);
+  useEffect(() => {
+  salvarNaNuvem("ajustesEstoque", ajustesEstoque);
+}, [ajustesEstoque]);
 
   useEffect(() => {
     salvarNaNuvem("produtosEstoquePersonalizados", produtosEstoquePersonalizados);
@@ -2653,9 +2664,16 @@ setTabelasPrecoClientes,
     usuarioAtual: usuario,
 
     estoqueCompras,
-    setEstoqueCompras,
-    estoquePerdas,
-    setEstoquePerdas,
+setEstoqueCompras,
+
+estoquePerdas,
+setEstoquePerdas,
+
+ajustesEstoque,
+setAjustesEstoque,
+
+estoqueResumo: estoqueResumoGlobal,
+setEstoqueResumoGlobal,
 
     entradaForm,
     setEntradaForm,
@@ -2795,7 +2813,13 @@ setTabelasPrecoClientes,
   <MovimentacoesInternas {...propsGlobais} />
 )}
         {aba === "Pendências de Clientes" && <Pendencias {...propsGlobais} />}
-        {aba === "Controle de Estoque" && <Estoque {...propsGlobais} />}
+        <div
+  style={{
+    display: aba === "Controle de Estoque" ? "block" : "none",
+  }}
+>
+  <Estoque {...propsGlobais} />
+</div>
         {aba === "Relatório Diário" && <RelatorioDiario {...propsGlobais} />}
         {aba === "Gerenciar Acessos" && <Acessos {...propsGlobais} />}
         {aba.startsWith("Importar") && <Importacao {...propsGlobais} />}
