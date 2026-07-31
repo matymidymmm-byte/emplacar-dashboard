@@ -113,6 +113,8 @@ useEffect(() => {
 
     const hojeSistema = new Date();
     const hojeReferencia = hojeSistema.toISOString().slice(0, 10);
+    const fimAnaliseComparativo =
+  hojeReferencia < fimMes ? hojeReferencia : fimMes;
     const diaAtual = hojeSistema.getDate();
 
     const ultimoDiaMes = new Date(
@@ -785,8 +787,8 @@ const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
     ["Lucro Operacional", indicadores.entradaLiquida || 0],
   ];
 
-    const inicioSemanaAtual = adicionarDias(fimMes, -6);
-    const fimSemanaAtual = fimMes;
+    const fimSemanaAtual = fimAnaliseComparativo;
+const inicioSemanaAtual = adicionarDias(fimSemanaAtual, -6);
 
     const inicioSemanaAnterior = adicionarDias(inicioSemanaAtual, -7);
     const fimSemanaAnterior = adicionarDias(inicioSemanaAtual, -1);
@@ -810,20 +812,34 @@ const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
 
     const inicioMesAnterior = ultimoFechamento?.inicio || "";
 
-    const quantidadeDiasAtual = Math.max(
-      1,
-      Math.floor(
-        (new Date(dataSegura(fimMes) + "T00:00:00") -
-          new Date(dataSegura(inicioMes) + "T00:00:00")) /
-          (1000 * 60 * 60 * 24)
-      ) + 1
-    );
+    const fimMesAnterior = ultimoFechamento?.fim || "";
 
-    const fimMesAnteriorComparativo = inicioMesAnterior
-      ? adicionarDias(inicioMesAnterior, quantidadeDiasAtual - 1)
-      : "";
+const quantidadeDiasDecorridosComparativo = Math.max(
+  1,
+  Math.floor(
+    (new Date(dataSegura(fimAnaliseComparativo) + "T00:00:00") -
+      new Date(dataSegura(inicioMes) + "T00:00:00")) /
+      (1000 * 60 * 60 * 24)
+  ) + 1
+);
 
-    const vendaMesAtual = somarEntradasPeriodo(inicioMes, fimMes);
+const fimMesAnteriorCalculado = inicioMesAnterior
+  ? adicionarDias(
+      inicioMesAnterior,
+      quantidadeDiasDecorridosComparativo - 1
+    )
+  : "";
+
+const fimMesAnteriorComparativo =
+  fimMesAnterior &&
+  fimMesAnteriorCalculado > fimMesAnterior
+    ? fimMesAnterior
+    : fimMesAnteriorCalculado;
+
+    const vendaMesAtual = somarEntradasPeriodo(
+  inicioMes,
+  fimAnaliseComparativo
+);
 
     const vendaMesAnterior =
       inicioMesAnterior && fimMesAnteriorComparativo
@@ -832,38 +848,116 @@ const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
 
     const variacaoMes = calcularVariacao(vendaMesAtual, vendaMesAnterior);
 
-    const fimComparativoAtual = adicionarDias(inicioMes, diasComparativo - 1);
+   const mediaDiariaComparativo =
+  vendaMesAtual / quantidadeDiasDecorridosComparativo;
 
-    const fimComparativoAnterior = inicioMesAnterior
-      ? adicionarDias(inicioMesAnterior, diasComparativo - 1)
-      : "";
+const quantidadeDiasTotaisPeriodoComparativo = Math.max(
+  1,
+  Math.floor(
+    (new Date(dataSegura(fimMes) + "T00:00:00") -
+      new Date(dataSegura(inicioMes) + "T00:00:00")) /
+      (1000 * 60 * 60 * 24)
+  ) + 1
+);
 
-    const vendaPeriodoAtual = somarEntradasPeriodo(
-      inicioMes,
-      fimComparativoAtual
-    );
+const diasRestantesComparativo = Math.max(
+  0,
+  quantidadeDiasTotaisPeriodoComparativo -
+    quantidadeDiasDecorridosComparativo
+);
 
-    const vendaPeriodoAnterior =
-      inicioMesAnterior && fimComparativoAnterior
-        ? somarEntradasPeriodo(inicioMesAnterior, fimComparativoAnterior)
-        : 0;
+const diasJanelaRecente = Math.min(
+  7,
+  quantidadeDiasDecorridosComparativo
+);
 
-    const variacaoPeriodo = calcularVariacao(
-      vendaPeriodoAtual,
-      vendaPeriodoAnterior
-    );
+const inicioUltimos7DiasComparativo = adicionarDias(
+  fimAnaliseComparativo,
+  -(diasJanelaRecente - 1)
+);
+
+const vendaUltimos7DiasComparativo = somarEntradasPeriodo(
+  inicioUltimos7DiasComparativo,
+  fimAnaliseComparativo
+);
+
+const mediaDiariaRecente =
+  vendaUltimos7DiasComparativo / diasJanelaRecente;
+
+let mediaDiariaProjetada =
+  mediaDiariaComparativo * 0.4 +
+  mediaDiariaRecente * 0.6;
+
+// Evita distorções por dias extremamente fora da curva
+const limiteSuperior = mediaDiariaComparativo * 1.5;
+const limiteInferior = mediaDiariaComparativo * 0.5;
+
+mediaDiariaProjetada = Math.min(
+  limiteSuperior,
+  Math.max(limiteInferior, mediaDiariaProjetada)
+);
+
+const projecaoRitmoMes =
+  vendaMesAtual +
+  mediaDiariaProjetada * diasRestantesComparativo;
+  const diferencaMetaProjetada = projecaoRitmoMes - metaMensal;
+
+const bateMetaProjetada = diferencaMetaProjetada >= 0;
+const percentualMetaProjetada =
+  metaMensal > 0
+    ? Math.min(
+        100,
+        Math.max(
+          0,
+          (projecaoRitmoMes / metaMensal) * 100
+        )
+      )
+    : 0;
+  const confiancaProjecao = Math.min(
+  100,
+  Math.round(
+    (quantidadeDiasDecorridosComparativo /
+      quantidadeDiasTotaisPeriodoComparativo) *
+      100
+  )
+);
+const nivelConfiancaProjecao =
+  confiancaProjecao < 30
+    ? "Baixa"
+    : confiancaProjecao < 70
+    ? "Moderada"
+    : "Alta";
 
     function CardComparativo({
-      titulo,
-      descricao,
-      periodoAtual,
-      periodoAnterior,
-      atual,
-      anterior,
-      variacao,
-    }) {
+      destaque = false,
+  titulo,
+  descricao,
+  periodoAtual,
+  periodoAnterior,
+  atual,
+  anterior,
+  variacao,
+  rotuloAtual,
+  rotuloAnterior,
+  rotuloVariacao,
+  maturidadeProjecao,
+nivelMaturidadeProjecao,meta,
+diferencaMeta,
+bateMeta,
+percentualMeta,
+}) {
       return (
-        <div style={styles.card}>
+        <div
+  style={{
+    ...styles.card,
+    border: destaque
+      ? "1px solid rgba(59,130,246,0.30)"
+      : styles.card.border,
+    boxShadow: destaque
+      ? "0 0 30px rgba(59,130,246,0.12)"
+      : styles.card.boxShadow,
+  }}
+>
           <h3
             style={{
               color: "#fff",
@@ -884,31 +978,655 @@ const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
           >
             {descricao}
           </p>
+<div
+  style={{
+    display: destaque ? "grid" : "block",
+    gridTemplateColumns: destaque
+      ? "repeat(2, minmax(180px,1fr))"
+      : undefined,
+    gap: destaque ? 24 : 0,
+  }}
+>
+  <p style={{ color: "#cbd5e1", marginBottom: 6 }}>
+    <strong>{rotuloAtual || "Atual"}:</strong>
+    <br />
+    <span style={{ fontSize: 12, color: "#94a3b8" }}>
+      {periodoAtual}
+    </span>
+    <br />
+    {moeda.format(atual)}
+  </p>
 
-          <p style={{ color: "#cbd5e1", marginBottom: 6 }}>
-            <strong>Atual:</strong> {periodoAtual}
-            <br />
-            {moeda.format(atual)}
-          </p>
-
-          <p style={{ color: "#cbd5e1", marginBottom: 6 }}>
-            <strong>Anterior:</strong> {periodoAnterior}
-            <br />
-            {moeda.format(anterior)}
-          </p>
-
-          <strong
-            style={{
-              color: corVariacao(variacao),
-              fontSize: 24,
-            }}
-          >
-            {textoVariacao(variacao)}
-          </strong>
+  <p style={{ color: "#cbd5e1", marginBottom: 6 }}>
+    <strong>{rotuloAnterior || "Anterior"}:</strong>
+    <br />
+    <span style={{ fontSize: 12, color: "#94a3b8" }}>
+      {periodoAnterior}
+    </span>
+    <br />
+    {moeda.format(anterior)}
+  </p>
+</div>
+{typeof meta === "number" && (
+  <div
+    style={{
+      marginBottom: 14,
+      padding: "12px",
+      borderRadius: 10,
+      background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(148,163,184,0.15)",
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-end",
+        gap: 12,
+        marginBottom: 8,
+      }}
+    >
+      <div>
+        <div
+          style={{
+            color: "#94a3b8",
+            fontSize: 12,
+            marginBottom: 3,
+          }}
+        >
+          Meta do período
         </div>
+
+        <strong
+          style={{
+            color: "#e2e8f0",
+            fontSize: 15,
+          }}
+        >
+          {moeda.format(meta)}
+        </strong>
+      </div>
+
+      <strong
+        style={{
+          color: bateMeta ? "#22c55e" : "#f59e0b",
+          fontSize: 18,
+        }}
+      >
+        {Number(percentualMeta || 0).toFixed(1)}%
+      </strong>
+    </div>
+
+    <div
+      style={{
+        width: "100%",
+        height: 7,
+        background: "rgba(148,163,184,0.15)",
+        borderRadius: 999,
+        overflow: "hidden",
+        marginBottom: 9,
+      }}
+    >
+      <div
+        style={{
+          width: `${Math.min(100, Math.max(0, percentualMeta || 0))}%`,
+          height: "100%",
+          background: bateMeta ? "#22c55e" : "#f59e0b",
+          borderRadius: 999,
+        }}
+      />
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 12,
+      }}
+    >
+      <span
+        style={{
+          color: bateMeta ? "#22c55e" : "#f59e0b",
+          fontSize: 12,
+        }}
+      >
+        {bateMeta ? "Acima da meta" : "Para atingir a meta"}
+      </span>
+
+      <strong
+        style={{
+          color: bateMeta ? "#22c55e" : "#f59e0b",
+          fontSize: 13,
+        }}
+      >
+        {moeda.format(Math.abs(diferencaMeta || 0))}
+      </strong>
+    </div>
+  </div>
+)}
+
+          <div>
+  {rotuloVariacao && (
+    <div
+      style={{
+        color: "#94a3b8",
+        fontSize: 12,
+        marginBottom: 4,
+      }}
+    >
+      {rotuloVariacao}
+    </div>
+  )}
+
+  <strong
+    style={{
+      color: corVariacao(variacao),
+      fontSize: 24,
+    }}
+  >
+    {textoVariacao(variacao)}
+  </strong>
+</div>
+{typeof maturidadeProjecao === "number" && (
+  <div
+    style={{
+      marginTop: 16,
+      paddingTop: 14,
+      borderTop: "1px solid rgba(148, 163, 184, 0.15)",
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 8,
+      }}
+    >
+      <span
+        style={{
+          color: "#94a3b8",
+          fontSize: 12,
+        }}
+      >
+        Maturidade da projeção
+      </span>
+
+      <strong
+        style={{
+          color: "#e2e8f0",
+          fontSize: 13,
+        }}
+      >
+        {maturidadeProjecao}%
+      </strong>
+    </div>
+
+    <div
+      style={{
+        width: "100%",
+        height: 7,
+        background: "rgba(148, 163, 184, 0.15)",
+        borderRadius: 999,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          width: `${maturidadeProjecao}%`,
+          height: "100%",
+          background:
+            maturidadeProjecao < 30
+              ? "#ef4444"
+              : maturidadeProjecao < 70
+              ? "#f59e0b"
+              : "#22c55e",
+          borderRadius: 999,
+        }}
+      />
+    </div>
+
+    <div
+      style={{
+        marginTop: 7,
+        color: "#cbd5e1",
+        fontSize: 12,
+      }}
+    >
+      Maturidade {nivelMaturidadeProjecao?.toLowerCase()}
+    </div>
+  </div>
+)}
+        </div>  
       );
       
   }
+function CardRitmoMes({
+  periodoAtual,
+  periodoProjecao,
+  faturado,
+  projecao,
+  meta = 0,
+  diferencaMeta = 0,
+  bateMeta = false,
+  percentualMeta = 0,
+  variacao = 0,
+  maturidadeProjecao = 0,
+  nivelMaturidadeProjecao = "Baixa",
+}) {
+  const percentualMetaSeguro = Math.min(
+    100,
+    Math.max(0, Number(percentualMeta || 0))
+  );
+
+  const maturidadeSegura = Math.min(
+    100,
+    Math.max(0, Number(maturidadeProjecao || 0))
+  );
+
+  const corMeta = bateMeta ? "#22c55e" : "#f59e0b";
+
+  const corMaturidade =
+    maturidadeSegura < 30
+      ? "#ef4444"
+      : maturidadeSegura < 70
+      ? "#f59e0b"
+      : "#22c55e";
+
+  const textoCrescimento =
+    variacao > 0
+      ? `+${Number(variacao).toFixed(1)}%`
+      : `${Number(variacao).toFixed(1)}%`;
+
+  const estiloKpi = {
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(148,163,184,0.15)",
+    borderRadius: 14,
+    padding: 18,
+    minWidth: 0,
+  };
+
+  return (
+    <div
+      style={{
+        ...styles.card,
+        border: "1px solid rgba(59,130,246,0.30)",
+        boxShadow: "0 0 30px rgba(59,130,246,0.12)",
+        marginBottom: 20,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h3
+            style={{
+              color: "#fff",
+              marginTop: 0,
+              marginBottom: 8,
+            }}
+          >
+            Ritmo do mês
+          </h3>
+
+          <p
+            style={{
+              color: "#94a3b8",
+              margin: 0,
+              fontSize: 13,
+              lineHeight: 1.5,
+              maxWidth: 700,
+            }}
+          >
+            Mantendo o ritmo atual de vendas, esta é a projeção estimada para
+            o fechamento do período financeiro.
+          </p>
+        </div>
+
+        <div
+          style={{
+            padding: "8px 12px",
+            borderRadius: 999,
+            background: `${corMaturidade}18`,
+            border: `1px solid ${corMaturidade}55`,
+            color: corMaturidade,
+            fontSize: 12,
+            fontWeight: 800,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Confiança {nivelMaturidadeProjecao}
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))",
+          gap: 16,
+          marginTop: 20,
+          marginBottom: 20,
+        }}
+      >
+        <div style={estiloKpi}>
+          <div
+            style={{
+              color: "#94a3b8",
+              fontSize: 12,
+              marginBottom: 4,
+            }}
+          >
+            Faturado até hoje
+          </div>
+
+          <div
+            style={{
+              color: "#64748b",
+              fontSize: 11,
+            }}
+          >
+            {periodoAtual}
+          </div>
+
+          <strong
+            style={{
+              display: "block",
+              color: "#f8fafc",
+              fontSize: 22,
+              marginTop: 10,
+              overflowWrap: "anywhere",
+            }}
+          >
+            {moeda.format(Number(faturado || 0))}
+          </strong>
+        </div>
+
+        <div style={estiloKpi}>
+          <div
+            style={{
+              color: "#94a3b8",
+              fontSize: 12,
+              marginBottom: 4,
+            }}
+          >
+            Projeção de fechamento
+          </div>
+
+          <div
+            style={{
+              color: "#64748b",
+              fontSize: 11,
+            }}
+          >
+            {periodoProjecao}
+          </div>
+
+          <strong
+            style={{
+              display: "block",
+              color: "#38bdf8",
+              fontSize: 22,
+              marginTop: 10,
+              overflowWrap: "anywhere",
+            }}
+          >
+            {moeda.format(Number(projecao || 0))}
+          </strong>
+        </div>
+
+        <div style={estiloKpi}>
+          <div
+            style={{
+              color: "#94a3b8",
+              fontSize: 12,
+              marginBottom: 4,
+            }}
+          >
+            Meta do período
+          </div>
+
+          <div
+            style={{
+              color: "#64748b",
+              fontSize: 11,
+            }}
+          >
+            Meta configurada
+          </div>
+
+          <strong
+            style={{
+              display: "block",
+              color: "#f8fafc",
+              fontSize: 22,
+              marginTop: 10,
+              overflowWrap: "anywhere",
+            }}
+          >
+            {moeda.format(Number(meta || 0))}
+          </strong>
+        </div>
+
+        <div style={estiloKpi}>
+          <div
+            style={{
+              color: "#94a3b8",
+              fontSize: 12,
+              marginBottom: 4,
+            }}
+          >
+            {bateMeta ? "Acima da meta" : "Falta para a meta"}
+          </div>
+
+          <div
+            style={{
+              color: "#64748b",
+              fontSize: 11,
+            }}
+          >
+            Pela projeção atual
+          </div>
+
+          <strong
+            style={{
+              display: "block",
+              color: corMeta,
+              fontSize: 22,
+              marginTop: 10,
+              overflowWrap: "anywhere",
+            }}
+          >
+            {moeda.format(Math.abs(Number(diferencaMeta || 0)))}
+          </strong>
+        </div>
+
+        <div style={estiloKpi}>
+          <div
+            style={{
+              color: "#94a3b8",
+              fontSize: 12,
+              marginBottom: 4,
+            }}
+          >
+            Crescimento
+          </div>
+
+          <div
+            style={{
+              color: "#64748b",
+              fontSize: 11,
+            }}
+          >
+            Mesmo ponto do período anterior
+          </div>
+
+          <strong
+            style={{
+              display: "block",
+              color: corVariacao(variacao),
+              fontSize: 22,
+              marginTop: 10,
+            }}
+          >
+            {textoCrescimento}
+          </strong>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
+          gap: 16,
+        }}
+      >
+        <div
+          style={{
+            background: "rgba(255,255,255,0.025)",
+            border: "1px solid rgba(148,163,184,0.12)",
+            borderRadius: 14,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 10,
+            }}
+          >
+            <span
+              style={{
+                color: "#94a3b8",
+                fontSize: 12,
+              }}
+            >
+              Projeção em relação à meta
+            </span>
+
+            <strong
+              style={{
+                color: corMeta,
+                fontSize: 14,
+              }}
+            >
+              {Number(percentualMeta || 0).toFixed(1)}%
+            </strong>
+          </div>
+
+          <div
+            style={{
+              width: "100%",
+              height: 8,
+              borderRadius: 999,
+              background: "rgba(148,163,184,0.15)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${percentualMetaSeguro}%`,
+                height: "100%",
+                borderRadius: 999,
+                background: corMeta,
+                transition: "width 0.3s ease",
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              marginTop: 9,
+              color: "#cbd5e1",
+              fontSize: 12,
+            }}
+          >
+            {bateMeta
+              ? "A projeção indica fechamento acima da meta."
+              : "A projeção ainda está abaixo da meta configurada."}
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: "rgba(255,255,255,0.025)",
+            border: "1px solid rgba(148,163,184,0.12)",
+            borderRadius: 14,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 10,
+            }}
+          >
+            <span
+              style={{
+                color: "#94a3b8",
+                fontSize: 12,
+              }}
+            >
+              Maturidade da projeção
+            </span>
+
+            <strong
+              style={{
+                color: corMaturidade,
+                fontSize: 14,
+              }}
+            >
+              {maturidadeSegura}%
+            </strong>
+          </div>
+
+          <div
+            style={{
+              width: "100%",
+              height: 8,
+              borderRadius: 999,
+              background: "rgba(148,163,184,0.15)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${maturidadeSegura}%`,
+                height: "100%",
+                borderRadius: 999,
+                background: corMaturidade,
+                transition: "width 0.3s ease",
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              marginTop: 9,
+              color: "#cbd5e1",
+              fontSize: 12,
+            }}
+          >
+            Quanto mais próximo do fechamento, mais confiável fica a
+            estimativa.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
   function nomeMesCartao(mesAno) {
     const nomes = [
       "Janeiro",
@@ -1548,336 +2266,315 @@ const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
     }}
   >
     <button
-    style={styles.botaoCinza}
-    onClick={() => {
-      if (!mesCartoesFiltro) {
-        alert("Escolha um mês primeiro.");
-        return;
-      }
-
-      setCartoesSelecionados(
-        cartoesPendentesFiltrados.map((x) => x.id)
-      );
-    }}
-  >
-    Selecionar mês
-  </button>
-    <button
       style={styles.botaoCinza}
-      onClick={() =>
-          setCartoesSelecionados(
-    cartoesPendentesFiltrados.map((x) => x.id)
-  )
-      }
-    >
-      Selecionar todos
-    </button>
+      onClick={() => {
+        if (!mesCartoesFiltro) {
+          alert("Escolha um mês primeiro.");
+          return;
+        }
 
-    <button
-      style={styles.botaoCinza}
-      onClick={() => setCartoesSelecionados([])}
-    >
-      Limpar seleção
-    </button>
-
-    <button
-    style={styles.botao}
-    onClick={() => {
-      if (!cartoesSelecionados.length) return;
-
-      const confirmar = window.confirm(
-        `Receber ${cartoesSelecionados.length} cartões selecionados?`
-      );
-
-      if (!confirmar) return;
-
-      confirmarRecebimentoCartoesEmLote(cartoesSelecionados);
-
-      setCartoesSelecionados([]);
-    }}
-  >
-    Receber selecionados ({cartoesSelecionados.length})
-  </button>
-  <button
-    style={{
-      ...styles.botaoCinza,
-      background: "#7f1d1d",
-    }}
-    onClick={() => {
-      if (!cartoesSelecionados.length) {
-        alert("Selecione pelo menos um cartão.");
-        return;
-      }
-
-      const confirmar = window.confirm(
-        `Excluir histórico de ${cartoesSelecionados.length} cartões selecionados?`
-      );
-
-      if (!confirmar) return;
-
-      cartoesSelecionados.forEach((id) => {
-        excluirHistoricoRecebimentoCartao(id);
-      });
-
-      setCartoesSelecionados([]);
-    }}
-  >
-    Excluir histórico selecionados ({cartoesSelecionados.length})
-  </button>
-  </div>
-      {cartoesPendentesFiltrados.length === 0 ? (
-        <p style={styles.vazio}>Nenhum cartão pendente de recebimento.</p>
-      ) : (
-        <Tabela
-          colunas={[
-    "",
-    "Cliente",
-    "Placa",
-    "Produto",
-    "Pagamento",
-    "Previsão",
-    "Valor venda",
-    "Processo",
-    "Ação",
-  ]}
-          dados={cartoesPendentesFiltrados
-            .sort((a, b) =>
-              String(a.dataPagamento || "").localeCompare(
-                String(b.dataPagamento || "")
-              )
-            )
-            .map((entrada) => [
-              <input
-    type="checkbox"
-    checked={cartoesSelecionados.includes(entrada.id)}
-    onChange={(e) => {
-      if (e.target.checked) {
-        setCartoesSelecionados((old) => [...old, entrada.id]);
-      } else {
-        setCartoesSelecionados((old) =>
-          old.filter((id) => id !== entrada.id)
+        setCartoesSelecionados(
+          cartoesPendentesFiltrados.map((x) => x.id)
         );
-      }
-    }}
-  />,
-              entrada.cliente || "-",
-              entrada.placa || "-",
-              entrada.produto || "-",
-              entrada.formaPagamento || "-",
-              dataBR(entrada.dataPagamento),
-              moeda.format(Number(entrada.valor || 0)),
-              entrada.processo || "-",
-  <div
-    key={entrada.id}
-    style={{
-      display: "flex",
-      gap: 6,
-      flexWrap: "wrap",
-    }}
-  >
-    {!entrada.recebimentoCartaoConfirmado ? (
+      }}
+    >
+      Selecionar mês
+    </button>
       <button
-        style={styles.botao}
-        onClick={() => abrirModalReceberCartao(entrada)}
+        style={styles.botaoCinza}
+        onClick={() =>
+            setCartoesSelecionados(
+      cartoesPendentesFiltrados.map((x) => x.id)
+    )
+        }
       >
-        Receber
+        Selecionar todos
       </button>
-    ) : (
-      <>
-        <span
-          style={{
-            color: "#22c55e",
-            fontWeight: 700,
-            alignSelf: "center",
-          }}
-        >
-          ✔ Recebido
-        </span>
 
-        <button
-          style={styles.botaoCinza}
-          onClick={() => desfazerRecebimentoCartao(entrada.id)}
-        >
-          Desfazer
-        </button>
+      <button
+        style={styles.botaoCinza}
+        onClick={() => setCartoesSelecionados([])}
+      >
+        Limpar seleção
+      </button>
 
-        <button
-          style={{
-            ...styles.botaoCinza,
-            background: "#7f1d1d",
-          }}
-          onClick={() =>
-            excluirHistoricoRecebimentoCartao(entrada.id)
-          }
-        >
-          Excluir histórico
-        </button>
-      </>
-    )}
-  </div>
-            ])}
-        />
-      )}
-    </Card>
-  )}
+      <button
+      style={styles.botao}
+      onClick={() => {
+        if (!cartoesSelecionados.length) return;
 
-        {modoDetalhado && (
-          <Card titulo="Fechamento do caixa">
-            <div style={styles.kpisModernos}>
-              <KpiComAjuda
-                titulo="Serviços Realizados"
-                valor={`${servicosRealizadosPeriodo}`}
-              />
+        const confirmar = window.confirm(
+          `Receber ${cartoesSelecionados.length} cartões selecionados?`
+        );
 
-              <KpiComAjuda
-                titulo="Notas Antigas Recebidas"
-                valor={`${quantidadeRecebimentosAntigos}`}
-              />
+        if (!confirmar) return;
 
-              <KpiComAjuda
-                titulo="Valor de Notas Antigas"
-                valor={moeda.format(valorRecebimentosAntigos)}
-              />
+        confirmarRecebimentoCartoesEmLote(cartoesSelecionados);
 
-              <KpiComAjuda
-                titulo="Recebimentos Antigos"
-                valor={moeda.format(indicadores.recebimentosAntigos || 0)}
-              />
-            </div>
+        setCartoesSelecionados([]);
+      }}
+    >
+      Receber selecionados ({cartoesSelecionados.length})
+    </button>
+    <button
+      style={{
+        ...styles.botaoCinza,
+        background: "#7f1d1d",
+      }}
+      onClick={() => {
+        if (!cartoesSelecionados.length) {
+          alert("Selecione pelo menos um cartão.");
+          return;
+        }
 
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                marginTop: 16,
-                flexWrap: "wrap",
-              }}
-            >
-              <button
-                style={
-                  mostrarRecebimentosAntigos ? styles.botao : styles.botaoCinza
-                }
-                onClick={() =>
-                  setMostrarRecebimentosAntigos(!mostrarRecebimentosAntigos)
-                }
-              >
-                {mostrarRecebimentosAntigos
-                  ? "Ocultar recebimentos antigos"
-                  : "Ver recebimentos antigos"}
-              </button>
-            </div>
-          </Card>
-        )}
+        const confirmar = window.confirm(
+          `Excluir histórico de ${cartoesSelecionados.length} cartões selecionados?`
+        );
 
-        {modoDetalhado && mostrarRecebimentosAntigos && (
-          <Card titulo="Notas antigas recebidas neste período">
-            {recebimentosAntigosDetalhados.length === 0 ? (
-              <p style={styles.vazio}>
-                Nenhuma nota antiga foi recebida neste período.
-              </p>
-            ) : (
-              <Tabela
-                colunas={[
-                  "Cliente",
-                  "Placa",
-                  "Produto",
-                  "Data venda",
-                  "Dia pago",
-                  "Pagamento",
-                  "Valor",
-                  "Processo",
-                ]}
-                dados={recebimentosAntigosDetalhados.map((entrada) => [
-                  entrada.cliente || "-",
-                  entrada.placa || "-",
-                  entrada.produto || "-",
-                  dataBR(entrada.data),
-                  dataBR(dataRecebimentoEntrada(entrada)),
-                  entrada.formaPagamento || "-",
-                  moeda.format(Number(entrada.valor || 0)),
-                  entrada.processo || "-",
-                ])}
-              />
-            )}
-          </Card>
-        )}
+        if (!confirmar) return;
 
-        {modoDetalhado && (
-          <Card titulo="Comparativos Inteligentes">
-            <div
-              style={{
-                display: "flex",
-                gap: 20,
-                flexWrap: "wrap",
-                marginBottom: 20,
-                alignItems: "flex-end",
-              }}
-            >
-              <label style={styles.label}>
-                Comparar primeiros dias do mês
+        cartoesSelecionados.forEach((id) => {
+          excluirHistoricoRecebimentoCartao(id);
+        });
+
+        setCartoesSelecionados([]);
+      }}
+    >
+      Excluir histórico selecionados ({cartoesSelecionados.length})
+    </button>
+    </div>
+        {cartoesPendentesFiltrados.length === 0 ? (
+          <p style={styles.vazio}>Nenhum cartão pendente de recebimento.</p>
+        ) : (
+          <Tabela
+            colunas={[
+      "",
+      "Cliente",
+      "Placa",
+      "Produto",
+      "Pagamento",
+      "Previsão",
+      "Valor venda",
+      "Processo",
+      "Ação",
+    ]}
+            dados={cartoesPendentesFiltrados
+              .sort((a, b) =>
+                String(a.dataPagamento || "").localeCompare(
+                  String(b.dataPagamento || "")
+                )
+              )
+              .map((entrada) => [
                 <input
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={diasComparativo}
-                  onChange={(e) => setDiasComparativo(Number(e.target.value || 1))}
-                  style={{
-                    ...styles.input,
-                    maxWidth: 160,
-                  }}
-                />
-              </label>
-            </div>
+      type="checkbox"
+      checked={cartoesSelecionados.includes(entrada.id)}
+      onChange={(e) => {
+        if (e.target.checked) {
+          setCartoesSelecionados((old) => [...old, entrada.id]);
+        } else {
+          setCartoesSelecionados((old) =>
+            old.filter((id) => id !== entrada.id)
+          );
+        }
+      }}
+    />,
+                entrada.cliente || "-",
+                entrada.placa || "-",
+                entrada.produto || "-",
+                entrada.formaPagamento || "-",
+                dataBR(entrada.dataPagamento),
+                moeda.format(Number(entrada.valor || 0)),
+                entrada.processo || "-",
+    <div
+      key={entrada.id}
+      style={{
+        display: "flex",
+        gap: 6,
+        flexWrap: "wrap",
+      }}
+    >
+      {!entrada.recebimentoCartaoConfirmado ? (
+        <button
+          style={styles.botao}
+          onClick={() => abrirModalReceberCartao(entrada)}
+        >
+          Receber
+        </button>
+      ) : (
+        <>
+          <span
+            style={{
+              color: "#22c55e",
+              fontWeight: 700,
+              alignSelf: "center",
+            }}
+          >
+            ✔ Recebido
+          </span>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
-                gap: 20,
-              }}
-            >
-              <CardComparativo
-                titulo="Semana atual vs semana anterior"
-                descricao="Compara os últimos 7 dias do período selecionado com os 7 dias imediatamente anteriores."
-                periodoAtual={`${dataBR(inicioSemanaAtual)} a ${dataBR(
-                  fimSemanaAtual
-                )}`}
-                periodoAnterior={`${dataBR(inicioSemanaAnterior)} a ${dataBR(
-                  fimSemanaAnterior
-                )}`}
-                atual={vendaSemanaAtual}
-                anterior={vendaSemanaAnterior}
-                variacao={variacaoSemana}
-              />
+          <button
+            style={styles.botaoCinza}
+            onClick={() => desfazerRecebimentoCartao(entrada.id)}
+          >
+            Desfazer
+          </button>
 
-              <CardComparativo
-                titulo="Mês atual vs mês anterior"
-                descricao="Compara o período financeiro atual selecionado com o mês anterior completo."
-                periodoAtual={`${dataBR(inicioMes)} a ${dataBR(fimMes)}`}
-                periodoAnterior={`${dataBR(inicioMesAnterior)} a ${dataBR(
-                  fimMesAnteriorComparativo
-                )}`}
-                atual={vendaMesAtual}
-                anterior={vendaMesAnterior}
-                variacao={variacaoMes}
-              />
-
-              <CardComparativo
-                titulo={`Primeiros ${diasComparativo} dias vs mês anterior`}
-                descricao="Compara a mesma quantidade de dias no início do mês atual contra o início do mês anterior."
-                periodoAtual={`${dataBR(inicioMes)} a ${dataBR(
-                  fimComparativoAtual
-                )}`}
-                periodoAnterior={`${dataBR(inicioMesAnterior)} a ${dataBR(
-                  fimComparativoAnterior
-                )}`}
-                atual={vendaPeriodoAtual}
-                anterior={vendaPeriodoAnterior}
-                variacao={variacaoPeriodo}
-              />
-            </div>
-          </Card>
+          <button
+            style={{
+              ...styles.botaoCinza,
+              background: "#7f1d1d",
+            }}
+            onClick={() =>
+              excluirHistoricoRecebimentoCartao(entrada.id)
+            }
+          >
+            Excluir histórico
+          </button>
+        </>
+      )}
+    </div>
+              ])}
+          />
         )}
+      </Card>
+    )}
+
+          {modoDetalhado && (
+            <Card titulo="Fechamento do caixa">
+              <div style={styles.kpisModernos}>
+                <KpiComAjuda
+                  titulo="Serviços Realizados"
+                  valor={`${servicosRealizadosPeriodo}`}
+                />
+
+                <KpiComAjuda
+                  titulo="Notas Antigas Recebidas"
+                  valor={`${quantidadeRecebimentosAntigos}`}
+                />
+
+                <KpiComAjuda
+                  titulo="Valor de Notas Antigas"
+                  valor={moeda.format(valorRecebimentosAntigos)}
+                />
+
+                <KpiComAjuda
+                  titulo="Recebimentos Antigos"
+                  valor={moeda.format(indicadores.recebimentosAntigos || 0)}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  marginTop: 16,
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  style={
+                    mostrarRecebimentosAntigos ? styles.botao : styles.botaoCinza
+                  }
+                  onClick={() =>
+                    setMostrarRecebimentosAntigos(!mostrarRecebimentosAntigos)
+                  }
+                >
+                  {mostrarRecebimentosAntigos
+                    ? "Ocultar recebimentos antigos"
+                    : "Ver recebimentos antigos"}
+                </button>
+              </div>
+            </Card>
+          )}
+
+          {modoDetalhado && mostrarRecebimentosAntigos && (
+            <Card titulo="Notas antigas recebidas neste período">
+              {recebimentosAntigosDetalhados.length === 0 ? (
+                <p style={styles.vazio}>
+                  Nenhuma nota antiga foi recebida neste período.
+                </p>
+              ) : (
+                <Tabela
+                  colunas={[
+                    "Cliente",
+                    "Placa",
+                    "Produto",
+                    "Data venda",
+                    "Dia pago",
+                    "Pagamento",
+                    "Valor",
+                    "Processo",
+                  ]}
+                  dados={recebimentosAntigosDetalhados.map((entrada) => [
+                    entrada.cliente || "-",
+                    entrada.placa || "-",
+                    entrada.produto || "-",
+                    dataBR(entrada.data),
+                    dataBR(dataRecebimentoEntrada(entrada)),
+                    entrada.formaPagamento || "-",
+                    moeda.format(Number(entrada.valor || 0)),
+                    entrada.processo || "-",
+                  ])}
+                />
+              )}
+            </Card>
+          )}
+
+          {modoDetalhado && (
+            <Card titulo="Comparativos Inteligentes">
+              
+ <CardRitmoMes
+  periodoAtual={`${dataBR(inicioMes)} a ${dataBR(
+    fimAnaliseComparativo
+  )}`}
+  periodoProjecao={`${dataBR(inicioMes)} a ${dataBR(fimMes)}`}
+  faturado={vendaMesAtual}
+  projecao={projecaoRitmoMes}
+  meta={metaMensal}
+  diferencaMeta={diferencaMetaProjetada}
+  bateMeta={bateMetaProjetada}
+  percentualMeta={percentualMetaProjetada}
+  variacao={variacaoMes}
+  maturidadeProjecao={confiancaProjecao}
+  nivelMaturidadeProjecao={nivelConfiancaProjecao}
+/>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
+                  gap: 20,
+                }}
+              >
+                <CardComparativo
+                  titulo="Semana atual vs semana anterior"
+                  descricao="Compara os últimos 7 dias do período selecionado com os 7 dias imediatamente anteriores."
+                  periodoAtual={`${dataBR(inicioSemanaAtual)} a ${dataBR(
+                    fimSemanaAtual
+                  )}`}
+                  periodoAnterior={`${dataBR(inicioSemanaAnterior)} a ${dataBR(
+                    fimSemanaAnterior
+                  )}`}
+                  atual={vendaSemanaAtual}
+                  anterior={vendaSemanaAnterior}
+                  variacao={variacaoSemana}
+                />
+
+                <CardComparativo
+                  titulo="Mês atual vs mês anterior"
+                  descricao="Compara o mês atual até a data de hoje com o mesmo ponto do mês financeiro anterior."
+                  periodoAtual={`${dataBR(inicioMes)} a ${dataBR(fimAnaliseComparativo)}`}
+                  periodoAnterior={`${dataBR(inicioMesAnterior)} a ${dataBR(
+                    fimMesAnteriorComparativo
+                  )}`}
+                  atual={vendaMesAtual}
+                  anterior={vendaMesAnterior}
+                  variacao={variacaoMes}
+                />
+
+                
+              </div>
+            </Card>
+          )}
 
         <div className="dashboard-graficos-executivos">
           <div style={{ minWidth: 0 }}>
