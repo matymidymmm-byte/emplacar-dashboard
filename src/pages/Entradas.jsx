@@ -159,18 +159,28 @@ export default function Entradas({
               }
             />
 
-            <Select
-              label="Cliente"
-              valor={entradaForm.cliente}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  cliente: v,
-                })
-              }
-              opcoes={["", ...clientes.map((c) => c.nome)]}
-              placeholder="Cliente"
-            />
+            <label style={styles.label}>
+  Cliente
+
+  <input
+    list="lista-clientes"
+    value={entradaForm.cliente}
+    onChange={(e) =>
+      setEntradaForm({
+        ...entradaForm,
+        cliente: e.target.value,
+      })
+    }
+    placeholder="Digite ou selecione um cliente"
+    style={styles.input}
+  />
+
+  <datalist id="lista-clientes">
+    {clientes.map((cliente) => (
+      <option key={cliente.id} value={cliente.nome} />
+    ))}
+  </datalist>
+</label>
 
             <Campo
               label="Produto"

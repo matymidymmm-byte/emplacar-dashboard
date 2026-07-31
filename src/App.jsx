@@ -374,6 +374,8 @@ function Sistema({ usuario, acesso, trocarEmpresaSuperadmin }) {
   const [botaoCopiado, setBotaoCopiado] = useState("");
 
   const [entradas, setEntradas] = useState([]);
+  
+  
   const [saidas, setSaidas] = useState([]);
   const [contas, setContas] = useState([]);
   const [clientes, setClientes] = useState([]);
@@ -1541,85 +1543,163 @@ function listarRecebimentosAntigosDoPeriodo(inicio, fim) {
   }
 
   function salvarEntrada() {
-    const antiga =
-      editando.tipo === "entrada"
-        ? entradas.find((x) => x.id === editando.id)
-        : null;
+  const estaEditando =
+    editando.tipo === "entrada" &&
+    editando.id !== null &&
+    editando.id !== undefined;
 
-    const nova = {
-      ...entradaForm,
-      valor: numero(entradaForm.valor),
-      diaPago: entradaForm.diaPago || "",
-      categoriaPlaca: entradaForm.categoriaPlaca || "",
-      celular: entradaForm.celular || "",
-      relacaoPagaId: entradaForm.relacaoPagaId || "",
-      recebimentoCartaoConfirmado:
-  entradaForm.status === "Pago"
-    ? entradaForm.recebimentoCartaoConfirmado || false
-    : false,
+  if (!entradaForm.data) {
+    alert("Informe a data da entrada.");
+    return;
+  }
 
-valorLiquidoRecebido:
-  entradaForm.status === "Pago"
-    ? Number(entradaForm.valorLiquidoRecebido || 0)
-    : 0,
+  if (!String(entradaForm.cliente || "").trim()) {
+    alert("Informe o cliente.");
+    return;
+  }
 
-dataRecebimentoCartao:
-  entradaForm.status === "Pago"
-    ? entradaForm.dataRecebimentoCartao || ""
-    : "",
+  if (!String(entradaForm.placa || "").trim()) {
+    alert("Informe a placa.");
+    return;
+  }
 
-taxaCartao:
-  entradaForm.status === "Pago"
-    ? Number(entradaForm.taxaCartao || 0)
-    : 0,
-      id: editando.tipo === "entrada" ? editando.id : Date.now(),
-    };
+  if (numero(entradaForm.valor) <= 0) {
+    alert("Informe um valor maior que zero.");
+    return;
+  }
 
-    if (editando.tipo === "entrada") {
-      const detalhes = compararAlteracoes(antiga, nova, [
-        "data",
-        "tipo",
-        "cliente",
-        "produto",
-        "placa",
-        "renavan",
-        "formaPagamento",
-        "valor",
-        "status",
-        "processo",
-        "diaPago",
-        "celular",
-      ]);
+  const antiga = estaEditando
+    ? entradas.find(
+        (entrada) => String(entrada.id) === String(editando.id)
+      )
+    : null;
 
-      setEntradas((old) => old.map((x) => (x.id === editando.id ? nova : x)));
+  if (estaEditando && !antiga) {
+    alert(
+      "A entrada que estava sendo editada não foi encontrada. Nada foi salvo."
+    );
+    cancelarEdicao();
+    return;
+  }
 
-      if (detalhes.length > 0) {
-        registrarAlteracao({
-          tipo: "Alteração",
-          modulo: "Entradas",
-          descricao: `${usuario?.email || "Usuário"} alterou entrada ${
-            nova.placa || nova.cliente || nova.tipo || nova.id
-          }`,
-          itemId: nova.id,
-          detalhes,
-        });
-      }
-    } else {
-      setEntradas((old) => [nova, ...old]);
+  const nova = {
+    ...entradaForm,
 
+    data: entradaForm.data,
+    cliente: String(entradaForm.cliente || "").trim(),
+    placa: String(entradaForm.placa || "").trim().toUpperCase(),
+    renavan: String(entradaForm.renavan || "").trim(),
+
+    valor: numero(entradaForm.valor),
+    diaPago: entradaForm.diaPago || "",
+    categoriaPlaca: entradaForm.categoriaPlaca || "",
+    celular: entradaForm.celular || "",
+    relacaoPagaId: entradaForm.relacaoPagaId || "",
+
+    recebimentoCartaoConfirmado:
+      entradaForm.status === "Pago"
+        ? entradaForm.recebimentoCartaoConfirmado || false
+        : false,
+
+    valorLiquidoRecebido:
+      entradaForm.status === "Pago"
+        ? Number(entradaForm.valorLiquidoRecebido || 0)
+        : 0,
+
+    dataRecebimentoCartao:
+      entradaForm.status === "Pago"
+        ? entradaForm.dataRecebimentoCartao || ""
+        : "",
+
+    taxaCartao:
+      entradaForm.status === "Pago"
+        ? Number(entradaForm.taxaCartao || 0)
+        : 0,
+
+    id: estaEditando ? antiga.id : Date.now(),
+  };
+
+  const entradaParecida = entradas.find((entrada) => {
+    const outroRegistro =
+      String(entrada.id) !== String(nova.id);
+
+    const mesmaPlaca =
+      normalizar(entrada.placa) === normalizar(nova.placa);
+
+    const mesmoRenavan =
+      nova.renavan &&
+      normalizar(entrada.renavan) === normalizar(nova.renavan);
+
+    return outroRegistro && (mesmaPlaca || mesmoRenavan);
+  });
+
+  if (!estaEditando && entradaParecida) {
+    const confirmarDuplicidade = window.confirm(
+      `Já existe uma entrada parecida:\n\n` +
+        `Cliente: ${entradaParecida.cliente || "-"}\n` +
+        `Placa: ${entradaParecida.placa || "-"}\n` +
+        `Renavan: ${entradaParecida.renavan || "-"}\n` +
+        `Data: ${entradaParecida.data || "SEM DATA"}\n` +
+        `Valor: ${moeda.format(Number(entradaParecida.valor || 0))}\n\n` +
+        `Deseja realmente criar outra entrada?`
+    );
+
+    if (!confirmarDuplicidade) {
+      return;
+    }
+  }
+
+  if (estaEditando) {
+    const detalhes = compararAlteracoes(antiga, nova, [
+      "data",
+      "tipo",
+      "cliente",
+      "produto",
+      "placa",
+      "renavan",
+      "formaPagamento",
+      "valor",
+      "status",
+      "processo",
+      "diaPago",
+      "celular",
+    ]);
+
+    setEntradas((old) =>
+      old.map((entrada) =>
+        String(entrada.id) === String(editando.id)
+          ? nova
+          : entrada
+      )
+    );
+
+    if (detalhes.length > 0) {
       registrarAlteracao({
-        tipo: "Adição",
+        tipo: "Alteração",
         modulo: "Entradas",
-        descricao: `${usuario?.email || "Usuário"} adicionou entrada ${
+        descricao: `${usuario?.email || "Usuário"} alterou entrada ${
           nova.placa || nova.cliente || nova.tipo || nova.id
         }`,
-        valorNovo: nova,
         itemId: nova.id,
+        detalhes,
       });
     }
+  } else {
+    setEntradas((old) => [nova, ...old]);
 
-    cancelarEdicao();
+    registrarAlteracao({
+      tipo: "Adição",
+      modulo: "Entradas",
+      descricao: `${usuario?.email || "Usuário"} adicionou entrada ${
+        nova.placa || nova.cliente || nova.tipo || nova.id
+      }`,
+      valorNovo: nova,
+      itemId: nova.id,
+    });
   }
+
+  cancelarEdicao();
+}
 
  function salvarSaida() {
   const nova = {
@@ -2030,6 +2110,7 @@ function montarPrecosServicosCliente(cliente) {
       itemId: id,
     });
   }
+  
 
   function alternarConta(id) {
     const conta = contas.find((x) => String(x.id) === String(id));
