@@ -1216,6 +1216,11 @@ taxaCartao: 0,
     tipo: null,
     id: null,
   });
+  useEffect(() => {
+  if (aba !== "Entradas" && editando.tipo === "entrada") {
+    cancelarEdicao();
+  }
+}, [aba]);
 
   function compararAlteracoes(antigo, novo, campos) {
     if (!antigo || !novo) return [];
@@ -2110,8 +2115,18 @@ function montarPrecosServicosCliente(cliente) {
       itemId: id,
     });
   }
-  
 
+function removerEntradasCorrompidas() {
+  const confirmar = window.confirm(
+    "Excluir somente a entrada corrompida de R$ 110,00 — BACKS, placa QKM9G46?"
+  );
+
+  if (!confirmar) return;
+
+  remover("entrada", 1785520407690);
+
+  alert("A entrada corrompida de R$ 110,00 foi excluída.");
+}
   function alternarConta(id) {
     const conta = contas.find((x) => String(x.id) === String(id));
 
@@ -2348,13 +2363,65 @@ const caixaRecebidoVendas = vendasLiquidadasPeriodo.reduce(
 
     return soma + Number(entrada.valor || 0);
   }, 0);
+console.table(
+  entradas
+    .filter((x) => {
+      if (ehInjecaoCaixa(x)) return false;
+      if (destinoDinheiro(x.formaPagamento) === "Caixa") return false;
+      if (x.status !== "Pago") return false;
 
+      const dataLiquidacao = dataLiquidacaoEntrada(x);
+
+      if (
+        !dataLiquidacao ||
+        dataLiquidacao < inicioMes ||
+        dataLiquidacao > hoje
+      ) {
+        return false;
+      }
+
+      const forma = normalizar(x.formaPagamento);
+
+      if (
+        (forma.includes("DEBITO") || forma.includes("CREDITO")) &&
+        !x.recebimentoCartaoConfirmado
+      ) {
+        return false;
+      }
+
+      return true;
+    })
+    .map((x) => ({
+      id: x.id,
+      cliente: x.cliente,
+      placa: x.placa,
+      valor: Number(x.valor || 0),
+      dataVenda: x.data,
+      diaPago: x.diaPago,
+      forma: x.formaPagamento,
+      cartaoConfirmado: x.recebimentoCartaoConfirmado ? "SIM" : "NÃO",
+      injecao: ehInjecaoCaixa(x) ? "SIM" : "NÃO",
+    }))
+);
     const recebidoCaixa = dadosPeriodo.entradasRecebidas
       .filter((x) => {
         if (ehInjecaoCaixa(x)) return true;
         return destinoDinheiro(x.formaPagamento) === "Caixa";
       })
       .reduce((s, x) => s + x.valor, 0);
+      console.table(
+  entradas
+    .filter((x) => !x.data)
+    .map((x) => ({
+      id: x.id,
+      cliente: x.cliente,
+      placa: x.placa,
+      valor: x.valor,
+      data: x.data,
+      diaPago: x.diaPago,
+      forma: x.formaPagamento,
+    }))
+);
 
     const notasPendentes = entradas
       .filter(
@@ -2885,7 +2952,18 @@ setEstoqueResumoGlobal,
         {aba === "Histórico Financeiro" && (
           <HistoricoFinanceiro {...propsGlobais} />
         )}
-
+{aba === "Entradas" && (
+  <button
+    onClick={removerEntradasCorrompidas}
+    style={{
+      ...styles.botao,
+      background: "#dc2626",
+      marginBottom: 16,
+    }}
+  >
+    Excluir 7 entradas corrompidas
+  </button>
+)}
         {aba === "Entradas" && <Entradas {...propsGlobais} />}
         {aba === "Saídas" && <Saidas {...propsGlobais} />}
         {aba === "Contas a Pagar" && <Contas {...propsGlobais} />}
