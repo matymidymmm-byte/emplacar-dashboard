@@ -306,7 +306,7 @@ useEffect(() => {
           valorNumerico: Number(entrada.valor || 0),
         };
       })
-      .filter((entrada) => entrada.dataPagamento && entrada.dataLiquidacao);
+      .filter((entrada) => entrada.dataLiquidacao);
 
     const cartoesPendentesLiquidacao = entradas
     .filter((entrada) => entrada.status === "Pago" || entrada.status === "Pendente")
@@ -377,18 +377,25 @@ const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
   0
 );
 
-    const cartoesContadosMasNaoLiquidadosPeriodo = cartoesLiquidados
-      .filter((entrada) => entrada.dataPagamento >= inicioMes)
-      .filter((entrada) => entrada.dataPagamento <= fimAnalise)
-      .filter((entrada) => entrada.dataLiquidacao > fimAnalise)
-      .reduce((soma, entrada) => soma + entrada.valorNumerico, 0);
+    const cartoesPagosAntesELiquidadosNoPeriodo = entradas
+  .filter((entrada) => {
+    if (ehInjecaoOuAporte(entrada)) return false;
+    if (!ehCartaoBanco(entrada.formaPagamento)) return false;
+    if (!entrada.recebimentoCartaoConfirmado) return false;
 
-    const cartoesPagosAntesELiquidadosNoPeriodo = cartoesLiquidados
-      .filter((entrada) => entrada.dataPagamento < inicioMes)
-      .filter((entrada) => entrada.dataLiquidacao >= inicioMes)
-      .filter((entrada) => entrada.dataLiquidacao <= fimAnalise)
-      .reduce((soma, entrada) => soma + entrada.valorNumerico, 0);
+    const vendaFoiDoPeriodoPassado =
+      entrada.data && !dentroDoPeriodo(entrada.data);
 
+    const liquidacaoFoiNoPeriodoAtual =
+      entrada.dataRecebimentoCartao &&
+      dentroDoPeriodo(entrada.dataRecebimentoCartao);
+
+    return vendaFoiDoPeriodoPassado && liquidacaoFoiNoPeriodoAtual;
+  })
+  .reduce(
+    (soma, entrada) => soma + Number(entrada.valor || 0),
+    0
+  );
     const bancoRealAjustado = Number(indicadores.tenhoNoBanco || 0);
 
     const fluxoCaixaDiario = (() => {
@@ -743,6 +750,7 @@ const valorCartoesAReceberProximosDias = cartoesAReceberProximosDias.reduce(
       ["Faturamento", receitaOperacional],
       ["Entradas à Vista", indicadores.entradasVistaTotal || 0],
       ["Recebimentos Antigos", indicadores.recebimentosAntigos || 0],
+      ["Cartões Antigos Recebidos", cartoesPagosAntesELiquidadosNoPeriodo || 0],
       ["Caixa Recebido", indicadores.caixaRecebidoTotal || 0],
       ["Caixa Operacional", caixaOperacional || 0],
       ["Saldo Operacional", saldoOperacional || 0],
@@ -1812,6 +1820,10 @@ function CardRitmoMes({
       valor: indicadores.recebidoBanco || 0,
     },
     {
+  label: "Cartões recebidos do período passado",
+  valor: cartoesPagosAntesELiquidadosNoPeriodo || 0,
+},
+    {
       label: "(+) Recebido do Caixa",
       valor: indicadores.totalCaixaParaBanco || 0,
     },
@@ -2353,7 +2365,8 @@ function CardRitmoMes({
       "Placa",
       "Produto",
       "Pagamento",
-      "Previsão",
+      "Data da venda",
+"Recebido em",
       "Valor venda",
       "Processo",
       "Ação",
@@ -2382,7 +2395,10 @@ function CardRitmoMes({
                 entrada.placa || "-",
                 entrada.produto || "-",
                 entrada.formaPagamento || "-",
-                dataBR(entrada.dataPagamento),
+                dataBR(entrada.data),
+entrada.recebimentoCartaoConfirmado
+  ? dataBR(entrada.dataRecebimentoCartao)
+  : "-",
                 moeda.format(Number(entrada.valor || 0)),
                 entrada.processo || "-",
     <div
