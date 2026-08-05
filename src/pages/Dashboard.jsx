@@ -110,6 +110,9 @@ useEffect(() => {
   const [valorLiquidoCartao, setValorLiquidoCartao] = useState("");
   const [cartoesSelecionados, setCartoesSelecionados] = useState([]);
   const [mesCartoesFiltro, setMesCartoesFiltro] = useState("");
+  const [mostrarConferenciaExcel, setMostrarConferenciaExcel] = useState(false);
+const [textoConferenciaExcel, setTextoConferenciaExcel] = useState("");
+const [resultadoConferenciaExcel, setResultadoConferenciaExcel] = useState(null);
 
     const hojeSistema = new Date();
     const hojeReferencia = hojeSistema.toISOString().slice(0, 10);
@@ -184,7 +187,458 @@ useEffect(() => {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
     }
+function valorExcelParaNumero(valor) {
+  const limpo = String(valor || "")
+    .replace(/R\$/gi, "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .replace(/[^0-9.-]/g, "");
 
+  const resultado = Number(limpo);
+  return Number.isFinite(resultado) ? resultado : 0;
+}
+
+function cabecalhoExcel(texto) {
+  return normalizarTexto(texto).replace(/[^A-Z0-9]/g, "");
+}
+
+function valorReal(texto) {
+  const valor = normalizarTexto(texto).trim();
+
+  return (
+    valor &&
+    valor !== "NAO CONSTA" &&
+    valor !== "N/A" &&
+    valor !== "-"
+  );
+}
+
+function lerTabelaConferencia(textoColado) {
+  const linhas = String(textoColado || "")
+    .split(/\r?\n/)
+    .filter((linha) => linha.trim());
+
+  if (linhas.length < 2) {
+    throw new Error(
+      "Cole o cabeçalho e pelo menos uma linha do Excel."
+    );
+  }
+
+  const cabecalhos = linhas[0]
+    .split("\t")
+    .map(cabecalhoExcel);
+
+  const indice = (...nomes) =>
+    cabecalhos.findIndex((item) =>
+      nomes.map(cabecalhoExcel).includes(item)
+    );
+
+  const colunas = {
+    data: indice("DATA"),
+    tipo: indice("TIPO"),
+    cliente: indice("CLIENTE"),
+    produto: indice("SERVIÇO", "SERVICO", "PRODUTO"),
+    placa: indice("PLACA"),
+    renavan: indice("RENAVAN"),
+    formaPagamento: indice(
+      "FORMA DE PAGAMENTO",
+      "FORMAPAGAMENTO"
+    ),
+    valor: indice("VALOR"),
+    status: indice("STATUS"),
+    processo: indice("PROCESSO"),
+    diaPago: indice("PAGO DIA", "DIAPAGO"),
+    categoria: indice("CATEGORIA"),
+  };
+
+  if (colunas.data < 0 || colunas.valor < 0) {
+    throw new Error(
+      "O Excel precisa ter, no mínimo, as colunas DATA e VALOR."
+    );
+  }
+
+  const pegar = (celulas, posicao) =>
+    posicao >= 0
+      ? String(celulas[posicao] || "").trim()
+      : "";
+
+  return linhas.slice(1).map((linha, posicao) => {
+    const celulas = linha.split("\t");
+
+    return {
+      linhaExcel: posicao + 2,
+      data: brasilParaISO(pegar(celulas, colunas.data)),
+      tipo: pegar(celulas, colunas.tipo),
+      cliente: pegar(celulas, colunas.cliente),
+      produto: pegar(celulas, colunas.produto),
+      placa: pegar(celulas, colunas.placa),
+      renavan: pegar(celulas, colunas.renavan),
+      formaPagamento: pegar(
+        celulas,
+        colunas.formaPagamento
+      ),
+      valor: valorExcelParaNumero(
+        pegar(celulas, colunas.valor)
+      ),
+      status: pegar(celulas, colunas.status),
+      processo: pegar(celulas, colunas.processo),
+      diaPago: brasilParaISO(
+        pegar(celulas, colunas.diaPago)
+      ),
+      categoria: pegar(celulas, colunas.categoria),
+    };
+  });
+}
+
+function statusConferencia(status, diaPago = "") {
+  const texto = normalizarTexto(status);
+
+  if (
+    diaPago ||
+    texto.includes("PAGO") ||
+    texto.includes("RECEBIDO") ||
+    texto.includes("QUITADO")
+  ) {
+    return "Pago";
+  }
+
+  return "Pendente";
+}
+
+function destinoConferencia(formaPagamento, status, diaPago = "") {
+  const forma = normalizarTexto(formaPagamento);
+  const situacao = statusConferencia(status, diaPago);
+
+  if (situacao === "Pendente") {
+    return "Faturado";
+  }
+
+  if (
+    forma.includes("DINHEIRO") ||
+    forma.includes("CHEQUE") ||
+    forma.includes("CAIXA")
+  ) {
+    return "Caixa";
+  }
+
+  if (
+    forma.includes("PIX") ||
+    forma.includes("DEBITO") ||
+    forma.includes("CREDITO") ||
+    forma.includes("DEPOSITO") ||
+    forma.includes("TRANSFERENCIA") ||
+    forma.includes("BANCO")
+  ) {
+    return "Banco";
+  }
+
+  if (
+    forma.includes("FATURADO") ||
+    forma.includes("NOTA") ||
+    forma.includes("BOLETO") ||
+    forma.includes("PRAZO")
+  ) {
+    return diaPago ? "Banco" : "Faturado";
+  }
+
+  return destinoDinheiro(formaPagamento) === "Caixa"
+    ? "Caixa"
+    : "Banco";
+}
+
+function criarResumoDia(data) {
+  return {
+    data,
+    quantidade: 0,
+    valorTotal: 0,
+
+    quantidadePagos: 0,
+    valorPago: 0,
+
+    quantidadePendentes: 0,
+    valorPendente: 0,
+
+    quantidadeCaixa: 0,
+    valorCaixa: 0,
+
+    quantidadeBanco: 0,
+    valorBanco: 0,
+
+    quantidadeFaturado: 0,
+    valorFaturado: 0,
+  };
+}
+
+function adicionarAoResumo(resumo, item, origem) {
+  const valor = Number(item.valor || 0);
+  const diaPago =
+    origem === "excel"
+      ? item.diaPago || ""
+      : dataRecebimentoEntrada(item) || "";
+
+  const situacao = statusConferencia(
+    item.status,
+    diaPago
+  );
+
+  const destino = destinoConferencia(
+    item.formaPagamento,
+    item.status,
+    diaPago
+  );
+
+  resumo.quantidade += 1;
+  resumo.valorTotal += valor;
+
+  if (situacao === "Pago") {
+    resumo.quantidadePagos += 1;
+    resumo.valorPago += valor;
+  } else {
+    resumo.quantidadePendentes += 1;
+    resumo.valorPendente += valor;
+  }
+
+  if (destino === "Caixa") {
+    resumo.quantidadeCaixa += 1;
+    resumo.valorCaixa += valor;
+  }
+
+  if (destino === "Banco") {
+    resumo.quantidadeBanco += 1;
+    resumo.valorBanco += valor;
+  }
+
+  if (destino === "Faturado") {
+    resumo.quantidadeFaturado += 1;
+    resumo.valorFaturado += valor;
+  }
+}
+
+function resumirPorDia(lista, origem) {
+  const mapa = {};
+
+  lista.forEach((item) => {
+    if (!item.data) return;
+
+    if (!mapa[item.data]) {
+      mapa[item.data] = criarResumoDia(item.data);
+    }
+
+    adicionarAoResumo(mapa[item.data], item, origem);
+  });
+
+  return mapa;
+}
+
+function compararNumero(
+  divergencias,
+  nome,
+  valorExcel,
+  valorSistema,
+  tipo = "quantidade"
+) {
+  const excel = Number(valorExcel || 0);
+  const sistema = Number(valorSistema || 0);
+
+  if (Math.abs(excel - sistema) <= 0.009) return;
+
+  divergencias.push({
+    nome,
+    excel:
+      tipo === "valor"
+        ? moeda.format(excel)
+        : excel,
+    sistema:
+      tipo === "valor"
+        ? moeda.format(sistema)
+        : sistema,
+  });
+}
+
+function compararResumoDia(excel, sistema) {
+  const divergencias = [];
+
+  compararNumero(
+    divergencias,
+    "Quantidade de lançamentos",
+    excel.quantidade,
+    sistema.quantidade
+  );
+
+  compararNumero(
+    divergencias,
+    "Valor total",
+    excel.valorTotal,
+    sistema.valorTotal,
+    "valor"
+  );
+
+  compararNumero(
+    divergencias,
+    "Quantidade paga",
+    excel.quantidadePagos,
+    sistema.quantidadePagos
+  );
+
+  compararNumero(
+    divergencias,
+    "Valor pago",
+    excel.valorPago,
+    sistema.valorPago,
+    "valor"
+  );
+
+  compararNumero(
+    divergencias,
+    "Quantidade pendente",
+    excel.quantidadePendentes,
+    sistema.quantidadePendentes
+  );
+
+  compararNumero(
+    divergencias,
+    "Valor pendente",
+    excel.valorPendente,
+    sistema.valorPendente,
+    "valor"
+  );
+
+  compararNumero(
+    divergencias,
+    "Quantidade no Caixa",
+    excel.quantidadeCaixa,
+    sistema.quantidadeCaixa
+  );
+
+  compararNumero(
+    divergencias,
+    "Valor no Caixa",
+    excel.valorCaixa,
+    sistema.valorCaixa,
+    "valor"
+  );
+
+  compararNumero(
+    divergencias,
+    "Quantidade no Banco",
+    excel.quantidadeBanco,
+    sistema.quantidadeBanco
+  );
+
+  compararNumero(
+    divergencias,
+    "Valor no Banco",
+    excel.valorBanco,
+    sistema.valorBanco,
+    "valor"
+  );
+
+  compararNumero(
+    divergencias,
+    "Quantidade faturada",
+    excel.quantidadeFaturado,
+    sistema.quantidadeFaturado
+  );
+
+  compararNumero(
+    divergencias,
+    "Valor faturado",
+    excel.valorFaturado,
+    sistema.valorFaturado,
+    "valor"
+  );
+
+  return divergencias;
+}
+
+function executarConferenciaExcel() {
+  try {
+    const linhasExcel = lerTabelaConferencia(
+      textoConferenciaExcel
+    );
+
+    const datasInformadas = linhasExcel
+      .map((item) => item.data)
+      .filter(Boolean)
+      .sort();
+
+    if (datasInformadas.length === 0) {
+      throw new Error(
+        "Nenhuma data válida foi encontrada na tabela."
+      );
+    }
+
+    const primeiraData = datasInformadas[0];
+    const ultimaData = datasInformadas[datasInformadas.length - 1];
+
+    const candidatosSistema = entradas.filter((entrada) =>
+  dentroDoPeriodo(entrada.data)
+);
+
+    const resumoExcel = resumirPorDia(
+      linhasExcel,
+      "excel"
+    );
+
+    const resumoSistema = resumirPorDia(
+      candidatosSistema,
+      "sistema"
+    );
+
+    const todasAsDatas = [
+      ...new Set([
+        ...Object.keys(resumoExcel),
+        ...Object.keys(resumoSistema),
+      ]),
+    ].sort();
+
+    const diasCorretos = [];
+    const diasDivergentes = [];
+
+    todasAsDatas.forEach((data) => {
+      const excel =
+        resumoExcel[data] || criarResumoDia(data);
+
+      const sistema =
+        resumoSistema[data] || criarResumoDia(data);
+
+      const divergencias = compararResumoDia(
+        excel,
+        sistema
+      );
+
+      if (divergencias.length === 0) {
+        diasCorretos.push({
+          data,
+          excel,
+          sistema,
+        });
+      } else {
+        diasDivergentes.push({
+          data,
+          excel,
+          sistema,
+          divergencias,
+        });
+      }
+    });
+
+    setResultadoConferenciaExcel({
+      totalExcel: linhasExcel.length,
+      totalSistema: candidatosSistema.length,
+      diasCorretos,
+      diasDivergentes,
+      primeiraData,
+      ultimaData,
+    });
+  } catch (erro) {
+    alert(
+      erro.message ||
+        "Não foi possível conferir a tabela."
+    );
+  }
+}
     function ehDebito(formaPagamento) {
       const forma = normalizarTexto(formaPagamento);
       return forma.includes("DEBITO");
@@ -1972,6 +2426,197 @@ function CardRitmoMes({
     totalValor={indicadores.entradaLiquida || 0}
   />
       </div>
+      <Card titulo="Conferência por Excel">
+  <p style={{ color: "#94a3b8", marginTop: 0, lineHeight: 1.5 }}>
+    Cole a tabela do início do período até hoje. Esta ferramenta apenas
+    compara os dados e não salva nem altera lançamentos.
+  </p>
+
+  {!mostrarConferenciaExcel ? (
+    <button
+      type="button"
+      style={{
+        ...styles.botaoDashboard,
+        background: "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)",
+      }}
+      onClick={() => setMostrarConferenciaExcel(true)}
+    >
+      Abrir Conferência por Excel
+    </button>
+  ) : (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <textarea
+        value={textoConferenciaExcel}
+        onChange={(e) => {
+          setTextoConferenciaExcel(e.target.value);
+          setResultadoConferenciaExcel(null);
+        }}
+        placeholder="Cole aqui o cabeçalho e as linhas copiadas do Excel..."
+        style={{
+          ...styles.input,
+          width: "100%",
+          minHeight: 180,
+          resize: "vertical",
+          fontFamily: "monospace",
+          boxSizing: "border-box",
+        }}
+      />
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          style={{
+            ...styles.botaoDashboard,
+            background: "linear-gradient(135deg,#16a34a 0%,#15803d 100%)",
+          }}
+          onClick={executarConferenciaExcel}
+        >
+          Conferir Agora
+        </button>
+
+        <button
+          type="button"
+          style={styles.botaoDashboard}
+          onClick={() => {
+            setTextoConferenciaExcel("");
+            setResultadoConferenciaExcel(null);
+          }}
+        >
+          Limpar
+        </button>
+
+        <button
+          type="button"
+          style={styles.botaoDashboard}
+          onClick={() => setMostrarConferenciaExcel(false)}
+        >
+          Fechar Janela
+        </button>
+      </div>
+
+      {resultadoConferenciaExcel && (
+  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div
+      style={{
+        padding: 16,
+        borderRadius: 14,
+        border: `1px solid ${
+          resultadoConferenciaExcel.diasDivergentes.length === 0
+            ? "rgba(34,197,94,0.55)"
+            : "rgba(245,158,11,0.55)"
+        }`,
+        background:
+          resultadoConferenciaExcel.diasDivergentes.length === 0
+            ? "rgba(34,197,94,0.10)"
+            : "rgba(245,158,11,0.10)",
+      }}
+    >
+      <strong style={{ color: "#fff", fontSize: 17 }}>
+        {resultadoConferenciaExcel.diasDivergentes.length === 0
+          ? "Tudo bate — conferência concluída"
+          : "Conferência concluída com diferenças"}
+      </strong>
+
+      <div style={{ color: "#cbd5e1", marginTop: 8 }}>
+        {resultadoConferenciaExcel.diasCorretos.length} dias corretos ·{" "}
+        {resultadoConferenciaExcel.diasDivergentes.length} dias com diferenças
+      </div>
+
+      <div style={{ color: "#94a3b8", marginTop: 6, fontSize: 13 }}>
+        Período conferido:{" "}
+        {dataBR(resultadoConferenciaExcel.primeiraData)} até{" "}
+        {dataBR(resultadoConferenciaExcel.ultimaData)}
+      </div>
+    </div>
+
+    {resultadoConferenciaExcel.diasCorretos.length > 0 && (
+      <div>
+        <h4 style={{ color: "#22c55e", marginBottom: 10 }}>
+          Dias que estão corretos
+        </h4>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {resultadoConferenciaExcel.diasCorretos.map((item) => (
+            <div
+              key={`correto-${item.data}`}
+              style={{
+                padding: "9px 12px",
+                borderRadius: 10,
+                color: "#bbf7d0",
+                background: "rgba(34,197,94,0.10)",
+                border: "1px solid rgba(34,197,94,0.25)",
+              }}
+            >
+              {dataBR(item.data)} — {item.excel.quantidade} lançamentos —{" "}
+              {moeda.format(item.excel.valorTotal)}
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {resultadoConferenciaExcel.diasDivergentes.length > 0 && (
+      <div>
+        <h4 style={{ color: "#f59e0b", marginBottom: 10 }}>
+          Dias com diferenças
+        </h4>
+
+        {resultadoConferenciaExcel.diasDivergentes.map((item) => (
+          <div
+            key={`divergente-${item.data}`}
+            style={{
+              padding: 14,
+              marginBottom: 10,
+              borderRadius: 12,
+              background: "rgba(15,23,42,0.75)",
+              border: "1px solid rgba(245,158,11,0.30)",
+            }}
+          >
+            <strong style={{ color: "#fff", fontSize: 16 }}>
+              {dataBR(item.data)}
+            </strong>
+
+            <div
+              style={{
+                color: "#94a3b8",
+                marginTop: 6,
+                marginBottom: 10,
+                fontSize: 13,
+              }}
+            >
+              Excel: {item.excel.quantidade} lançamentos —{" "}
+              {moeda.format(item.excel.valorTotal)}
+              {" · "}
+              Sistema: {item.sistema.quantidade} lançamentos —{" "}
+              {moeda.format(item.sistema.valorTotal)}
+            </div>
+
+            {item.divergencias.map((divergencia, indice) => (
+              <div
+                key={`${item.data}-${indice}`}
+                style={{
+                  color: "#fbbf24",
+                  marginTop: 6,
+                  paddingTop: 6,
+                  borderTop:
+                    indice === 0
+                      ? "none"
+                      : "1px solid rgba(148,163,184,0.12)",
+                }}
+              >
+                <strong>{divergencia.nome}:</strong>{" "}
+                Excel {divergencia.excel} / Sistema {divergencia.sistema}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+    </div>
+  )}
+</Card>
     </div>
   );
   }
