@@ -1555,28 +1555,28 @@ function listarRecebimentosAntigosDoPeriodo(inicio, fim) {
     setClienteForm(clienteVazio);
   }
 
-  function salvarEntrada() {
+  function salvarEntrada(formulario = entradaForm) {
   const estaEditando =
     editando.tipo === "entrada" &&
     editando.id !== null &&
     editando.id !== undefined;
 
-  if (!entradaForm.data) {
+  if (!formulario.data) {
     alert("Informe a data da entrada.");
     return;
   }
 
-  if (!String(entradaForm.cliente || "").trim()) {
+  if (!String(formulario.cliente || "").trim()) {
     alert("Informe o cliente.");
     return;
   }
 
-  if (!String(entradaForm.placa || "").trim()) {
+  if (!String(formulario.placa || "").trim()) {
     alert("Informe a placa.");
     return;
   }
 
-  if (numero(entradaForm.valor) <= 0) {
+  if (numero(formulario.valor) <= 0) {
     alert("Informe um valor maior que zero.");
     return;
   }
@@ -1596,40 +1596,42 @@ function listarRecebimentosAntigosDoPeriodo(inicio, fim) {
   }
 
   const nova = {
-    ...entradaForm,
+    ...formulario,
 
-    data: entradaForm.data,
-    cliente: String(entradaForm.cliente || "").trim(),
-    placa: String(entradaForm.placa || "").trim().toUpperCase(),
-    renavan: String(entradaForm.renavan || "").trim(),
+    data: formulario.data,
+    cliente: String(formulario.cliente || "").trim(),
+    placa: String(formulario.placa || "").trim().toUpperCase(),
+    renavan: String(formulario.renavan || "").trim(),
 
-    valor: numero(entradaForm.valor),
+    valor: numero(formulario.valor),
+
     diaPago:
-  entradaForm.status === "Pago"
-    ? entradaForm.diaPago || entradaForm.data || ""
-    : "",
-    categoriaPlaca: entradaForm.categoriaPlaca || "",
-    celular: entradaForm.celular || "",
-    relacaoPagaId: entradaForm.relacaoPagaId || "",
+      formulario.status === "Pago"
+        ? formulario.diaPago || formulario.data || ""
+        : "",
+
+    categoriaPlaca: formulario.categoriaPlaca || "",
+    celular: formulario.celular || "",
+    relacaoPagaId: formulario.relacaoPagaId || "",
 
     recebimentoCartaoConfirmado:
-      entradaForm.status === "Pago"
-        ? entradaForm.recebimentoCartaoConfirmado || false
+      formulario.status === "Pago"
+        ? formulario.recebimentoCartaoConfirmado || false
         : false,
 
     valorLiquidoRecebido:
-      entradaForm.status === "Pago"
-        ? Number(entradaForm.valorLiquidoRecebido || 0)
+      formulario.status === "Pago"
+        ? Number(formulario.valorLiquidoRecebido || 0)
         : 0,
 
     dataRecebimentoCartao:
-      entradaForm.status === "Pago"
-        ? entradaForm.dataRecebimentoCartao || ""
+      formulario.status === "Pago"
+        ? formulario.dataRecebimentoCartao || ""
         : "",
 
     taxaCartao:
-      entradaForm.status === "Pago"
-        ? Number(entradaForm.taxaCartao || 0)
+      formulario.status === "Pago"
+        ? Number(formulario.taxaCartao || 0)
         : 0,
 
     id: estaEditando ? antiga.id : Date.now(),

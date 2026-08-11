@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import Card from "../components/Card.jsx";
 import Campo from "../components/Campo.jsx";
@@ -7,9 +7,227 @@ import TabelaEntradas from "../components/TabelaEntradas.jsx";
 
 import styles from "../styles/styles.js";
 
+function FormularioEntrada({
+  entradaForm,
+  clientes,
+  formasPagamento,
+  salvarEntrada,
+  editando,
+  cancelarEdicao,
+  formRef,
+  scrollAnteriorRef,
+}) {
+  const [formLocal, setFormLocal] = useState(entradaForm);
+
+  // Sincroniza somente quando o App manda um novo formulário,
+  // por exemplo ao clicar em Editar ou Cancelar.
+  useEffect(() => {
+    setFormLocal(entradaForm);
+  }, [entradaForm]);
+
+  function alterarCampo(campo, valor) {
+    setFormLocal((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
+  }
+
+  function salvarComRetorno() {
+    // IMPORTANTE:
+    // envia o formulário local diretamente para salvarEntrada.
+    salvarEntrada(formLocal);
+
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollAnteriorRef.current,
+        behavior: "smooth",
+      });
+    }, 220);
+  }
+
+  function cancelarComRetorno() {
+    cancelarEdicao();
+
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollAnteriorRef.current,
+        behavior: "smooth",
+      });
+    }, 220);
+  }
+
+  return (
+    <div ref={formRef}>
+      <Card
+        titulo={
+          editando.tipo === "entrada"
+            ? "Editando entrada"
+            : "Lançar entrada"
+        }
+      >
+        <div style={styles.formGrid}>
+          <Campo
+            label="Data"
+            tipo="date"
+            valor={formLocal.data || ""}
+            mudar={(v) => alterarCampo("data", v)}
+          />
+
+          <Campo
+            label="Tipo"
+            valor={formLocal.tipo || ""}
+            mudar={(v) => alterarCampo("tipo", v)}
+          />
+
+          <label style={styles.label}>
+            Cliente
+
+            <input
+              list="lista-clientes"
+              value={formLocal.cliente || ""}
+              onChange={(e) =>
+                alterarCampo("cliente", e.target.value)
+              }
+              placeholder="Digite ou selecione um cliente"
+              style={styles.input}
+            />
+
+            <datalist id="lista-clientes">
+              {clientes.map((cliente) => (
+                <option
+                  key={cliente.id}
+                  value={cliente.nome}
+                />
+              ))}
+            </datalist>
+          </label>
+
+          <Campo
+            label="Produto"
+            valor={formLocal.produto || ""}
+            mudar={(v) => alterarCampo("produto", v)}
+          />
+
+          <Campo
+            label="Placa"
+            valor={formLocal.placa || ""}
+            mudar={(v) =>
+              alterarCampo(
+                "placa",
+                String(v || "").toUpperCase()
+              )
+            }
+          />
+
+          <Campo
+            label="Renavan"
+            valor={formLocal.renavan || ""}
+            mudar={(v) => alterarCampo("renavan", v)}
+          />
+
+          <Select
+            label="Forma de pagamento"
+            valor={formLocal.formaPagamento || ""}
+            mudar={(v) =>
+              alterarCampo("formaPagamento", v)
+            }
+            opcoes={formasPagamento}
+          />
+
+          <Campo
+            label="Valor"
+            tipo="number"
+            valor={formLocal.valor}
+            mudar={(v) => alterarCampo("valor", v)}
+          />
+
+          <Select
+            label="Status"
+            valor={formLocal.status || ""}
+            mudar={(v) => alterarCampo("status", v)}
+            opcoes={["Pago", "Pendente", "Atrasado"]}
+          />
+
+          <Campo
+            label="Processo"
+            valor={formLocal.processo || ""}
+            mudar={(v) => alterarCampo("processo", v)}
+          />
+
+          <Campo
+            label="Dia pago"
+            tipo="date"
+            valor={formLocal.diaPago || ""}
+            mudar={(v) => alterarCampo("diaPago", v)}
+          />
+
+          <Select
+            label="Categoria"
+            valor={formLocal.categoriaPlaca || ""}
+            mudar={(v) =>
+              alterarCampo("categoriaPlaca", v)
+            }
+            opcoes={[
+              "PARTICULAR",
+              "ALUGUEL",
+              "OFICIAL",
+              "COLEÇÃO",
+              "ESPECIAL",
+              "DIPLOMÁTICO",
+            ]}
+          />
+
+          <Campo
+            label="Celular"
+            valor={formLocal.celular || ""}
+            mudar={(v) => alterarCampo("celular", v)}
+          />
+
+          <label style={styles.label}>
+            Observação
+
+            <textarea
+              value={formLocal.observacao || ""}
+              onChange={(e) =>
+                alterarCampo(
+                  "observacao",
+                  e.target.value
+                )
+              }
+              placeholder="Ex: cliente pediu urgência, detalhe do pagamento, informação interna..."
+              style={{
+                ...styles.textarea,
+                minHeight: 74,
+                resize: "vertical",
+              }}
+            />
+          </label>
+
+          <button
+            style={styles.botao}
+            onClick={salvarComRetorno}
+          >
+            {editando.tipo === "entrada"
+              ? "Salvar edição"
+              : "Adicionar"}
+          </button>
+
+          {editando.tipo === "entrada" && (
+            <button
+              style={styles.botaoCinza}
+              onClick={cancelarComRetorno}
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export default function Entradas({
   entradaForm,
-  setEntradaForm,
   setEntradas,
 
   clientes,
@@ -32,17 +250,28 @@ export default function Entradas({
   const formRef = useRef(null);
   const scrollAnteriorRef = useRef(0);
 
-  const [modoVisualizacao, setModoVisualizacao] = useState("periodo");
+  const [modoVisualizacao, setModoVisualizacao] =
+    useState("periodo");
 
-  const entradasVisiveis = entradas.filter((entrada) => {
-    if (!entrada.data) return false;
+  const entradasVisiveis = useMemo(() => {
+    return entradas.filter((entrada) => {
+      if (!entrada.data) return false;
 
-    if (modoVisualizacao === "todos") {
-      return true;
-    }
+      if (modoVisualizacao === "todos") {
+        return true;
+      }
 
-    return entrada.data >= inicioMes && entrada.data <= fimMes;
-  });
+      return (
+        entrada.data >= inicioMes &&
+        entrada.data <= fimMes
+      );
+    });
+  }, [
+    entradas,
+    modoVisualizacao,
+    inicioMes,
+    fimMes,
+  ]);
 
   useEffect(() => {
     if (editando.tipo === "entrada") {
@@ -57,294 +286,103 @@ export default function Entradas({
     }
   }, [editando]);
 
-  function salvarComRetorno() {
-    salvarEntrada();
+  const resumo = useMemo(() => {
+    const total = entradasVisiveis.reduce(
+      (soma, entrada) =>
+        soma + Number(entrada.valor || 0),
+      0
+    );
 
-    setTimeout(() => {
-      window.scrollTo({
-        top: scrollAnteriorRef.current,
-        behavior: "smooth",
-      });
-    }, 220);
-  }
+    const media =
+      entradasVisiveis.length > 0
+        ? total / entradasVisiveis.length
+        : 0;
 
-  function cancelarComRetorno() {
-    cancelarEdicao();
+    const recebidas = entradasVisiveis.filter(
+      (entrada) => entrada.diaPago
+    ).length;
 
-    setTimeout(() => {
-      window.scrollTo({
-        top: scrollAnteriorRef.current,
-        behavior: "smooth",
-      });
-    }, 220);
-  }
-
-  const total = entradasVisiveis.reduce(
-    (soma, entrada) => soma + Number(entrada.valor || 0),
-    0
-  );
-
-  const media =
-    entradasVisiveis.length > 0 ? total / entradasVisiveis.length : 0;
-
-  const recebidas = entradasVisiveis.filter((entrada) => entrada.diaPago).length;
+    return {
+      total,
+      media,
+      recebidas,
+    };
+  }, [entradasVisiveis]);
 
   return (
     <>
       <div style={styles.resumoFiltro}>
         <span>
-          <strong>Entradas:</strong> {entradasVisiveis.length}
+          <strong>Entradas:</strong>{" "}
+          {entradasVisiveis.length}
         </span>
 
         <span>
-          <strong>Total:</strong> {moeda.format(total)}
+          <strong>Total:</strong>{" "}
+          {moeda.format(resumo.total)}
         </span>
 
         <span>
-          <strong>Média:</strong> {moeda.format(media)}
+          <strong>Média:</strong>{" "}
+          {moeda.format(resumo.media)}
         </span>
 
         <span>
-          <strong>Recebidas:</strong> {recebidas}
+          <strong>Recebidas:</strong>{" "}
+          {resumo.recebidas}
         </span>
       </div>
 
       <div style={styles.acoes}>
         <button
           style={
-            modoVisualizacao === "periodo" ? styles.botao : styles.botaoCinza
+            modoVisualizacao === "periodo"
+              ? styles.botao
+              : styles.botaoCinza
           }
-          onClick={() => setModoVisualizacao("periodo")}
+          onClick={() =>
+            setModoVisualizacao("periodo")
+          }
         >
           Período atual
         </button>
 
         <button
           style={
-            modoVisualizacao === "todos" ? styles.botao : styles.botaoCinza
+            modoVisualizacao === "todos"
+              ? styles.botao
+              : styles.botaoCinza
           }
-          onClick={() => setModoVisualizacao("todos")}
+          onClick={() =>
+            setModoVisualizacao("todos")
+          }
         >
           Ver tudo
         </button>
       </div>
 
-      <div ref={formRef}>
-        <Card
-          titulo={
-            editando.tipo === "entrada" ? "Editando entrada" : "Lançar entrada"
-          }
-        >
-          <div style={styles.formGrid}>
-            <Campo
-              label="Data"
-              tipo="date"
-              valor={entradaForm.data}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  data: v,
-                })
-              }
-            />
+      <FormularioEntrada
+        entradaForm={entradaForm}
+        clientes={clientes}
+        formasPagamento={formasPagamento}
+        salvarEntrada={salvarEntrada}
+        editando={editando}
+        cancelarEdicao={cancelarEdicao}
+        formRef={formRef}
+        scrollAnteriorRef={scrollAnteriorRef}
+      />
 
-            <Campo
-              label="Tipo"
-              valor={entradaForm.tipo}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  tipo: v,
-                })
-              }
-            />
-
-            <label style={styles.label}>
-  Cliente
-
-  <input
-    list="lista-clientes"
-    value={entradaForm.cliente}
-    onChange={(e) =>
-      setEntradaForm({
-        ...entradaForm,
-        cliente: e.target.value,
-      })
-    }
-    placeholder="Digite ou selecione um cliente"
-    style={styles.input}
-  />
-
-  <datalist id="lista-clientes">
-    {clientes.map((cliente) => (
-      <option key={cliente.id} value={cliente.nome} />
-    ))}
-  </datalist>
-</label>
-
-            <Campo
-              label="Produto"
-              valor={entradaForm.produto}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  produto: v,
-                })
-              }
-            />
-
-            <Campo
-              label="Placa"
-              valor={entradaForm.placa}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  placa: v.toUpperCase(),
-                })
-              }
-            />
-
-            <Campo
-              label="Renavan"
-              valor={entradaForm.renavan}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  renavan: v,
-                })
-              }
-            />
-
-            <Select
-              label="Forma de pagamento"
-              valor={entradaForm.formaPagamento}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  formaPagamento: v,
-                })
-              }
-              opcoes={formasPagamento}
-            />
-
-            <Campo
-              label="Valor"
-              tipo="number"
-              valor={entradaForm.valor}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  valor: v,
-                })
-              }
-            />
-
-            <Select
-              label="Status"
-              valor={entradaForm.status}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  status: v,
-                })
-              }
-              opcoes={["Pago", "Pendente", "Atrasado"]}
-            />
-
-            <Campo
-              label="Processo"
-              valor={entradaForm.processo}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  processo: v,
-                })
-              }
-            />
-
-            <Campo
-              label="Dia pago"
-              tipo="date"
-              valor={entradaForm.diaPago || ""}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  diaPago: v,
-                })
-              }
-            />
-
-            <Select
-              label="Categoria"
-              valor={entradaForm.categoriaPlaca}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  categoriaPlaca: v,
-                })
-              }
-              opcoes={[
-                "PARTICULAR",
-                "ALUGUEL",
-                "OFICIAL",
-                "COLEÇÃO",
-                "ESPECIAL",
-                "DIPLOMÁTICO",
-              ]}
-            />
-
-            <Campo
-              label="Celular"
-              valor={entradaForm.celular || ""}
-              mudar={(v) =>
-                setEntradaForm({
-                  ...entradaForm,
-                  celular: v,
-                })
-              }
-            />
-
-            <label style={styles.label}>
-              Observação
-              <textarea
-                value={entradaForm.observacao || ""}
-                onChange={(e) =>
-                  setEntradaForm({
-                    ...entradaForm,
-                    observacao: e.target.value,
-                  })
-                }
-                placeholder="Ex: cliente pediu urgência, detalhe do pagamento, informação interna..."
-                style={{
-                  ...styles.textarea,
-                  minHeight: 74,
-                  resize: "vertical",
-                }}
-              />
-            </label>
-
-            <button style={styles.botao} onClick={salvarComRetorno}>
-              {editando.tipo === "entrada" ? "Salvar edição" : "Adicionar"}
-            </button>
-
-            {editando.tipo === "entrada" && (
-              <button style={styles.botaoCinza} onClick={cancelarComRetorno}>
-                Cancelar
-              </button>
-            )}
-          </div>
-
-          <TabelaEntradas
-            entradas={entradasVisiveis}
-            setEntradas={setEntradas}
-            moeda={moeda}
-            destinoDinheiro={destinoDinheiro}
-            editar={editar}
-            remover={remover}
-            formasPagamento={formasPagamento}
-          />
-        </Card>
-      </div>
+      <Card titulo="Entradas cadastradas">
+        <TabelaEntradas
+          entradas={entradasVisiveis}
+          setEntradas={setEntradas}
+          moeda={moeda}
+          destinoDinheiro={destinoDinheiro}
+          editar={editar}
+          remover={remover}
+          formasPagamento={formasPagamento}
+        />
+      </Card>
     </>
   );
 }
