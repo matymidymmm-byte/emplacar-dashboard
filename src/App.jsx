@@ -460,8 +460,19 @@ if (
         setDiaInicioMesFinanceiro(Number(dados.diaInicioMesFinanceiro || 1));
         setMetaMensal(Number(dados.metaMensal || 0));
         setModoRibbonPadrao(dados.modoRibbonPadrao || "2X");
-        setInicioPeriodoSalvo(dados.inicioPeriodoSalvo || "");
-setFimMes(dados.fimPeriodoSalvo || hoje);
+        const inicioSalvo = dados.inicioPeriodoSalvo || "";
+const fimSalvo = dados.fimPeriodoSalvo || "";
+
+setInicioPeriodoSalvo(inicioSalvo);
+
+if (inicioSalvo) {
+  setInicioMes(inicioSalvo);
+}
+
+if (fimSalvo) {
+  setFimMes(fimSalvo);
+}
+
 setFechamentoProvavel(dados.fechamentoProvavel || "");
 
         setSaidas(Array.isArray(dados.saidas) ? dados.saidas : []);
@@ -921,10 +932,14 @@ setMovimentacoesCaixaBanco(
   useEffect(() => {
   if (!nuvemCarregada) return;
 
-  const inicioAutomatico = calcularInicioMesFinanceiro();
+  if (inicioPeriodoSalvo) {
+    setInicioMes(inicioPeriodoSalvo);
+    return;
+  }
 
-  setInicioMes(inicioPeriodoSalvo || inicioAutomatico);
-}, [nuvemCarregada, inicioPeriodoSalvo, historicoFechamentos]);
+  const inicioAutomatico = calcularInicioMesFinanceiro();
+  setInicioMes(inicioAutomatico);
+}, [nuvemCarregada, inicioPeriodoSalvo]);
 
   useEffect(() => {
     salvarNaNuvem("saidas", saidas);
@@ -2574,97 +2589,153 @@ valeEmAbertoTotal,
   }, [dadosPeriodo]);
 
   function fecharMesFinanceiro() {
-    const fechamento = {
-      id: Date.now(),
+  const fimFechamento =
+  fechamentoProvavel &&
+  fechamentoProvavel >= inicioMes
+    ? fechamentoProvavel
+    : fimMes;
+    if (!fimFechamento || fimFechamento < inicioMes) {
+  alert("Período inválido. Revise as datas antes de fechar.");
+  return;
+}
 
-      inicio: inicioMes,
-      fim: fechamentoProvavel || fimMes,
+  if (!inicioMes || !fimFechamento) {
+    alert("Período inválido.");
+    return;
+  }
 
-dataFechamento: hoje,
+  if (fimFechamento < inicioMes) {
+    alert("A data final não pode ser menor que a data inicial.");
+    return;
+  }
 
-      faturamento: indicadores.faturamentoCompetencia || 0,
+  const fechamento = {
+    id: Date.now(),
 
-      recebido: indicadores.caixaRecebidoTotal || 0,
+    inicio: inicioMes,
+    fim: fimFechamento,
 
-      recebidoBanco: indicadores.tenhoNoBanco || 0,
+    dataFechamento: hoje,
 
-      recebidoCaixa: indicadores.tenhoNoCaixa || 0,
+    faturamento: indicadores.faturamentoCompetencia || 0,
 
-      bancoEsperado: indicadores.tenhoNoBanco || 0,
+    recebido: indicadores.caixaRecebidoTotal || 0,
 
-      caixaEsperado: indicadores.tenhoNoCaixa || 0,
+    recebidoBanco: indicadores.tenhoNoBanco || 0,
 
-      saldoTotal: (indicadores.tenhoNoBanco || 0) + (indicadores.tenhoNoCaixa || 0),
+    recebidoCaixa: indicadores.tenhoNoCaixa || 0,
 
-      faturadoEmAberto: indicadores.faturadoEmAberto || 0,
+    bancoEsperado: indicadores.tenhoNoBanco || 0,
 
-      saidas: indicadores.saidasTotal || 0,
+    caixaEsperado: indicadores.tenhoNoCaixa || 0,
 
-      lucro: indicadores.entradaLiquida || 0,
+    saldoTotal:
+      (indicadores.tenhoNoBanco || 0) +
+      (indicadores.tenhoNoCaixa || 0),
 
-      entradasVista: indicadores.entradasVistaTotal || 0,
+    faturadoEmAberto: indicadores.faturadoEmAberto || 0,
 
-      recebimentosAntigos: indicadores.recebimentosAntigos || 0,
+    saidas: indicadores.saidasTotal || 0,
 
-      servicosRealizados: dadosPeriodo.entradas.filter(ehVendaReal).length || 0,
+    lucro: indicadores.entradaLiquida || 0,
 
-      quantidadeEntradas: dadosPeriodo.entradas.length || 0,
+    entradasVista: indicadores.entradasVistaTotal || 0,
 
-      quantidadeSaidas: dadosPeriodo.saidas.length || 0,
+    recebimentosAntigos:
+      indicadores.recebimentosAntigos || 0,
 
-      quantidadeNotasEmAberto: entradas.filter(
+    servicosRealizados:
+      dadosPeriodo.entradas.filter(ehVendaReal).length || 0,
+
+    quantidadeEntradas:
+      dadosPeriodo.entradas.length || 0,
+
+    quantidadeSaidas:
+      dadosPeriodo.saidas.length || 0,
+
+    quantidadeNotasEmAberto: entradas.filter(
+      (x) =>
+        x.data >= inicioMes &&
+        x.data <= fimFechamento &&
+        x.formaPagamento === "Nota / Faturado" &&
+        !x.diaPago
+    ).length,
+
+    notasEmAbertoDetalhadas: entradas
+      .filter(
         (x) =>
           x.data >= inicioMes &&
-          x.data <= (fechamentoProvavel || fimMes) &&
+          x.data <= fimFechamento &&
           x.formaPagamento === "Nota / Faturado" &&
           !x.diaPago
-      ).length,
+      )
+      .map((x) => ({
+        id: x.id,
+        cliente: x.cliente || "",
+        placa: x.placa || "",
+        produto: x.produto || "",
+        valor: Number(x.valor || 0),
+        data: x.data || "",
+        status: x.status || "",
+        diaPago: x.diaPago || "",
+        formaPagamento: x.formaPagamento || "",
+        categoriaPlaca: x.categoriaPlaca || "",
+        processo: x.processo || "",
+      })),
 
-      notasEmAbertoDetalhadas: entradas
-  .filter(
-    (x) =>
-      x.data >= inicioMes &&
-      x.data <= (fechamentoProvavel || fimMes) &&
-      x.formaPagamento === "Nota / Faturado" &&
-      !x.diaPago
-  )
-        .map((x) => ({
-          id: x.id,
-          cliente: x.cliente || "",
-          placa: x.placa || "",
-          produto: x.produto || "",
-          valor: Number(x.valor || 0),
-          data: x.data || "",
-          status: x.status || "",
-          diaPago: x.diaPago || "",
-          formaPagamento: x.formaPagamento || "",
-          categoriaPlaca: x.categoriaPlaca || "",
-          processo: x.processo || "",
-        })),
+    metaMensal,
 
-      metaMensal,
+    diaInicioMesFinanceiro,
+  };
 
-      diaInicioMesFinanceiro,
-    };
+  setHistoricoFechamentos((old) => [
+    fechamento,
+    ...old,
+  ]);
 
-    setHistoricoFechamentos((old) => [fechamento, ...old]);
-    const novoInicio = calcularInicioMesFinanceiro();
+  const dataFim = new Date(
+    fimFechamento + "T00:00:00"
+  );
 
-setInicioMes(novoInicio);
-setFimMes(hoje);
-setInicioPeriodoSalvo(novoInicio);
+  dataFim.setDate(dataFim.getDate() + 1);
 
-    registrarAlteracao({
-      tipo: "Fechamento",
-      modulo: "Histórico Financeiro",
-      descricao: `${usuario?.email || "Usuário"} fechou o período financeiro de ${inicioMes} até ${fechamentoProvavel || fimMes}`,
+  const novoInicio = dataFim
+    .toISOString()
+    .slice(0, 10);
 
-valorAntigo: inicioMes,
+  const dataNovoFim = new Date(
+    novoInicio + "T00:00:00"
+  );
 
-valorNovo: fechamentoProvavel || fimMes,
-      itemId: fechamento.id,
-    });
-  }
+  dataNovoFim.setMonth(
+    dataNovoFim.getMonth() + 1
+  );
+
+  dataNovoFim.setDate(
+    dataNovoFim.getDate() - 1
+  );
+
+  const novoFim = dataNovoFim
+    .toISOString()
+    .slice(0, 10);
+
+  setInicioMes(novoInicio);
+  setFimMes(novoFim);
+
+  setInicioPeriodoSalvo(novoInicio);
+  setFechamentoProvavel("");
+
+  registrarAlteracao({
+    tipo: "Fechamento",
+    modulo: "Histórico Financeiro",
+    descricao: `${
+      usuario?.email || "Usuário"
+    } fechou o período financeiro de ${inicioMes} até ${fimFechamento}`,
+    valorAntigo: inicioMes,
+    valorNovo: fimFechamento,
+    itemId: fechamento.id,
+  });
+}
 
   const propsGlobais = {
     empresaId,
