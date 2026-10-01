@@ -217,6 +217,7 @@ export default function Contas({
   style={{
     ...styles.editar,
     background: statusConta(conta) === "Pago" ? "#166534" : "#2563eb",
+    fontWeight: "bold",
   }}
   onClick={() => alternarConta(conta.id)}
 >
