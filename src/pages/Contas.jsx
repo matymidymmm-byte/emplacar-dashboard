@@ -214,11 +214,10 @@ export default function Contas({
             textoVencimento(conta),
 
             <button
-  style={
-    statusConta(conta) === "Pago"
-      ? styles.status
-      : styles.editar
-  }
+  style={{
+    ...styles.editar,
+    background: statusConta(conta) === "Pago" ? "#166534" : "#2563eb",
+  }}
   onClick={() => alternarConta(conta.id)}
 >
   {statusConta(conta) === "Pago" ? "Pago ✓" : "Pagar"}
