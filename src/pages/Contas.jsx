@@ -73,7 +73,11 @@ export default function Contas({
     const situacao = situacaoConta(conta);
 
     if (situacao === "Pago") return styles.status;
-    if (situacao === "Em dia") return styles.status;
+    if (situacao === "Em dia")
+  return {
+    ...styles.status,
+    background: "#2563eb",
+  };
     if (situacao === "Vence hoje") return styles.botaoPequeno;
     if (situacao === "Atrasado") return styles.excluir;
 
