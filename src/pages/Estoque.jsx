@@ -2392,13 +2392,4 @@ alternarItemRelatorioWhatsApp={alternarItemRelatorioWhatsApp}
 )}
     </>
   );
-  return (
-  <main style={{ padding: 20, color: "#fff" }}>
-    <h1>Relatório Diário</h1>
-
-    <button onClick={copiarWhatsApp}>
-      Copiar relatório para WhatsApp
-    </button>
-  </main>
-);
 }

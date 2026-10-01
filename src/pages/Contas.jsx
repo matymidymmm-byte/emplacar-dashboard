@@ -209,9 +209,16 @@ export default function Contas({
 
             textoVencimento(conta),
 
-            <button style={styles.status} onClick={() => alternarConta(conta.id)}>
-              {statusConta(conta) === "Pago" ? "Pago ✓" : "Pagar"}
-            </button>,
+            <button
+  style={
+    statusConta(conta) === "Pago"
+      ? styles.status
+      : styles.editar
+  }
+  onClick={() => alternarConta(conta.id)}
+>
+  {statusConta(conta) === "Pago" ? "Pago ✓" : "Pagar"}
+</button>,
 
             <Acoes
               editar={() => editar("conta", conta)}
