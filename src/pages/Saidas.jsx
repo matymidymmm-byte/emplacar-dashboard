@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import Card from "../components/Card.jsx";
 import Campo from "../components/Campo.jsx";
@@ -28,7 +28,13 @@ export default function Saidas({
   const [modoVisualizacao, setModoVisualizacao] = useState("periodo");
   const [dadosFiltrados, setDadosFiltrados] = useState([]);
   const [observacaoAberta, setObservacaoAberta] = useState(null);
+  const [formularioLocal, setFormularioLocal] = useState(() => ({
+  ...saidaForm,
+}));
 
+useEffect(() => {
+  setFormularioLocal({ ...saidaForm });
+}, [saidaForm]);
   const categoriasSaida = [
     "Placas / Matéria-prima",
     "Aluguel",
@@ -61,7 +67,7 @@ export default function Saidas({
   }, [editando]);
 
   function salvarComRetorno() {
-    salvarSaida();
+  salvarSaida(formularioLocal);
 
     setTimeout(() => {
       window.scrollTo({
@@ -130,7 +136,8 @@ export default function Saidas({
   );
 }
 
-  const saidasVisiveis = saidas.filter((saida) => {
+ const saidasVisiveis = useMemo(() => {
+  return saidas.filter((saida) => {
     if (!saida.data) return false;
 
     if (modoVisualizacao === "todos") return true;
@@ -141,13 +148,16 @@ export default function Saidas({
 
     return saida.data >= inicioMes && saida.data <= fimMes;
   });
+}, [saidas, modoVisualizacao, inicioMes, fimMes]);
 
-  const saidasOrdenadas = [...saidasVisiveis].sort((a, b) => {
+  const saidasOrdenadas = useMemo(() => {
+  return [...saidasVisiveis].sort((a, b) => {
     if (!a.data) return 1;
     if (!b.data) return -1;
 
     return new Date(b.data) - new Date(a.data);
   });
+}, [saidasVisiveis]);
 
   const dadosParaResumo =
     dadosFiltrados.length > 0 ? dadosFiltrados : saidasOrdenadas;
@@ -289,49 +299,49 @@ export default function Saidas({
         >
           <div style={styles.formGrid}>
             <Campo
-              label="Dia saída"
-              tipo="date"
-              valor={saidaForm.data}
-              mudar={(v) =>
-                setSaidaForm({
-                  ...saidaForm,
-                  data: v,
-                })
-              }
-            />
-
-            <Select
-              label="Forma de pagamento saída"
-              valor={saidaForm.formaPagamento}
-              mudar={(v) =>
-                setSaidaForm({
-                  ...saidaForm,
-                  formaPagamento: v,
-                })
-              }
-              opcoes={formasPagamento}
-            />
-
-            <Select
-              label="Centro de custo"
-              valor={saidaForm.categoria || "Outros"}
-              mudar={(v) =>
-                setSaidaForm({
-                  ...saidaForm,
-                  categoria: v,
-                })
-              }
-              opcoes={categoriasSaida}
-            />
-
-            <Select
-  label="Tipo financeiro"
-  valor={saidaForm.tipoSaida || "Operacional"}
+  label="Dia saída"
+  tipo="date"
+  valor={formularioLocal.data || ""}
   mudar={(v) =>
-    setSaidaForm({
-      ...saidaForm,
+    setFormularioLocal((anterior) => ({
+      ...anterior,
+      data: v,
+    }))
+  }
+/>
+
+            <Select
+  label="Forma de pagamento saída"
+  valor={formularioLocal.formaPagamento}
+  mudar={(v) =>
+    setFormularioLocal((anterior) => ({
+      ...anterior,
+      formaPagamento: v,
+    }))
+  }
+  opcoes={formasPagamento}
+/>
+
+<Select
+  label="Centro de custo"
+  valor={formularioLocal.categoria || "Outros"}
+  mudar={(v) =>
+    setFormularioLocal((anterior) => ({
+      ...anterior,
+      categoria: v,
+    }))
+  }
+  opcoes={categoriasSaida}
+/>
+
+<Select
+  label="Tipo financeiro"
+  valor={formularioLocal.tipoSaida || "Operacional"}
+  mudar={(v) =>
+    setFormularioLocal((anterior) => ({
+      ...anterior,
       tipoSaida: v,
-    })
+    }))
   }
   opcoes={[
     "Operacional",
@@ -343,47 +353,47 @@ export default function Saidas({
   ]}
 />
 
-            <Campo
-              label="Conta"
-              valor={saidaForm.conta}
-              mudar={(v) =>
-                setSaidaForm({
-                  ...saidaForm,
-                  conta: v,
-                })
-              }
-            />
+           <Campo
+  label="Conta"
+  valor={formularioLocal.conta || ""}
+  mudar={(v) =>
+    setFormularioLocal((anterior) => ({
+      ...anterior,
+      conta: v,
+    }))
+  }
+/>
 
-            <Campo
-              label="Valor saída"
-              tipo="number"
-              valor={saidaForm.valor}
-              mudar={(v) =>
-                setSaidaForm({
-                  ...saidaForm,
-                  valor: v,
-                })
-              }
-            />
+<Campo
+  label="Valor saída"
+  tipo="number"
+  valor={formularioLocal.valor ?? ""}
+  mudar={(v) =>
+    setFormularioLocal((anterior) => ({
+      ...anterior,
+      valor: v,
+    }))
+  }
+/>
 
-            <label style={styles.label}>
-              Observação
-              <textarea
-                value={saidaForm.observacao || ""}
-                onChange={(e) =>
-                  setSaidaForm({
-                    ...saidaForm,
-                    observacao: e.target.value,
-                  })
-                }
-                placeholder="Ex: compra no mercado, itens comprados, motivo da saída..."
-                style={{
-                  ...styles.textarea,
-                  minHeight: 74,
-                  resize: "vertical",
-                }}
-              />
-            </label>
+<label style={styles.label}>
+  Observação
+  <textarea
+    value={formularioLocal.observacao || ""}
+    onChange={(e) =>
+      setFormularioLocal((anterior) => ({
+        ...anterior,
+        observacao: e.target.value,
+      }))
+    }
+    placeholder="Ex: compra no mercado, itens comprados, motivo da saída..."
+    style={{
+      ...styles.textarea,
+      minHeight: 74,
+      resize: "vertical",
+    }}
+  />
+</label>
 
             <button style={styles.botao} onClick={salvarComRetorno}>
               {editando.tipo === "saida" ? "Salvar edição" : "Adicionar"}

@@ -58,9 +58,22 @@ export default function GraficoLinha({
 
   const linhasGrafico = linhas && linhas.length > 0 ? linhas : linhasPadrao;
 
-  return (
-    <div style={styles.graficoGrande}>
-      <ResponsiveContainer width="100%" height="100%">
+ return (
+  <div
+    style={{
+      ...styles.graficoGrande,
+      width: "100%",
+      minWidth: 0,
+      height: 320,
+      minHeight: 320,
+    }}
+  >
+    <ResponsiveContainer
+      width="100%"
+      height="100%"
+      minWidth={1}
+      minHeight={1}
+    >
         <LineChart
           data={dados}
           margin={{

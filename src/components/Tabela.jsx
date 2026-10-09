@@ -32,10 +32,38 @@ export default function Tabela({ colunas, dados, aoFiltrar }) {
   }, [dados, filtros]);
 
   useEffect(() => {
-    if (aoFiltrar) {
-      aoFiltrar(dadosFiltrados);
+  if (!aoFiltrar) return;
+
+  aoFiltrar((anterior) => {
+    if (
+      Array.isArray(anterior) &&
+      anterior.length === dadosFiltrados.length &&
+      anterior.every((linha, index) => {
+        const novaLinha = dadosFiltrados[index];
+
+        return (
+          Array.isArray(linha) &&
+          Array.isArray(novaLinha) &&
+          linha.length === novaLinha.length &&
+          linha.every((valor, i) => {
+            if (
+              typeof valor === "object" ||
+              typeof novaLinha[i] === "object"
+            ) {
+              return true;
+            }
+
+            return valor === novaLinha[i];
+          })
+        );
+      })
+    ) {
+      return anterior;
     }
-  }, [dadosFiltrados, aoFiltrar]);
+
+    return dadosFiltrados;
+  });
+}, [dadosFiltrados, aoFiltrar]);
 
   return (
     <div style={styles.tabelaContainer}>

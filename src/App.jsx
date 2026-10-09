@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import MovimentacoesInternas from "./pages/MovimentacoesInternas.jsx";
 import PortalSuperadmin from "./pages/PortalSuperadmin.jsx";
 import { onAuthStateChanged } from "firebase/auth";
@@ -25,6 +25,7 @@ import Contas from "./pages/Contas.jsx";
 import Clientes from "./pages/Clientes.jsx";
 import Pendencias from "./pages/Pendencias.jsx";
 import Estoque from "./pages/Estoque.jsx";
+const EstoqueOtimizado = memo(Estoque);
 import Importacao from "./pages/Importacao.jsx";
 import RelatorioDiario from "./pages/RelatorioDiario.jsx";
 import Login from "./pages/Login.jsx";
@@ -256,7 +257,12 @@ return (
 }
 
 function Sistema({ usuario, acesso, trocarEmpresaSuperadmin }) {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = new Date().toLocaleDateString("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
   const empresaId = acesso?.empresaId;
 
   if (!empresaId) {
@@ -310,6 +316,7 @@ function Sistema({ usuario, acesso, trocarEmpresaSuperadmin }) {
   const [mobile, setMobile] = useState(window.innerWidth <= 900);
 
   const [aba, setAba] = useState("Dashboard");
+  
   const [diaInicioMesFinanceiro, setDiaInicioMesFinanceiro] = useState(1);
 
   function calcularInicioMesFinanceiro() {
@@ -1734,12 +1741,12 @@ function listarRecebimentosAntigosDoPeriodo(inicio, fim) {
   cancelarEdicao();
 }
 
- function salvarSaida() {
+ function salvarSaida(formulario = saidaForm) {
   const nova = {
-    ...saidaForm,
-    categoria: saidaForm.categoria || "Outros",
-    tipoSaida: saidaForm.tipoSaida || "Operacional",
-    valor: numero(saidaForm.valor),
+    ...formulario,
+    categoria: formulario.categoria || "Outros",
+tipoSaida: formulario.tipoSaida || "Operacional",
+valor: numero(formulario.valor),
     id: editando.tipo === "saida" ? editando.id : Date.now(),
   };
 
@@ -2985,13 +2992,9 @@ setEstoqueResumoGlobal,
   <MovimentacoesInternas {...propsGlobais} />
 )}
         {aba === "Pendências de Clientes" && <Pendencias {...propsGlobais} />}
-        <div
-  style={{
-    display: aba === "Controle de Estoque" ? "block" : "none",
-  }}
->
-  <Estoque {...propsGlobais} />
-</div>
+     {aba === "Controle de Estoque" && (
+  <EstoqueOtimizado {...propsGlobais} />
+)}
         {aba === "Relatório Diário" && <RelatorioDiario {...propsGlobais} />}
         {aba === "Gerenciar Acessos" && <Acessos {...propsGlobais} />}
         {aba.startsWith("Importar") && <Importacao {...propsGlobais} />}

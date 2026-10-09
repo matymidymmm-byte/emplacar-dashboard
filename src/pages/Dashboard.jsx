@@ -2795,16 +2795,26 @@ function CardRitmoMes({
                 placeholder="DD/MM/AAAA"
                 value={inicioDigitando}
                 onChange={(e) => {
-                  const valor = e.target.value;
+  setInicioDigitando(e.target.value);
+}}
+onBlur={() => {
+  const dataISO = brasilParaISO(inicioDigitando);
 
-                  setInicioDigitando(valor);
-
-                  const dataISO = brasilParaISO(valor);
-
-                  if (dataValida(dataISO)) {
-  salvarInicioPeriodo(dataISO);
-}
-                }}
+  if (
+    /^\d{2}\/\d{2}\/\d{4}$/.test(inicioDigitando) &&
+    dataValida(dataISO) &&
+    dataISO !== inicioMes
+  ) {
+    salvarInicioPeriodo(dataISO);
+  } else {
+    setInicioDigitando(isoParaBrasil(inicioMes));
+  }
+}}
+onKeyDown={(e) => {
+  if (e.key === "Enter") {
+    e.currentTarget.blur();
+  }
+}}
                 style={styles.input}
               />
             </label>
@@ -2816,16 +2826,26 @@ function CardRitmoMes({
                 placeholder="DD/MM/AAAA"
                 value={fimDigitando}
                 onChange={(e) => {
-                  const valor = e.target.value;
+  setFimDigitando(e.target.value);
+}}
+onBlur={() => {
+  const dataISO = brasilParaISO(fimDigitando);
 
-                  setFimDigitando(valor);
-
-                  const dataISO = brasilParaISO(valor);
-
-                  if (dataValida(dataISO)) {
-  salvarFimPeriodo(dataISO);
-}
-                }}
+  if (
+    /^\d{2}\/\d{2}\/\d{4}$/.test(fimDigitando) &&
+    dataValida(dataISO) &&
+    dataISO !== fimMes
+  ) {
+    salvarFimPeriodo(dataISO);
+  } else {
+    setFimDigitando(isoParaBrasil(fimMes));
+  }
+}}
+onKeyDown={(e) => {
+  if (e.key === "Enter") {
+    e.currentTarget.blur();
+  }
+}}
                 style={styles.input}
               />
             </label>
@@ -3237,7 +3257,10 @@ entrada.recebimentoCartaoConfirmado
             </Card>
           )}
 
-        <div className="dashboard-graficos-executivos">
+        <div
+  className="dashboard-graficos-executivos"
+  style={{ width: "100%", minWidth: 0 }}
+>
           <div style={{ minWidth: 0 }}>
             <Card titulo="Vendas por dia">
               <GraficoLinha

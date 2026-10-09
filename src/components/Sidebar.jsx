@@ -377,13 +377,17 @@ setMovimentacoesCaixaBanco,
     <aside
       style={{
         ...styles.sidebar,
-        position: mobile ? "fixed" : "relative",
-        left: mobile && !menuMobile ? "-100%" : 0,
-        top: 0,
-        height: "100vh",
-        zIndex: 9999,
-        transition: "all 0.28s ease",
-        boxShadow: mobile ? "0 0 40px rgba(0,0,0,0.55)" : "none",
+       position: mobile ? "fixed" : "sticky",
+left: mobile && !menuMobile ? "-100%" : 0,
+top: 0,
+height: "100vh",
+maxHeight: "100vh",
+overflowY: "auto",
+overflowX: "hidden",
+flexShrink: 0,
+zIndex: 9999,
+transition: mobile ? "left 0.28s ease" : "none",
+boxShadow: mobile ? "0 0 40px rgba(0,0,0,0.55)" : "none",
       }}
     >
       <div
@@ -503,15 +507,20 @@ setMovimentacoesCaixaBanco,
           return (
             <button
               key={item}
-              onClick={() => {
-                setAba(item);
-                setTextoImportacao("");
-                setResultadoImportacao("");
+             onClick={() => {
+  if (aba !== item) {
+  setAba(item);
+}
 
-                if (mobile) {
-                  setMenuMobile(false);
-                }
-              }}
+  if (item.startsWith("Importar")) {
+    setTextoImportacao("");
+    setResultadoImportacao("");
+  }
+
+  if (mobile) {
+    setMenuMobile(false);
+  }
+}}
               style={aba === item ? styles.menuAtivo : styles.menu}
             >
               <span

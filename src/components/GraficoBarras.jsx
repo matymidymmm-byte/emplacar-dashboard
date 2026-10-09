@@ -45,8 +45,21 @@ export default function GraficoBarras({
   }
 
   return (
-    <div style={styles.graficoGrande}>
-      <ResponsiveContainer width="100%" height="100%">
+  <div
+    style={{
+      ...styles.graficoGrande,
+      width: "100%",
+      minWidth: 0,
+      height: 320,
+      minHeight: 320,
+    }}
+  >
+    <ResponsiveContainer
+      width="100%"
+      height="100%"
+      minWidth={1}
+      minHeight={1}
+    >
         <BarChart
           data={dados}
           layout={horizontal ? "vertical" : "horizontal"}
