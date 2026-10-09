@@ -1,7 +1,7 @@
 const styles = {
   app: {
     width: "100%",
-    minHeight: "100vh",
+    height: "100dvh",
     display: "flex",
     background: "#030712",
     color: "#e2e8f0",
