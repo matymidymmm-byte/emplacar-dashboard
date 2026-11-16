@@ -611,19 +611,22 @@ function executarConferenciaExcel() {
   guardarPosicaoConferencia();
   try {
     const tabela = lerTabelaConferencia(textoConferenciaExcel, tipoConferenciaExcel);
-    const linhasExcel = tabela.linhas;
-    const datas = linhasExcel.map(item=>item.data).filter(Boolean).sort();
-    if (!datas.length) throw new Error("Nenhuma data válida encontrada.");
-    // Apenas datas do Excel: evita acusar lançamentos fora do intervalo colado.
-    const primeiraData = datas[0], ultimaData = datas[datas.length - 1];
+    // Usa o período financeiro configurado no Dashboard, não as datas extremas do Excel.
+    const primeiraData = inicioMes;
+    const ultimaData = fimMes;
+    if (!primeiraData || !ultimaData || primeiraData > ultimaData) {
+      throw new Error("Período financeiro inválido. Confira as datas do Dashboard.");
+    }
+    const linhasExcel = tabela.linhas.filter(item => item.data >= primeiraData && item.data <= ultimaData);
+    const ignoradas = tabela.linhas.length - linhasExcel.length;
     const origem = tipoConferenciaExcel === "entradas" ? entradas : saidas;
-    const registrosSistema = origem.filter(item=>item.data >= primeiraData && item.data <= ultimaData);
+    const registrosSistema = origem.filter(item => item.data >= primeiraData && item.data <= ultimaData);
     const detalhes = compararRegistrosConferencia(linhasExcel,registrosSistema,tabela.colunasPresentes,tipoConferenciaExcel);
     const totais = {
       excel: linhasExcel.reduce((s,item)=>s+Number(item.valor||0),0),
       sistema: registrosSistema.reduce((s,item)=>s+Number(item.valor||0),0),
     };
-    setResultadoConferenciaExcel({ detalhes, totais, primeiraData, ultimaData, totalExcel:linhasExcel.length, totalSistema:registrosSistema.length, colunasPresentes:tabela.colunasPresentes });
+    setResultadoConferenciaExcel({ detalhes, totais, primeiraData, ultimaData, totalExcel:linhasExcel.length, totalSistema:registrosSistema.length, ignoradas, colunasPresentes:tabela.colunasPresentes });
   } catch (erro) {
     posicaoConferenciaRef.current = null;
     alert(erro.message || "Não foi possível conferir a tabela.");
@@ -2446,6 +2449,7 @@ function CardRitmoMes({
               <button type="button" style={styles.botaoDashboard} onClick={()=>{guardarPosicaoConferencia();setTextoConferenciaExcel("");setResultadoConferenciaExcel(null);}}>Limpar</button>
               <button type="button" style={styles.botaoDashboard} onClick={()=>{guardarPosicaoConferencia();setMostrarConferenciaExcel(false);}}>Fechar</button>
             </div>
+            <div style={{color:"#94a3b8",fontSize:12,marginTop:8}}>Período financeiro em análise: {dataBR(inicioMes)} a {dataBR(fimMes)}. Registros fora desse intervalo não entram na conferência.</div>
             {resultadoConferenciaExcel && (()=>{
               const r = resultadoConferenciaExcel;
               const vermelhos=r.detalhes.filter(d=>d.situacao==="vermelho").length;
@@ -2462,7 +2466,7 @@ function CardRitmoMes({
                   </div>
                   <div style={{color:"#cbd5e1",marginTop:8}}>Excel: {r.totalExcel} registros / {moeda.format(r.totais.excel)} · Nexora: {r.totalSistema} registros / {moeda.format(r.totais.sistema)}</div>
                   <div style={{color:Math.abs(r.totais.excel-r.totais.sistema)>0.009?"#fca5a5":"#86efac",marginTop:6}}>Diferença nos totais: {moeda.format(r.totais.excel-r.totais.sistema)}</div>
-                  <div style={{color:"#94a3b8",marginTop:6}}>Período: {dataBR(r.primeiraData)} a {dataBR(r.ultimaData)} · Comparadas {r.colunasPresentes.length} colunas presentes no Excel</div>
+                  <div style={{color:"#94a3b8",marginTop:6}}>Período: {dataBR(r.primeiraData)} a {dataBR(r.ultimaData)} · {r.ignoradas} linhas do Excel fora do período ignoradas · Comparadas {r.colunasPresentes.length} colunas presentes no Excel</div>
                 </div>
                 {pendencias.length === 0 && <div style={{padding:"22px 18px",borderRadius:12,border:"1px solid rgba(34,197,94,.3)",background:"rgba(34,197,94,.06)",color:"#bbf7d0",fontWeight:600}}>Nenhuma divergência encontrada nos registros comparados.</div>}
                 {pendencias.map((item,i)=>{
