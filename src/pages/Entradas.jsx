@@ -103,7 +103,7 @@ function FormularioEntrada({
           </label>
 
           <Campo
-            label="Produto"
+            label="Serviço"
             valor={formLocal.produto || ""}
             mudar={(v) => alterarCampo("produto", v)}
           />
@@ -125,8 +125,32 @@ function FormularioEntrada({
             mudar={(v) => alterarCampo("renavan", v)}
           />
 
+          <Campo
+            label="Processo"
+            valor={formLocal.processo || ""}
+            mudar={(v) => alterarCampo("processo", v)}
+          />
+
+          <Campo
+            label="Proprietário"
+            valor={formLocal.proprietario || ""}
+            mudar={(v) => alterarCampo("proprietario", v)}
+          />
+
+          <Campo
+            label="CPF"
+            valor={formLocal.cpf || ""}
+            mudar={(v) => alterarCampo("cpf", v)}
+          />
+
+          <Campo
+            label="Chassi"
+            valor={formLocal.chassi || ""}
+            mudar={(v) => alterarCampo("chassi", String(v || "").toUpperCase())}
+          />
+
           <Select
-            label="Forma de pagamento"
+            label="Pago via"
             valor={formLocal.formaPagamento || ""}
             mudar={(v) =>
               alterarCampo("formaPagamento", v)
@@ -146,12 +170,6 @@ function FormularioEntrada({
             valor={formLocal.status || ""}
             mudar={(v) => alterarCampo("status", v)}
             opcoes={["Pago", "Pendente", "Atrasado"]}
-          />
-
-          <Campo
-            label="Processo"
-            valor={formLocal.processo || ""}
-            mudar={(v) => alterarCampo("processo", v)}
           />
 
           <Campo

@@ -20,8 +20,8 @@ export default function TabelaEntradas({
   const colunas = [
     "✓",
     "Data",
-    "Cliente",
-    "Produto",
+    "Tipo",
+    "Serviço",
     "Placa",
     "Pagamento",
     "Valor",
@@ -60,7 +60,7 @@ export default function TabelaEntradas({
     return entradas.filter((x) => {
       return (
         texto(formatarData(x.data)).includes(texto(filtros.data)) &&
-        texto(x.cliente).includes(texto(filtros.cliente)) &&
+        texto(x.tipo).includes(texto(filtros.tipo)) &&
         texto(x.produto || x.servico).includes(texto(filtros.produto)) &&
         texto(x.placa).includes(texto(filtros.placa)) &&
         texto(x.formaPagamento).includes(texto(filtros.formaPagamento)) &&
@@ -134,16 +134,18 @@ export default function TabelaEntradas({
       DATA: formatarData(item.data),
       TIPO: item.tipo || "",
       CLIENTE: item.cliente || "",
-      PRODUTO: item.produto || item.servico || "",
+      "SERVIÇO": item.produto || item.servico || "",
       PLACA: item.placa || "",
       RENAVAN: item.renavan || "",
-      "FORMA DE PAGAMENTO": item.formaPagamento || "",
+      PROCESSO: item.processo || "",
+      "PROPRIETÁRIO": item.proprietario || "",
+      CPF: item.cpf || "",
+      CHASSI: item.chassi || "",
       VALOR: Number(item.valor || 0),
       STATUS: item.status || "",
-      PROCESSO: item.processo || "",
-      "DIA PAGO": formatarData(item.diaPago),
+      "PAGO VIA": item.formaPagamento || "",
+      "PAGO DIA": item.diaPago ? formatarData(item.diaPago) : "",
       CATEGORIA: item.categoriaPlaca || "",
-      CELULAR: item.celular || "",
       OBSERVAÇÃO: item.observacao || "",
     }));
 
@@ -202,6 +204,10 @@ export default function TabelaEntradas({
       `PLACA: ${item.placa || ""}
 RENAVAN: ${item.renavan || ""}
 PROCESSO: ${item.processo || ""}
+CLIENTE: ${item.cliente || ""}
+PROPRIETÁRIO: ${item.proprietario || ""}
+CPF: ${item.cpf || ""}
+CHASSI: ${item.chassi || ""}
 CATEGORIA: ${item.categoriaPlaca || ""}
 CELULAR: ${item.celular || ""}
 OBSERVAÇÃO: ${item.observacao || ""}`,
@@ -434,8 +440,8 @@ OBSERVAÇÃO: ${item.observacao || ""}`,
                 <input
                   style={styles.filtroInput}
                   placeholder="Filtrar"
-                  value={filtros.cliente || ""}
-                  onChange={(e) => mudarFiltro("cliente", e.target.value)}
+                  value={filtros.tipo || ""}
+                  onChange={(e) => mudarFiltro("tipo", e.target.value)}
                 />
               </th>
 
@@ -540,7 +546,7 @@ OBSERVAÇÃO: ${item.observacao || ""}`,
 
                           <td style={styles.td}>{formatarData(x.data)}</td>
 
-                          <td style={styles.td}>{x.cliente}</td>
+                          <td style={styles.td}>{x.tipo || "-"}</td>
 
                           <td
                             style={{
@@ -637,6 +643,19 @@ OBSERVAÇÃO: ${item.observacao || ""}`,
                                     label="processo"
                                   />
                                 </div>
+
+                                {[
+                                  ["Cliente", "cliente"],
+                                  ["Proprietário", "proprietario"],
+                                  ["CPF", "cpf"],
+                                  ["Chassi", "chassi"],
+                                ].map(([rotulo, campo]) => (
+                                  <div key={campo} style={styles.detalheItem}>
+                                    <span style={styles.detalheLabel}>{rotulo}</span>
+                                    {x[campo] || "-"}
+                                    <BotaoCopiar item={x} campo={campo} label={rotulo.toLowerCase()} />
+                                  </div>
+                                ))}
 
                                 <div style={styles.detalheItem}>
                                   <span style={styles.detalheLabel}>

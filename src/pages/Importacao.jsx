@@ -17,16 +17,15 @@ export default function Importacao(props) {
     clientes,
     setClientes,
   } = props;
-
   const config = {
     "Importar Entradas": {
       titulo: "Importar entradas",
 
       ajuda:
-        "Cole do Excel nesta ordem: DATA, TIPO, CLIENTE, PRODUTO/SERVIÇO, PLACA, RENAVAN, FORMA DE PAGAMENTO, VALOR, STATUS, PROCESSO, PAGO DIA, CATEGORIA, CELULAR, OBSERVAÇÃO.",
+        "Cole do Excel com cabeçalho: DATA, TIPO, CLIENTE, SERVIÇO, PLACA, RENAVAN, PROCESSO, PROPRIETÁRIO, CPF, CHASSI, VALOR, STATUS, PAGO VIA, PAGO DIA, CATEGORIA, OBSERVAÇÃO. Planilhas antigas com cabeçalhos reconhecidos também são aceitas.",
 
       exemplo:
-        "DATA\tTIPO\tCLIENTE\tSERVIÇO\tPLACA\tRENAVAN\tFORMA DE PAGAMENTO\tVALOR\tSTATUS\tPROCESSO\tPAGO DIA\tCATEGORIA\tCELULAR\tOBSERVAÇÃO\n15/05/2026\tPARTICULAR\tJOÃO\tREBOQUE\tABC1D23\t123456789\tPIX\t80,00\tPAGO\t192304316159\t16/05/2026\tPARTICULAR\t45999999999\tCliente pediu entrega urgente",
+        "DATA\tTIPO\tCLIENTE\tSERVIÇO\tPLACA\tRENAVAN\tPROCESSO\tPROPRIETÁRIO\tCPF\tCHASSI\tVALOR\tSTATUS\tPAGO VIA\tPAGO DIA\tCATEGORIA\tOBSERVAÇÃO\n15/05/2026\tPARTICULAR\tJOÃO\tREBOQUE\tABC1D23\t123456789\t192304316159\tJOÃO DA SILVA\t12345678900\t9BWZZZ377VT004251\t80,00\tEM ABERTO\tNOTA\t\tPARTICULAR\tCliente pediu entrega urgente",
     },
 
     "Importar Saídas": {
@@ -115,13 +114,14 @@ export default function Importacao(props) {
       return "Nota / Faturado";
     }
 
-    return valor || "Pix";
+    return texto(valor) || "Nota / Faturado";
   }
 
   function statusPadrao(valor) {
     const v = normalizar(valor);
 
-    if (v.includes("PAGO") || v.includes("EM DIA")) return "Pago";
+    if (v.includes("NAO PAGO") || v.includes("NAO QUITADO")) return "Pendente";
+    if (v === "PAGO" || v === "PAGA" || v.includes("EM DIA")) return "Pago";
     if (v.includes("ATRASADO")) return "Atrasado";
     if (v.includes("PENDENTE") || v.includes("ABERTO")) return "Pendente";
 
@@ -182,6 +182,17 @@ export default function Importacao(props) {
     });
   }
 
+  // O lote fica nos próprios registros salvos no Firebase, por empresa.
+  const colecaoAtual = aba === "Importar Entradas" ? entradas
+    : aba === "Importar Saídas" ? saidas : contas;
+  const ultimoLoteId = colecaoAtual.reduce((ultimo, item) => {
+    const id = item?.loteImportacaoId || "";
+    return id > ultimo ? id : ultimo;
+  }, "");
+  const registrosUltimoLote = ultimoLoteId
+    ? colecaoAtual.filter((item) => item.loteImportacaoId === ultimoLoteId)
+    : [];
+
   function importarDados() {
     const linhas = lerTabelaColada();
 
@@ -193,6 +204,21 @@ export default function Importacao(props) {
       return;
     }
 
+    // Impede importar uma planilha errada ou sem os cabeçalhos essenciais.
+    const cabecalhos = separarLinha(
+      textoImportacao.split(/\r?\n/).find((linha) => linha.trim()) || ""
+    ).map(normalizar);
+    const possui = (...nomes) => nomes.some((nome) => cabecalhos.includes(normalizar(nome)));
+    if (aba === "Importar Entradas" &&
+        (!possui("DATA") || !possui("VALOR") || !possui("SERVIÇO", "SERVICO", "PRODUTO"))) {
+      setResultadoImportacao("Importação cancelada: cabeçalhos DATA, VALOR e SERVIÇO (ou PRODUTO) são obrigatórios. Nenhum dado foi alterado.");
+      return;
+    }
+const loteImportacaoId = `lote-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const marcarLote = (item) => ({
+      ...item,
+      importacaoSnapshot: JSON.stringify(item),
+    });
     const novasEntradas = [];
     const novasSaidas = [];
     const novasContas = [];
@@ -210,10 +236,19 @@ export default function Importacao(props) {
           "FONE",
         ]);
 
+        const dataServico = formatarData(pegar(row, ["DATA"]));
+        const statusImportado = statusPadrao(pegar(row, ["STATUS"]) || "Pendente");
+        const formaImportada = formaPadrao(pegar(row, ["PAGO VIA", "FORMA DE PAGAMENTO", "PAGAMENTO", "PAGO COMO"]));
+        const diaPagoInformado = formatarData(pegar(row, ["PAGO DIA", "DIA PAGO", "DATA PAGAMENTO"]));
+        const pagamentoPresumido = statusImportado === "Pago" && !diaPagoInformado && !!dataServico && formaImportada !== "Nota / Faturado";
+        const dataRecebimento = statusImportado === "Pago" ? (diaPagoInformado || (pagamentoPresumido ? dataServico : "")) : "";
+        const cartaoPago = statusImportado === "Pago" && ["Débito", "Crédito"].includes(formaImportada) && !!dataRecebimento;
+
         const entrada = {
+          loteImportacaoId,
           id: Date.now() + index,
 
-          data: formatarData(pegar(row, ["DATA"])),
+          data: dataServico,
 
           tipo: pegar(row, ["TIPO"]),
 
@@ -229,26 +264,29 @@ export default function Importacao(props) {
 
           renavan: pegar(row, ["RENAVAN"]),
 
-          formaPagamento: formaPadrao(
-            pegar(row, ["FORMA DE PAGAMENTO"])
-          ),
+          proprietario: pegar(row, ["PROPRIETÁRIO", "PROPIETÁRIO", "PROPRIETARIO", "PROPIETARIO"]),
+
+          cpf: pegar(row, ["CPF"]),
+
+          chassi: pegar(row, ["CHASSI"]),
+
+          formaPagamento: formaImportada,
 
           valor: numero(pegar(row, ["VALOR"])),
 
-          status: statusPadrao(
-            pegar(row, ["STATUS"]) || "Pago"
-          ),
+          status: statusImportado,
 
           processo: pegar(row, ["PROCESSO"]),
 
-          diaPago:
-            formatarData(
-              pegar(row, [
-                "PAGO DIA",
-                "DIA PAGO",
-                "DATA PAGAMENTO",
-              ])
-            ) || "",
+          diaPago: dataRecebimento,
+          dataPagamentoPresumida: pagamentoPresumido,
+          avisoInternoPagamento: pagamentoPresumido
+            ? "Data de pagamento não informada na importação. Utilizada a data do serviço; conferir recebimento."
+            : "",
+          recebimentoCartaoConfirmado: cartaoPago,
+          dataRecebimentoCartao: cartaoPago ? dataRecebimento : "",
+          valorLiquidoRecebido: cartaoPago ? numero(pegar(row, ["VALOR"])) : 0,
+          taxaCartao: 0,
 
           categoriaPlaca: pegar(row, [
             "CATEGORIA",
@@ -268,7 +306,7 @@ export default function Importacao(props) {
           entrada.cliente ||
           entrada.produto
         ) {
-          novasEntradas.push(entrada);
+          novasEntradas.push(marcarLote(entrada));
         }
 
         const tipoCliente = pegar(row, [
@@ -286,18 +324,6 @@ export default function Importacao(props) {
           (c) =>
             normalizar(c.nome) === normalizar(cliente)
         );
-
-        if (clienteExistente) {
-          clienteExistente.tipoCliente =
-            tipoCliente ||
-            clienteExistente.tipoCliente ||
-            "";
-
-          clienteExistente.telefone =
-            celular ||
-            clienteExistente.telefone ||
-            "";
-        }
 
         if (clienteNovoExistente) {
           clienteNovoExistente.tipoCliente =
@@ -341,6 +367,7 @@ export default function Importacao(props) {
 
       if (aba === "Importar Saídas") {
         const saida = {
+          loteImportacaoId,
           id: Date.now() + index,
 
           data: formatarData(
@@ -389,12 +416,13 @@ export default function Importacao(props) {
           saida.conta ||
           saida.tipoSaida
         ) {
-          novasSaidas.push(saida);
+          novasSaidas.push(marcarLote(saida));
         }
       }
 
       if (aba === "Importar Contas") {
         const conta = {
+          loteImportacaoId,
           id: Date.now() + index,
 
           conta: pegar(row, [
@@ -420,7 +448,7 @@ export default function Importacao(props) {
         };
 
         if (conta.valor || conta.conta) {
-          novasContas.push(conta);
+          novasContas.push(marcarLote(conta));
         }
       }
     });
@@ -452,14 +480,43 @@ export default function Importacao(props) {
         ...novosClientes,
       ]);
     }
-
     setResultadoImportacao(
       `Importado: ${novasEntradas.length} entradas, ${novasSaidas.length} saídas, ${novasContas.length} contas e ${novosClientes.length} clientes.`
     );
 
     setTextoImportacao("");
   }
+  function desfazerUltimaImportacao() {
+    if (!ultimoLoteId || !registrosUltimoLote.length) return;
 
+    const alterados = registrosUltimoLote.filter((item) => {
+      if (!item.importacaoSnapshot) return true; // lote antigo sem proteção
+      const { importacaoSnapshot, ...dadosAtuais } = item;
+      return JSON.stringify(dadosAtuais) !== item.importacaoSnapshot;
+    });
+    if (alterados.length) {
+      setResultadoImportacao(
+        `Desfazer bloqueado: ${alterados.length} registro(s) foram alterados ou não possuem verificação. Nenhum dado foi excluído.`
+      );
+      return;
+    }
+
+    if (!window.confirm(
+      `Desfazer ${registrosUltimoLote.length} registro(s) da última importação de ${aba}?\n` +
+      "Os clientes cadastrados serão preservados."
+    )) return;
+
+    const removerLote = (atual) => atual.filter(
+      (item) => item.loteImportacaoId !== ultimoLoteId
+    );
+    if (aba === "Importar Entradas") setEntradas(removerLote);
+    if (aba === "Importar Saídas") setSaidas(removerLote);
+    if (aba === "Importar Contas") setContas(removerLote);
+
+    setResultadoImportacao(
+      `Desfazer solicitado: ${registrosUltimoLote.length} registro(s) removidos do lote. Clientes preservados.`
+    );
+  }
   return (
     <Card titulo={tela?.titulo || aba}>
       <p style={styles.ajuda}>
@@ -483,6 +540,20 @@ export default function Importacao(props) {
       >
         Importar
       </button>
+      {ultimoLoteId && (
+  <button
+    type="button"
+    onClick={desfazerUltimaImportacao}
+    style={{
+      ...styles.botao,
+      marginLeft: 10,
+      backgroundColor: "#b91c1c",
+      color: "#ffffff",
+    }}
+  >
+    Desfazer última importação ({registrosUltimoLote.length})
+  </button>
+)}
 
       {resultadoImportacao && (
         <p style={styles.resultado}>

@@ -1,4 +1,4 @@
-  import { useEffect, useState } from "react";
+  import { useEffect, useState, useRef, useLayoutEffect } from "react";
   import jsPDF from "jspdf";
   import html2canvas from "html2canvas";
 
@@ -110,9 +110,23 @@ useEffect(() => {
   const [valorLiquidoCartao, setValorLiquidoCartao] = useState("");
   const [cartoesSelecionados, setCartoesSelecionados] = useState([]);
   const [mesCartoesFiltro, setMesCartoesFiltro] = useState("");
-  const [mostrarConferenciaExcel, setMostrarConferenciaExcel] = useState(false);
+  const [mostrarConferenciaExcel, setMostrarConferenciaExcel] = useState(true);
+const [telaConferenciaExcel, setTelaConferenciaExcel] = useState(false);
 const [textoConferenciaExcel, setTextoConferenciaExcel] = useState("");
 const [resultadoConferenciaExcel, setResultadoConferenciaExcel] = useState(null);
+const [tipoConferenciaExcel, setTipoConferenciaExcel] = useState("entradas");
+const conferenciaAreaRef = useRef(null);
+const posicaoConferenciaRef = useRef(null);
+const guardarPosicaoConferencia = () => {
+  const elemento = conferenciaAreaRef.current;
+  if (elemento) posicaoConferenciaRef.current = elemento.getBoundingClientRect().top;
+};
+useLayoutEffect(() => {
+  if (posicaoConferenciaRef.current === null || !conferenciaAreaRef.current) return;
+  const diferenca = conferenciaAreaRef.current.getBoundingClientRect().top - posicaoConferenciaRef.current;
+  if (Math.abs(diferenca) > 1) window.scrollBy(0, diferenca);
+  posicaoConferenciaRef.current = null;
+}, [textoConferenciaExcel, resultadoConferenciaExcel, mostrarConferenciaExcel, tipoConferenciaExcel]);
 
     const hojeSistema = new Date();
     const hojeReferencia = hojeSistema.toISOString().slice(0, 10);
@@ -214,81 +228,122 @@ function valorReal(texto) {
   );
 }
 
-function lerTabelaConferencia(textoColado) {
-  const linhas = String(textoColado || "")
-    .split(/\r?\n/)
-    .filter((linha) => linha.trim());
-
-  if (linhas.length < 2) {
-    throw new Error(
-      "Cole o cabeçalho e pelo menos uma linha do Excel."
-    );
-  }
-
-  const cabecalhos = linhas[0]
-    .split("\t")
-    .map(cabecalhoExcel);
-
-  const indice = (...nomes) =>
-    cabecalhos.findIndex((item) =>
-      nomes.map(cabecalhoExcel).includes(item)
-    );
-
-  const colunas = {
-    data: indice("DATA"),
-    tipo: indice("TIPO"),
-    cliente: indice("CLIENTE"),
-    produto: indice("SERVIÇO", "SERVICO", "PRODUTO"),
-    placa: indice("PLACA"),
-    renavan: indice("RENAVAN"),
-    formaPagamento: indice(
-      "FORMA DE PAGAMENTO",
-      "FORMAPAGAMENTO"
-    ),
-    valor: indice("VALOR"),
+function lerTabelaConferencia(textoColado, tipo = "entradas") {
+  const linhas = String(textoColado || "").split(/\r?\n/).filter((linha) => linha.trim());
+  if (linhas.length < 2) throw new Error("Cole o cabeçalho e pelo menos uma linha do Excel.");
+  const cabecalhos = linhas[0].split("\t").map(cabecalhoExcel);
+  const indice = (...nomes) => cabecalhos.findIndex((item) => nomes.map(cabecalhoExcel).includes(item));
+  const colunas = tipo === "saidas" ? {
+    data: indice("DIA SAIDA", "DIA SAÍDA", "DATA", "DATA SAIDA"),
+    conta: indice("CONTA"), tipoSaida: indice("TIPO SAIDA", "TIPO SAÍDA", "TIPO"),
+    categoria: indice("CENTRO DE CUSTO", "CATEGORIA", "CATEGORIA SAIDA"),
+    formaPagamento: indice("FORMA DE PAGAMENTO SAIDA", "FORMA DE PAGAMENTO SAÍDA", "PAGO VIA", "FORMA DE PAGAMENTO"),
+    valor: indice("VALOR SAIDA", "VALOR SAÍDA", "VALOR"),
+    observacao: indice("OBSERVAÇÃO", "OBSERVACAO", "OBS"),
     status: indice("STATUS"),
-    processo: indice("PROCESSO"),
-    diaPago: indice("PAGO DIA", "DIAPAGO"),
-    categoria: indice("CATEGORIA"),
+  } : {
+    data: indice("DATA"), tipo: indice("TIPO"), cliente: indice("CLIENTE"),
+    produto: indice("SERVIÇO", "SERVICO", "PRODUTO"), placa: indice("PLACA"),
+    renavan: indice("RENAVAN"), processo: indice("PROCESSO"),
+    proprietario: indice("PROPRIETÁRIO", "PROPRIETARIO"), cpf: indice("CPF"),
+    chassi: indice("CHASSI"), valor: indice("VALOR"), status: indice("STATUS"),
+    formaPagamento: indice("PAGO VIA", "FORMA DE PAGAMENTO", "PAGAMENTO"),
+    diaPago: indice("PAGO DIA", "DIA PAGO", "DATA PAGAMENTO"),
+    categoriaPlaca: indice("CATEGORIA", "CATEGORIA PLACA"),
+    observacao: indice("OBSERVAÇÃO", "OBSERVACAO", "OBS"),
   };
+  if (colunas.data < 0 || colunas.valor < 0) throw new Error("O Excel precisa conter DATA (ou DIA SAÍDA) e VALOR.");
+  const pegar = (celulas, posicao) => posicao >= 0 ? String(celulas[posicao] || "").trim() : "";
+  const converterData = (texto) => {
+    const valor = String(texto || "").trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(valor)) {
+      const [d,m,a] = valor.split("/"); return `${a}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+    }
+    return valor;
+  };
+  return {
+    colunasPresentes: Object.keys(colunas).filter((chave) => colunas[chave] >= 0),
+    linhas: linhas.slice(1).map((linha, posicao) => {
+      const celulas = linha.split("\t");
+      const item = { linhaExcel: posicao + 2 };
+      Object.entries(colunas).forEach(([chave, idx]) => {
+        const valor = pegar(celulas, idx);
+        item[chave] = chave === "valor" ? valorExcelParaNumero(valor)
+          : ["data", "diaPago"].includes(chave) ? converterData(valor) : valor;
+      });
+      return item;
+    }),
+  };
+}
 
-  if (colunas.data < 0 || colunas.valor < 0) {
-    throw new Error(
-      "O Excel precisa ter, no mínimo, as colunas DATA e VALOR."
-    );
-  }
-
-  const pegar = (celulas, posicao) =>
-    posicao >= 0
-      ? String(celulas[posicao] || "").trim()
-      : "";
-
-  return linhas.slice(1).map((linha, posicao) => {
-    const celulas = linha.split("\t");
-
-    return {
-      linhaExcel: posicao + 2,
-      data: brasilParaISO(pegar(celulas, colunas.data)),
-      tipo: pegar(celulas, colunas.tipo),
-      cliente: pegar(celulas, colunas.cliente),
-      produto: pegar(celulas, colunas.produto),
-      placa: pegar(celulas, colunas.placa),
-      renavan: pegar(celulas, colunas.renavan),
-      formaPagamento: pegar(
-        celulas,
-        colunas.formaPagamento
-      ),
-      valor: valorExcelParaNumero(
-        pegar(celulas, colunas.valor)
-      ),
-      status: pegar(celulas, colunas.status),
-      processo: pegar(celulas, colunas.processo),
-      diaPago: brasilParaISO(
-        pegar(celulas, colunas.diaPago)
-      ),
-      categoria: pegar(celulas, colunas.categoria),
-    };
+function compararRegistrosConferencia(linhasExcel, registrosSistema, colunasPresentes, tipo) {
+  const normal = (v) => normalizarTexto(v).trim().replace(/\s+/g, " ");
+  const soDigitos = (v) => String(v ?? "").replace(/\D/g, "");
+  const campo = (registro, chave) => {
+    if (chave === "diaPago") return registro.diaPago || registro.dataPagamento || "";
+    if (chave === "categoriaPlaca") return registro.categoriaPlaca || "";
+    return registro[chave] ?? "";
+  };
+  const financeiros = new Set(["valor", "status", "formaPagamento", "diaPago", "data"]);
+  const rotulos = {
+    data:"Data", tipo:"Tipo", cliente:"Cliente", produto:"Serviço", placa:"Placa",
+    renavan:"Renavan", processo:"Processo", proprietario:"Proprietário", cpf:"CPF",
+    chassi:"Chassi", valor:"Valor", status:"Status", formaPagamento:"Pagamento",
+    diaPago:"Pago dia", categoriaPlaca:"Categoria", observacao:"Observação",
+    conta:"Conta", tipoSaida:"Tipo de saída", categoria:"Centro de custo",
+  };
+  const iguais = (a,b,chave) => {
+    if (chave === "valor") return Math.abs(Number(a || 0) - Number(b || 0)) < 0.009;
+    if (["cpf", "renavan"].includes(chave)) return soDigitos(a) === soDigitos(b);
+    if (chave === "status") {
+      const status = (v) => { const t = normal(v); return t.includes("PAGO") || t.includes("RECEBIDO") || t.includes("QUITADO") ? "PAGO" : t.includes("ABERTO") || t.includes("PENDENTE") || t.includes("FATURADO") ? "PENDENTE" : t; };
+      return status(a) === status(b);
+    }
+    if (chave === "formaPagamento") {
+      const forma = (v) => { const t = normal(v); if (t.includes("PIX")) return "PIX"; if (t.includes("CREDITO")) return "CREDITO"; if (t.includes("DEBITO")) return "DEBITO"; if (t.includes("DINHEIRO")) return "DINHEIRO"; if (t.includes("NOTA") || t.includes("FATURADO")) return "FATURADO"; return t; };
+      return forma(a) === forma(b);
+    }
+    return normal(a) === normal(b);
+  };
+  // Pareamento um a um: usa identificadores e outros campos; valor não é chave, pois precisa detectar alterações.
+  const usados = new Set();
+  const detalhes = linhasExcel.map((excel) => {
+    let melhor = -1, maior = -Infinity;
+    registrosSistema.forEach((sistema, i) => {
+      if (usados.has(i)) return;
+      let pontos = 0;
+      if (excel.data && iguais(excel.data, sistema.data, "data")) pontos += 20;
+      else pontos -= 25;
+      if (tipo === "entradas") {
+        if (excel.processo && sistema.processo && iguais(excel.processo,sistema.processo,"processo")) pontos += 100;
+        if (excel.placa && sistema.placa && iguais(excel.placa,sistema.placa,"placa")) pontos += 55;
+        if (excel.cliente && sistema.cliente && iguais(excel.cliente,sistema.cliente,"cliente")) pontos += 15;
+        if (excel.produto && sistema.produto && iguais(excel.produto,sistema.produto,"produto")) pontos += 8;
+      } else {
+        if (excel.conta && sistema.conta && iguais(excel.conta,sistema.conta,"conta")) pontos += 45;
+        if (excel.tipoSaida && sistema.tipoSaida && iguais(excel.tipoSaida,sistema.tipoSaida,"tipoSaida")) pontos += 25;
+        if (excel.categoria && sistema.categoria && iguais(excel.categoria,sistema.categoria,"categoria")) pontos += 10;
+      }
+      if (iguais(excel.valor,sistema.valor,"valor")) pontos += 10;
+      if (pontos > maior) { maior = pontos; melhor = i; }
+    });
+    if (melhor < 0 || maior < 20) return { excel, situacao:"vermelho", titulo:"Registro do Excel não localizado no sistema", diferencas:[] };
+    usados.add(melhor);
+    const sistema = registrosSistema[melhor];
+    const diferencas = colunasPresentes.filter((chave) => {
+      if (tipo === "saidas" && chave === "status" && !sistema.status) return false;
+      return !iguais(excel[chave], campo(sistema,chave), chave);
+    }).map((chave) => ({
+      nome: rotulos[chave] || chave,
+      excel: chave === "valor" ? moeda.format(excel[chave]) : String(excel[chave] ?? "") || "(vazio)",
+      sistema: chave === "valor" ? moeda.format(campo(sistema,chave)) : String(campo(sistema,chave)) || "(vazio)",
+      gravidade: financeiros.has(chave) ? "vermelho" : "amarelo",
+    }));
+    return { excel, sistema, situacao: diferencas.some(d=>d.gravidade === "vermelho") ? "vermelho" : diferencas.length ? "amarelo" : "verde", diferencas };
   });
+  registrosSistema.forEach((sistema,i) => { if (!usados.has(i)) detalhes.push({sistema, situacao:"vermelho", titulo:"Registro do sistema não localizado no Excel", diferencas:[]}); });
+  return detalhes;
 }
 
 function statusConferencia(status, diaPago = "") {
@@ -553,90 +608,25 @@ function compararResumoDia(excel, sistema) {
 }
 
 function executarConferenciaExcel() {
+  guardarPosicaoConferencia();
   try {
-    const linhasExcel = lerTabelaConferencia(
-      textoConferenciaExcel
-    );
-
-    const datasInformadas = linhasExcel
-      .map((item) => item.data)
-      .filter(Boolean)
-      .sort();
-
-    if (datasInformadas.length === 0) {
-      throw new Error(
-        "Nenhuma data válida foi encontrada na tabela."
-      );
-    }
-
-    const primeiraData = datasInformadas[0];
-    const ultimaData = datasInformadas[datasInformadas.length - 1];
-
-    const candidatosSistema = entradas.filter((entrada) =>
-  dentroDoPeriodo(entrada.data)
-);
-
-    const resumoExcel = resumirPorDia(
-      linhasExcel,
-      "excel"
-    );
-
-    const resumoSistema = resumirPorDia(
-      candidatosSistema,
-      "sistema"
-    );
-
-    const todasAsDatas = [
-      ...new Set([
-        ...Object.keys(resumoExcel),
-        ...Object.keys(resumoSistema),
-      ]),
-    ].sort();
-
-    const diasCorretos = [];
-    const diasDivergentes = [];
-
-    todasAsDatas.forEach((data) => {
-      const excel =
-        resumoExcel[data] || criarResumoDia(data);
-
-      const sistema =
-        resumoSistema[data] || criarResumoDia(data);
-
-      const divergencias = compararResumoDia(
-        excel,
-        sistema
-      );
-
-      if (divergencias.length === 0) {
-        diasCorretos.push({
-          data,
-          excel,
-          sistema,
-        });
-      } else {
-        diasDivergentes.push({
-          data,
-          excel,
-          sistema,
-          divergencias,
-        });
-      }
-    });
-
-    setResultadoConferenciaExcel({
-      totalExcel: linhasExcel.length,
-      totalSistema: candidatosSistema.length,
-      diasCorretos,
-      diasDivergentes,
-      primeiraData,
-      ultimaData,
-    });
+    const tabela = lerTabelaConferencia(textoConferenciaExcel, tipoConferenciaExcel);
+    const linhasExcel = tabela.linhas;
+    const datas = linhasExcel.map(item=>item.data).filter(Boolean).sort();
+    if (!datas.length) throw new Error("Nenhuma data válida encontrada.");
+    // Apenas datas do Excel: evita acusar lançamentos fora do intervalo colado.
+    const primeiraData = datas[0], ultimaData = datas[datas.length - 1];
+    const origem = tipoConferenciaExcel === "entradas" ? entradas : saidas;
+    const registrosSistema = origem.filter(item=>item.data >= primeiraData && item.data <= ultimaData);
+    const detalhes = compararRegistrosConferencia(linhasExcel,registrosSistema,tabela.colunasPresentes,tipoConferenciaExcel);
+    const totais = {
+      excel: linhasExcel.reduce((s,item)=>s+Number(item.valor||0),0),
+      sistema: registrosSistema.reduce((s,item)=>s+Number(item.valor||0),0),
+    };
+    setResultadoConferenciaExcel({ detalhes, totais, primeiraData, ultimaData, totalExcel:linhasExcel.length, totalSistema:registrosSistema.length, colunasPresentes:tabela.colunasPresentes });
   } catch (erro) {
-    alert(
-      erro.message ||
-        "Não foi possível conferir a tabela."
-    );
+    posicaoConferenciaRef.current = null;
+    alert(erro.message || "Não foi possível conferir a tabela.");
   }
 }
     function ehDebito(formaPagamento) {
@@ -2426,199 +2416,90 @@ function CardRitmoMes({
     totalValor={indicadores.entradaLiquida || 0}
   />
       </div>
-      <Card titulo="Conferência por Excel">
-  <p style={{ color: "#94a3b8", marginTop: 0, lineHeight: 1.5 }}>
-    Cole a tabela do início do período até hoje. Esta ferramenta apenas
-    compara os dados e não salva nem altera lançamentos.
-  </p>
 
-  {!mostrarConferenciaExcel ? (
-    <button
-      type="button"
-      style={{
-        ...styles.botaoDashboard,
-        background: "linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)",
-      }}
-      onClick={() => setMostrarConferenciaExcel(true)}
-    >
-      Abrir Conferência por Excel
-    </button>
-  ) : (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <textarea
-        value={textoConferenciaExcel}
-        onChange={(e) => {
-          setTextoConferenciaExcel(e.target.value);
-          setResultadoConferenciaExcel(null);
-        }}
-        placeholder="Cole aqui o cabeçalho e as linhas copiadas do Excel..."
-        style={{
-          ...styles.input,
-          width: "100%",
-          minHeight: 180,
-          resize: "vertical",
-          fontFamily: "monospace",
-          boxSizing: "border-box",
-        }}
-      />
-
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button
-          type="button"
-          style={{
-            ...styles.botaoDashboard,
-            background: "linear-gradient(135deg,#16a34a 0%,#15803d 100%)",
-          }}
-          onClick={executarConferenciaExcel}
-        >
-          Conferir Agora
-        </button>
-
-        <button
-          type="button"
-          style={styles.botaoDashboard}
-          onClick={() => {
-            setTextoConferenciaExcel("");
-            setResultadoConferenciaExcel(null);
-          }}
-        >
-          Limpar
-        </button>
-
-        <button
-          type="button"
-          style={styles.botaoDashboard}
-          onClick={() => setMostrarConferenciaExcel(false)}
-        >
-          Fechar Janela
-        </button>
-      </div>
-
-      {resultadoConferenciaExcel && (
-  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-    <div
-      style={{
-        padding: 16,
-        borderRadius: 14,
-        border: `1px solid ${
-          resultadoConferenciaExcel.diasDivergentes.length === 0
-            ? "rgba(34,197,94,0.55)"
-            : "rgba(245,158,11,0.55)"
-        }`,
-        background:
-          resultadoConferenciaExcel.diasDivergentes.length === 0
-            ? "rgba(34,197,94,0.10)"
-            : "rgba(245,158,11,0.10)",
-      }}
-    >
-      <strong style={{ color: "#fff", fontSize: 17 }}>
-        {resultadoConferenciaExcel.diasDivergentes.length === 0
-          ? "Tudo bate — conferência concluída"
-          : "Conferência concluída com diferenças"}
-      </strong>
-
-      <div style={{ color: "#cbd5e1", marginTop: 8 }}>
-        {resultadoConferenciaExcel.diasCorretos.length} dias corretos ·{" "}
-        {resultadoConferenciaExcel.diasDivergentes.length} dias com diferenças
-      </div>
-
-      <div style={{ color: "#94a3b8", marginTop: 6, fontSize: 13 }}>
-        Período conferido:{" "}
-        {dataBR(resultadoConferenciaExcel.primeiraData)} até{" "}
-        {dataBR(resultadoConferenciaExcel.ultimaData)}
-      </div>
-    </div>
-
-    {resultadoConferenciaExcel.diasCorretos.length > 0 && (
-      <div>
-        <h4 style={{ color: "#22c55e", marginBottom: 10 }}>
-          Dias que estão corretos
-        </h4>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {resultadoConferenciaExcel.diasCorretos.map((item) => (
-            <div
-              key={`correto-${item.data}`}
-              style={{
-                padding: "9px 12px",
-                borderRadius: 10,
-                color: "#bbf7d0",
-                background: "rgba(34,197,94,0.10)",
-                border: "1px solid rgba(34,197,94,0.25)",
-              }}
-            >
-              {dataBR(item.data)} — {item.excel.quantidade} lançamentos —{" "}
-              {moeda.format(item.excel.valorTotal)}
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {resultadoConferenciaExcel.diasDivergentes.length > 0 && (
-      <div>
-        <h4 style={{ color: "#f59e0b", marginBottom: 10 }}>
-          Dias com diferenças
-        </h4>
-
-        {resultadoConferenciaExcel.diasDivergentes.map((item) => (
-          <div
-            key={`divergente-${item.data}`}
-            style={{
-              padding: 14,
-              marginBottom: 10,
-              borderRadius: 12,
-              background: "rgba(15,23,42,0.75)",
-              border: "1px solid rgba(245,158,11,0.30)",
-            }}
-          >
-            <strong style={{ color: "#fff", fontSize: 16 }}>
-              {dataBR(item.data)}
-            </strong>
-
-            <div
-              style={{
-                color: "#94a3b8",
-                marginTop: 6,
-                marginBottom: 10,
-                fontSize: 13,
-              }}
-            >
-              Excel: {item.excel.quantidade} lançamentos —{" "}
-              {moeda.format(item.excel.valorTotal)}
-              {" · "}
-              Sistema: {item.sistema.quantidade} lançamentos —{" "}
-              {moeda.format(item.sistema.valorTotal)}
-            </div>
-
-            {item.divergencias.map((divergencia, indice) => (
-              <div
-                key={`${item.data}-${indice}`}
-                style={{
-                  color: "#fbbf24",
-                  marginTop: 6,
-                  paddingTop: 6,
-                  borderTop:
-                    indice === 0
-                      ? "none"
-                      : "1px solid rgba(148,163,184,0.12)",
-                }}
-              >
-                <strong>{divergencia.nome}:</strong>{" "}
-                Excel {divergencia.excel} / Sistema {divergencia.sistema}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
-    </div>
-  )}
-</Card>
     </div>
   );
+  }
+
+  // Tela independente: a conferência não fica mais dentro do painel de fechamento.
+  function renderizarConferenciaExcel() {
+    return (
+      <div style={{width:"100%",maxWidth:1250,margin:"0 auto"}}>
+      <div ref={conferenciaAreaRef}>
+      <Card titulo="Conferência por Excel">
+        <p style={{color:"#94a3b8",marginTop:0}}>Compare cada linha e coluna do Excel com o Nexora. A conferência não altera lançamentos.</p>
+        <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+          {[["entradas","Entradas"],["saidas","Saídas"]].map(([chave,rotulo])=>(
+            <button key={chave} type="button" onClick={()=>{guardarPosicaoConferencia();setTipoConferenciaExcel(chave);setTextoConferenciaExcel("");setResultadoConferenciaExcel(null);}}
+              style={{...styles.botaoDashboard,background:tipoConferenciaExcel===chave?"#2563eb":"#334155"}}>{rotulo}</button>
+          ))}
+        </div>
+        {!mostrarConferenciaExcel ? (
+          <button type="button" style={styles.botaoDashboard} onClick={()=>{guardarPosicaoConferencia();setMostrarConferenciaExcel(true);}}>Abrir conferência</button>
+        ) : (
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <textarea value={textoConferenciaExcel} onChange={(e)=>{guardarPosicaoConferencia();setTextoConferenciaExcel(e.target.value);setResultadoConferenciaExcel(null);}}
+              placeholder={`Cole aqui a tabela de ${tipoConferenciaExcel === "entradas" ? "entradas" : "saídas"} do Excel, incluindo o cabeçalho...`}
+              style={{...styles.input,width:"100%",minHeight:180,resize:"vertical",fontFamily:"monospace",boxSizing:"border-box"}} />
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              <button type="button" style={{...styles.botaoDashboard,background:"#15803d"}} onClick={executarConferenciaExcel}>Conferir Agora</button>
+              <button type="button" style={styles.botaoDashboard} onClick={()=>{guardarPosicaoConferencia();setTextoConferenciaExcel("");setResultadoConferenciaExcel(null);}}>Limpar</button>
+              <button type="button" style={styles.botaoDashboard} onClick={()=>{guardarPosicaoConferencia();setMostrarConferenciaExcel(false);}}>Fechar</button>
+            </div>
+            {resultadoConferenciaExcel && (()=>{
+              const r = resultadoConferenciaExcel;
+              const vermelhos=r.detalhes.filter(d=>d.situacao==="vermelho").length;
+              const amarelos=r.detalhes.filter(d=>d.situacao==="amarelo").length;
+              const verdes=r.detalhes.filter(d=>d.situacao==="verde").length;
+              const pendencias=r.detalhes.filter(d=>d.situacao!=="verde");
+              return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <div style={{padding:14,borderRadius:12,background:"rgba(15,23,42,.8)",border:"1px solid #475569"}}>
+                  <strong style={{color:"#fff",fontSize:15}}>Conferência de {tipoConferenciaExcel === "entradas" ? "Entradas" : "Saídas"}</strong>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
+                    <span style={{background:"rgba(239,68,68,.12)",color:"#fca5a5",border:"1px solid rgba(239,68,68,.35)",borderRadius:999,padding:"5px 11px",fontSize:12,fontWeight:700}}>{vermelhos} divergências financeiras/ausentes</span>
+                    <span style={{background:"rgba(234,179,8,.12)",color:"#fde68a",border:"1px solid rgba(234,179,8,.35)",borderRadius:999,padding:"5px 11px",fontSize:12,fontWeight:700}}>{amarelos} divergências cadastrais</span>
+                    <span style={{color:"#94a3b8",padding:"5px 4px",fontSize:12}}>{verdes} registros corretos ocultos</span>
+                  </div>
+                  <div style={{color:"#cbd5e1",marginTop:8}}>Excel: {r.totalExcel} registros / {moeda.format(r.totais.excel)} · Nexora: {r.totalSistema} registros / {moeda.format(r.totais.sistema)}</div>
+                  <div style={{color:Math.abs(r.totais.excel-r.totais.sistema)>0.009?"#fca5a5":"#86efac",marginTop:6}}>Diferença nos totais: {moeda.format(r.totais.excel-r.totais.sistema)}</div>
+                  <div style={{color:"#94a3b8",marginTop:6}}>Período: {dataBR(r.primeiraData)} a {dataBR(r.ultimaData)} · Comparadas {r.colunasPresentes.length} colunas presentes no Excel</div>
+                </div>
+                {pendencias.length === 0 && <div style={{padding:"22px 18px",borderRadius:12,border:"1px solid rgba(34,197,94,.3)",background:"rgba(34,197,94,.06)",color:"#bbf7d0",fontWeight:600}}>Nenhuma divergência encontrada nos registros comparados.</div>}
+                {pendencias.map((item,i)=>{
+                  const cor=item.situacao==="vermelho"?"#ef4444":"#eab308";
+                  const registro=item.excel||item.sistema;
+                  return <div key={i} style={{padding:"15px 17px",borderRadius:12,border:"1px solid rgba(148,163,184,.2)",borderLeft:`4px solid ${cor}`,background:"rgba(15,23,42,.72)"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+                      <strong style={{color:"#f1f5f9",fontSize:14}}>{item.titulo||`${dataBR(registro.data)} · ${registro.placa||registro.cliente||registro.conta||registro.tipoSaida||"Registro"} · ${moeda.format(registro.valor||0)}`}</strong>
+                      <span style={{color:cor,fontWeight:700,fontSize:11,letterSpacing:0.5}}>{item.situacao==="vermelho"?"FINANCEIRO / AUSENTE":"CADASTRAL"}</span>
+                    </div>
+                    {item.excel && <div style={{color:"#94a3b8",fontSize:12,marginTop:5}}>Linha {item.excel.linhaExcel} do Excel</div>}
+                    {item.diferencas?.map((d,j)=><div key={j} style={{marginTop:10,padding:"10px 12px",borderRadius:8,background:"rgba(255,255,255,.035)",borderLeft:`3px solid ${d.gravidade==="vermelho"?"#ef4444":"#eab308"}`,color:"#e2e8f0",fontSize:13}}><strong style={{color:"#f8fafc"}}>{d.nome}</strong><div style={{marginTop:5,color:"#cbd5e1"}}>Excel: <span style={{color:"#f8fafc"}}>{d.excel}</span> <span style={{color:"#64748b",padding:"0 6px"}}>│</span> Nexora: <span style={{color:"#f8fafc"}}>{d.sistema}</span></div></div>)}
+                  </div>;
+                })}
+              </div>;
+            })()}
+          </div>
+        )}
+      </Card>
+      </div>
+      </div>
+    );
+  }
+
+  if (telaConferenciaExcel) {
+    return (
+      <div style={{padding:"20px 16px 60px",minHeight:"100vh",background:"#060e1d"}}>
+        <div style={{maxWidth:1250,margin:"0 auto 22px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+          <div>
+            <h1 style={{color:"#f8fafc",fontSize:27,margin:"0 0 5px"}}>Conferência de Excel</h1>
+            <p style={{color:"#94a3b8",margin:0}}>Entradas e saídas · apenas divergências · nenhuma alteração nos lançamentos</p>
+          </div>
+          <button type="button" style={{...styles.botaoDashboard,background:"#334155"}} onClick={()=>setTelaConferenciaExcel(false)}>Voltar ao Dashboard</button>
+        </div>
+        {renderizarConferenciaExcel()}
+      </div>
+    );
   }
 
   return (
@@ -2759,6 +2640,10 @@ function CardRitmoMes({
   >
     Fechamento
   </button>
+
+            <button type="button" style={{...styles.botaoDashboard,background:"linear-gradient(135deg,#0891b2,#2563eb)"}} onClick={()=>{setMostrarConferenciaExcel(true);setTelaConferenciaExcel(true);}}>
+              Conferir Excel
+            </button>
 
             <button style={styles.botaoDashboard} onClick={exportarPDF}>
               Exportar PDF

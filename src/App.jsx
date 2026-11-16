@@ -1148,6 +1148,9 @@ CIDADE: ${dadosEmpresa.cidade || ""}`;
     produto: "",
     placa: "",
     renavan: "",
+    proprietario: "",
+    cpf: "",
+    chassi: "",
     formaPagamento: "Pix",
     valor: "",
     status: "Pago",
@@ -1624,6 +1627,9 @@ function listarRecebimentosAntigosDoPeriodo(inicio, fim) {
     cliente: String(formulario.cliente || "").trim(),
     placa: String(formulario.placa || "").trim().toUpperCase(),
     renavan: String(formulario.renavan || "").trim(),
+    proprietario: String(formulario.proprietario || "").trim(),
+    cpf: String(formulario.cpf || "").trim(),
+    chassi: String(formulario.chassi || "").trim().toUpperCase(),
 
     valor: numero(formulario.valor),
 
