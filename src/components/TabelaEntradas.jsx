@@ -20,7 +20,7 @@ export default function TabelaEntradas({
   const colunas = [
     "✓",
     "Data",
-    "Tipo",
+    "Cliente",
     "Serviço",
     "Placa",
     "Pagamento",
@@ -60,7 +60,7 @@ export default function TabelaEntradas({
     return entradas.filter((x) => {
       return (
         texto(formatarData(x.data)).includes(texto(filtros.data)) &&
-        texto(x.tipo).includes(texto(filtros.tipo)) &&
+        texto(x.cliente).includes(texto(filtros.cliente)) &&
         texto(x.produto || x.servico).includes(texto(filtros.produto)) &&
         texto(x.placa).includes(texto(filtros.placa)) &&
         texto(x.formaPagamento).includes(texto(filtros.formaPagamento)) &&
@@ -440,8 +440,8 @@ OBSERVAÇÃO: ${item.observacao || ""}`,
                 <input
                   style={styles.filtroInput}
                   placeholder="Filtrar"
-                  value={filtros.tipo || ""}
-                  onChange={(e) => mudarFiltro("tipo", e.target.value)}
+                  value={filtros.cliente || ""}
+                  onChange={(e) => mudarFiltro("cliente", e.target.value)}
                 />
               </th>
 
@@ -546,7 +546,7 @@ OBSERVAÇÃO: ${item.observacao || ""}`,
 
                           <td style={styles.td}>{formatarData(x.data)}</td>
 
-                          <td style={styles.td}>{x.tipo || "-"}</td>
+                          <td style={styles.td}>{x.cliente || "-"}</td>
 
                           <td
                             style={{
